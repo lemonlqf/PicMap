@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2025-01-25 20:58:48
+ * @LastEditTime: 2025-01-25 22:08:58
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -36,6 +36,7 @@
 <script setup>
 import { ref, watch, computed } from 'vue'
 import ExifReader from 'exifreader'
+import { ElMessage } from 'element-plus'
 import L from 'leaflet'
 import API from '@/http/index.js'
 
@@ -142,6 +143,9 @@ async function uploadImages() {
   console.log(formData.value, GPSInfo.value, fileList.value, thumbnailImageUrls.value)
   // subimtData.append('data', 123)
   const res = await API.image.uploadImages({ images: formData.value })
+  if (res.code === 200) {
+    ElMessage.success('图片上传成功!')
+  }
   console.log('res =>', res)
 }
 
