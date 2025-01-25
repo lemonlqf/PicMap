@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2024-12-14 19:23:20
- * @FilePath: \picMap_fontend\src\components\imgUpload\Index.vue
+ * @LastEditTime: 2025-01-25 20:58:48
+ * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
 <template>
@@ -29,7 +29,7 @@
     </div>
   </template>
   <!-- 测试用，后续删除 -->
-  <el-button @click="addImgs">上传图片</el-button>
+  <el-button @click="uploadImages">上传图片</el-button>
   <el-button @click="deleteImgs">删除</el-button>
 </template>
 
@@ -100,7 +100,7 @@ function setGPSInfo(tags, index) {
 function addMarkerInMap() {
   // 显示图像
   formData.value.forEach(item => {
-    if (item.GPSInfo.GPSLatitude && item.GPSInfo.GPSLongitude) {
+    if (item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude) {
       const myIcon = L.icon({
         iconUrl: item.file.url,
         iconSize: [40, 40]
@@ -138,16 +138,16 @@ watch(
 )
 
 // 添加图片
-async function addImgs() {
-  console.log(formData.value, GPSInfo.value, fileList.value)
+async function uploadImages() {
+  console.log(formData.value, GPSInfo.value, fileList.value, thumbnailImageUrls.value)
   // subimtData.append('data', 123)
-  const res = await API.image.addImgs({ data: formData.value })
+  const res = await API.image.uploadImages({ images: formData.value })
   console.log('res =>', res)
 }
 
 // TODO:删除图片
 function deleteImgs() {
-  API.image.addImgs(123)
+  API.image.uploadImages(123)
 }
 
 // TODO:更新图片信息

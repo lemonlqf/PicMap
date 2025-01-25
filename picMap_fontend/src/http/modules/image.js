@@ -9,9 +9,9 @@
 import http from '../axios.js'
 
 export default {
-  addImgs: data => {
+  uploadImages: data => {
     http({
-      url: 'image/addImgs',
+      url: 'image/uploadImages',
       method: 'post',
       data
     })
