@@ -38,7 +38,7 @@ import { ref, watch, computed } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage } from 'element-plus'
 import L from 'leaflet'
-import { addImageToMap } from '@/utils/map.js'
+import { addImageIconToMap } from '@/utils/map.js'
 import API from '@/http/index.js'
 
 const props = defineProps({
@@ -103,7 +103,7 @@ function addMarkerToMap() {
   // 显示图像
   formData.value.forEach(item => {
     if (item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude) {
-      addImageToMap(props.map, item)
+      addImageIconToMap(props.map, item)
     }
   })
 }

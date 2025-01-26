@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 16:23:43
+ * @LastEditTime: 2025-01-26 19:45:52
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -26,7 +26,9 @@ import ImageUpolad from '@/components/imgUpload/Index.vue'
 import appMapTile from './appMapTile'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import schemaHttp from '@/http/modules/schema'
-import { useSchemaStore } from '../../store/schema'
+import { useSchemaStore } from '@/store/schema'
+import { addImageIconToMap, addGroupIconToMap } from '@/utils/map.js'
+import { getGroupAndImageList } from '@/utils/schema.js'
 const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
 
@@ -46,8 +48,7 @@ async function initSchema() {
   if (res.code === 200) {
     // 将schema信息保存到store中
     schemaStore.setSchema(JSON.parse(res.data))
-    // 将shcema的版本号保存到store中
-    schemaStore.setVersion(res.data.version)
+    initMarker()
   } else {
     console.error('获取schema失败')
   }
@@ -78,6 +79,23 @@ function initTile() {
   }).addTo(map.value)
 }
 
+/**
+ * @description: 初始化标记
+ * @return {*}
+ */
+function initMarker() {
+  const groupAndImageList = getGroupAndImageList()
+  if (groupAndImageList?.length) {
+    groupAndImageList.forEach(item => {
+      if (item.type === 'group') {
+        addGroupIconToMap(map.value, item)
+      } else if (item.type === 'image') {
+        addImageIconToMap(map.value, item)
+      }
+    })
+  }
+}
+
 onBeforeMount(() => {
   initSchema()
 })
@@ -85,6 +103,7 @@ onBeforeMount(() => {
 onMounted(() => {
   initMap()
   initTile()
+  initMarker()
 })
 </script>
 
