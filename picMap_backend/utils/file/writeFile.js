@@ -10,16 +10,17 @@ const { error } = require('node:console')
 const fs = require('node:fs')
 const path = require('path')
 const globalVariables = require('../../public/globalVariable')
+const { getNewImageId, getImageId } = require('../image/image.js')
 
 /**
  * @description: 将base64写入本地
  * @param {*} baseUrl，文件字符串
  * @param {*} imageName，文件名称
- * @param {*} suffix，后缀
+ * @param {*} uid，图片id
  * @param {*} path，保存路径，基于public
  * @return {*}
  */
-function writeBase64File(baseUrl, imageName = 'image.png', path = globalVariables.imageFilePath) {
+function writeBase64File(baseUrl, imageName = 'image.png', uid, path = globalVariables.imageFilePath) {
   //接收前台POST过来的base64
   var imgData = baseUrl
   //过滤data:URL
@@ -29,8 +30,15 @@ function writeBase64File(baseUrl, imageName = 'image.png', path = globalVariable
   var dataBuffer = Buffer.from(base64Data, 'base64')
   // 如果无目录先创建目录，否则会报没有目录的错误
   !fs.existsSync(path) && fs.mkdirSync(path)
+  let filePath = ''
+  if (uid) {
+    // 所有文件名前都加上一个新的图片id
+    filePath = `${path}${getImageId(uid)}_${imageName}`
+  } else {
+    filePath = `${path}${getNewImageId()}_${imageName}`
+  }
   // 写入文件，w为覆盖，a为累加
-  fs.writeFile(`${path}${imageName}`, dataBuffer, { flag: 'w' }, function (err) {
+  fs.writeFile(filePath, dataBuffer, { flag: 'w' }, function (err) {
     if (err) {
       console.error('writeFile failed', error)
     } else {

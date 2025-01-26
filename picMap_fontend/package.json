@@ -16,6 +16,7 @@
     "exifreader": "^4.25.0",
     "express": "^4.21.2",
     "leaflet": "^1.9.4",
+    "lodash-es": "^4.17.21",
     "pinia": "^2.3.0",
     "vue": "^3.3.11",
     "vue-router": "^4.5.0"
