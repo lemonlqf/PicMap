@@ -1,9 +1,9 @@
 <!--
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
- * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2024-12-14 16:33:02
- * @FilePath: \picMap_fontend\src\views\picMap\index.vue
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-01-26 16:23:43
+ * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
 <template>
@@ -19,12 +19,15 @@
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeMount, onMounted, ref } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ImageUpolad from '@/components/imgUpload/Index.vue'
 import appMapTile from './appMapTile'
-
+// 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
+import schemaHttp from '@/http/modules/schema'
+import { useSchemaStore } from '../../store/schema'
+const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
 
 function changeMapTile(item) {
@@ -34,6 +37,26 @@ function changeMapTile(item) {
 
 const map = ref()
 
+/**
+ * @description: 获取地图的schema
+ * @return {*}
+ */
+async function initSchema() {
+  const res = await schemaHttp.getSchema()
+  if (res.code === 200) {
+    // 将schema信息保存到store中
+    schemaStore.setSchema(JSON.parse(res.data))
+    // 将shcema的版本号保存到store中
+    schemaStore.setVersion(res.data.version)
+  } else {
+    console.error('获取schema失败')
+  }
+}
+
+/**
+ * @description: 初始化地图
+ * @return {*}
+ */
 function initMap() {
   map.value = L.map('map', {
     center: [30.2489634, 120.2052342], //中心坐标
@@ -45,11 +68,19 @@ function initMap() {
   })
 }
 
+/**
+ * @description: 初始化地图瓦片
+ * @return {*}
+ */
 function initTile() {
   L.tileLayer(`${currentMapTile.value.url}`, {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
   }).addTo(map.value)
 }
+
+onBeforeMount(() => {
+  initSchema()
+})
 
 onMounted(() => {
   initMap()
