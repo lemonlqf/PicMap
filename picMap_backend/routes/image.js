@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 13:28:07
+ * @LastEditTime: 2025-01-26 14:28:33
  * @FilePath: \Code\picMap_backend\routes\image.js
  * @Description:
  */
@@ -17,8 +17,8 @@ router.post('/uploadImages', async function (req, res, next) {
   bodyData.forEach(item => {
     writeBase64File(item.file.url, item.file.name, item.file.uid)
   })
-  const res1 = await executeQuery('select * from test')
-  res.send(Result.success(res1))
+  // const res1 = await executeQuery('select * from test')
+  res.send(Result.success('上传成功'))
 })
 
 module.exports = router

@@ -1,8 +1,8 @@
 <!--
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
- * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2025-01-25 22:08:58
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-01-26 14:27:52
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -38,6 +38,7 @@ import { ref, watch, computed } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage } from 'element-plus'
 import L from 'leaflet'
+import { addImageToMap } from '@/utils/map.js'
 import API from '@/http/index.js'
 
 const props = defineProps({
@@ -80,7 +81,7 @@ async function setInfoByExifReader(file, index) {
   // setxxxInfo(tags, index)
 
   // TODO:设置完后，在地图里面生产对应的节点，名字再取
-  addMarkerInMap()
+  addMarkerToMap()
 }
 
 // 设置GPS数据
@@ -98,16 +99,11 @@ function setGPSInfo(tags, index) {
  * @description: 在地图中添加图片标记
  * @return {*}
  */
-function addMarkerInMap() {
+function addMarkerToMap() {
   // 显示图像
   formData.value.forEach(item => {
     if (item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude) {
-      const myIcon = L.icon({
-        iconUrl: item.file.url,
-        iconSize: [40, 40]
-      })
-      // 先纬度再经度
-      L.marker([item.GPSInfo.GPSLatitude, item.GPSInfo.GPSLongitude], { icon: myIcon }).addTo(props.map)
+      addImageToMap(props.map, item)
     }
   })
 }
