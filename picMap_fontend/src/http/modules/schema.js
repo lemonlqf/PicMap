@@ -6,13 +6,21 @@
  * @FilePath: \Code\picMap_fontend\src\http\modules\image.js
  * @Description:
  */
+import { set } from 'lodash-es'
 import http from '../axios.js'
 
 export default {
   getSchema: () => {
     return http({
-      url: 'schema',
+      url: 'schema/getSchema',
       method: 'get'
+    })
+  },
+  setSchema: data => {
+    return http({
+      url: 'schema/setSchema',
+      method: 'post',
+      data
     })
   }
 }

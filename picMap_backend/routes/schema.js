@@ -13,9 +13,15 @@ const globalVariables = require('../public/globalVariable')
 const Result = require('./resultCode/result.js')
 
 /* GET schema. */
-router.get('/', function (req, res, next) {
+router.get('/getSchema', function (req, res, next) {
   const schema = fs.readFileSync(globalVariables.schemaPath, { encoding: 'utf-8' })
   res.send(Result.success(schema))
+})
+
+router.post('/setSchema', function (req, res, next) {
+  const schema = req.body.schema
+  fs.writeFileSync(globalVariables.schemaPath, schema)
+  res.send(Result.success('保存schema成功'))
 })
 
 module.exports = router

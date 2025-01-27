@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 14:27:52
+ * @LastEditTime: 2025-01-27 21:36:37
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -22,8 +22,8 @@
   <!-- 上传到表单中图片数据 -->
   <template v-for="item in formData">
     <div class="upload-img-card">
-      <img :src="item.file.url" alt="" width="50px" height="50px" />
-      <h1>照片名:{{ item.file.name }}</h1>
+      <img :src="item.url" alt="" width="50px" height="50px" />
+      <h1>照片名:{{ item.name }}</h1>
       <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
       <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1>
     </div>
@@ -39,7 +39,10 @@ import ExifReader from 'exifreader'
 import { ElMessage } from 'element-plus'
 import L from 'leaflet'
 import { addImageIconToMap } from '@/utils/map.js'
+import { useSchemaStore } from '@/store/schema'
 import API from '@/http/index.js'
+import { cloneDeep } from 'lodash-es'
+const schemaStore = useSchemaStore()
 
 const props = defineProps({
   map: {
@@ -60,7 +63,8 @@ const formData = computed(() => {
     for (let i = 0; i < fileList.value.length; i++) {
       // 获取文件信息
       const fileInfo = getFileInfoByFile(fileList.value[i].raw)
-      res[i] = { GPSInfo: GPSInfo.value[i], file: { ...fileInfo, url: thumbnailImageUrls.value[i] } }
+      res[i] = { GPSInfo: GPSInfo.value[i], ...fileInfo, url: thumbnailImageUrls.value[i], id: fileInfo.uid }
+      delete res[i].uid
     }
   }
   return res
@@ -68,8 +72,8 @@ const formData = computed(() => {
 
 // 通过raw文件获取相关的文件数据
 function getFileInfoByFile(raw) {
-  const { uid, lastModified, name, size, type } = raw
-  return { uid, lastModified, name, size, type }
+  const { id, lastModified, name, size, type } = raw
+  return { id, lastModified, name, size, type }
 }
 
 // 从图片信息对象中提取GPS信息
@@ -136,13 +140,20 @@ watch(
 
 // 添加图片
 async function uploadImages() {
-  console.log(formData.value, GPSInfo.value, fileList.value, thumbnailImageUrls.value)
   // subimtData.append('data', 123)
-  const res = await API.image.uploadImages({ images: formData.value })
-  if (res.code === 200) {
+  const res1 = await API.image.uploadImages({ images: formData.value })
+  // 删除url属性
+  const noUrlFormData = cloneDeep(formData.value).map(item => {
+    delete item.url
+    return item
+  })
+  // 在schema的imageInfo中添加图片信息
+  schemaStore.pushImagesToImageInfo(noUrlFormData)
+  const newSchema = schemaStore.getSchema
+  const res2 = await API.schema.setSchema({ schema: JSON.stringify(newSchema) })
+  if (res1.code === 200 && res2.code === 200) {
     ElMessage.success('图片上传成功!')
   }
-  console.log('res =>', res)
 }
 
 // TODO:删除图片

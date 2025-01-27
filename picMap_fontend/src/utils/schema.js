@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 19:19:36
+ * @LastEditTime: 2025-01-27 20:45:26
  * @FilePath: \Code\picMap_fontend\src\utils\schema.js
  * @Description:
  */
@@ -23,7 +23,7 @@ export function getGroupAndImageList() {
   // 将分组的信息放到res中
   groupInfo.forEach(item => {
     // 将本来在放到imageIdInGroup，后续剩余的照片就不放到返回的结果中
-    item.groupnumbers && imageIdInGroup.push(...item.groupnumbers)
+    item.groupNumbers && imageIdInGroup.push(...item.groupNumbers)
     item.type = 'group'
     res.push(item)
   })
@@ -35,4 +35,15 @@ export function getGroupAndImageList() {
     }
   })
   return res
+}
+
+/**
+ * @description: 判断id是否存在于图片信息中
+ * @param {*} id
+ * @return {*}
+ */
+export function isExistInImageInfo(id) {
+  const schemaStore = useSchemaStore()
+  const imageInfo = schemaStore.getImageInfo
+  return imageInfo.some(item => item?.id === id)
 }
