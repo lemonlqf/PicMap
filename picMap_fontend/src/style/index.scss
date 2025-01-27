@@ -1,0 +1,23 @@
+.no-image-icon {
+  height: 100%;
+  width: 100%;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background-color: rgba(64, 158, 255, 1);
+  color: rgba(255, 255, 255, 1);
+  // transition: all 1s;
+  // -webkit-transition: all 1s;
+  // -moz-transition: all 1s;
+  // -ms-transition: all 1s;
+  // -o-transition: all 1s;
+}
+
+.no-image-icon:hover {
+  width: fit-content !important;
+}
+
+// 隐藏div元素的外边框
+.leaflet-div-icon {
+  border: unset;
+}
