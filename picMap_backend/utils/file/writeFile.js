@@ -16,11 +16,11 @@ const { getNewImageId, getImageId } = require('../image/image.js')
  * @description: 将base64写入本地
  * @param {*} baseUrl，文件字符串
  * @param {*} imageName，文件名称
- * @param {*} uid，图片id
+ * @param {*} uidid，图片id
  * @param {*} path，保存路径，基于public
  * @return {*}
  */
-function writeBase64File(baseUrl, imageName = 'image.png', uid, path = globalVariables.imageFilePath) {
+function writeBase64File(baseUrl, imageName = 'image.png', id, path = globalVariables.imageFilePath) {
   //接收前台POST过来的base64
   var imgData = baseUrl
   //过滤data:URL
@@ -31,9 +31,9 @@ function writeBase64File(baseUrl, imageName = 'image.png', uid, path = globalVar
   // 如果无目录先创建目录，否则会报没有目录的错误
   !fs.existsSync(path) && fs.mkdirSync(path)
   let filePath = ''
-  if (uid) {
+  if (id) {
     // 所有文件名前都加上一个新的图片id
-    filePath = `${path}${getImageId(uid)}_${imageName}`
+    filePath = `${path}${getImageId(id)}_${imageName}`
   } else {
     filePath = `${path}${getNewImageId()}_${imageName}`
   }

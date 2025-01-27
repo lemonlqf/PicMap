@@ -15,7 +15,7 @@ var router = express.Router()
 router.post('/uploadImages', async function (req, res, next) {
   const bodyData = req.body.images
   bodyData.forEach(item => {
-    writeBase64File(item.file.url, item.file.name, item.file.uid)
+    writeBase64File(item.url, item.name, item.id)
   })
   // const res1 = await executeQuery('select * from test')
   res.send(Result.success('上传成功'))

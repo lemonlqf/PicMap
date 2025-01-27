@@ -21,11 +21,11 @@ function getNewImageId() {
 
 /**
  * @description: 通过uid生成图片id，优先使用uid生产图片id
- * @param {*} uid
+ * @param {*} id
  * @return {*}
  */
-function getImageId(uid) {
-  return `${IMAGE_ID_PREFIX}${uid}`
+function getImageId(id) {
+  return `${IMAGE_ID_PREFIX}${id}`
 }
 
 module.exports = {
