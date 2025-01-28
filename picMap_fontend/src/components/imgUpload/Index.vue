@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-27 21:36:37
+ * @LastEditTime: 2025-01-28 14:36:04
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -63,8 +63,7 @@ const formData = computed(() => {
     for (let i = 0; i < fileList.value.length; i++) {
       // 获取文件信息
       const fileInfo = getFileInfoByFile(fileList.value[i].raw)
-      res[i] = { GPSInfo: GPSInfo.value[i], ...fileInfo, url: thumbnailImageUrls.value[i], id: fileInfo.uid }
-      delete res[i].uid
+      res[i] = { GPSInfo: GPSInfo.value[i], ...fileInfo, url: thumbnailImageUrls.value[i] }
     }
   }
   return res
@@ -72,8 +71,8 @@ const formData = computed(() => {
 
 // 通过raw文件获取相关的文件数据
 function getFileInfoByFile(raw) {
-  const { id, lastModified, name, size, type } = raw
-  return { id, lastModified, name, size, type }
+  const { id, lastModified, name, size, type, uid } = raw
+  return { id: id ?? uid, lastModified, name, size, type }
 }
 
 // 从图片信息对象中提取GPS信息

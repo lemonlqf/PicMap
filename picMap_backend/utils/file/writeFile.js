@@ -16,7 +16,7 @@ const { getNewImageId, getImageId } = require('../image/image.js')
  * @description: 将base64写入本地
  * @param {*} baseUrl，文件字符串
  * @param {*} imageName，文件名称
- * @param {*} uidid，图片id
+ * @param {*} id，图片id
  * @param {*} path，保存路径，基于public
  * @return {*}
  */
