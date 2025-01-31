@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-31 19:32:39
+ * @LastEditTime: 2025-01-31 21:27:20
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -20,32 +20,30 @@ const NO_IMAGE_MARKER_SIZE = [40, 30]
  */
 export function addImageIconToMap(map, imageInfo) {
   const mapStore = useMapStore()
-  try {
-    let myIcon = null
-    // 如果没有url直接用文字名称代替
-    if (!imageInfo?.url) {
-      myIcon = L.divIcon({
-        html: noImageUrlIcon(imageInfo.name),
-        iconSize: NO_IMAGE_MARKER_SIZE
-      })
-    } else {
-      myIcon = L.icon({
-        iconUrl: imageInfo.url,
-        iconSize: NO_IMAGE_MARKER_SIZE
-      })
-    }
 
-    // 先纬度再经度
-    const marker = L.marker([imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude], {
-      icon: myIcon,
-      title: imageInfo.name,
-      id: imageInfo.id
-    }).addTo(map)
-    // 添加到store中
-    mapStore.addMarker(marker)
-  } catch (error) {
-    console.error('addImageIconToMap error:', error)
+  let myIcon = null
+  // 如果没有url直接用文字名称代替
+  if (!imageInfo?.url) {
+    myIcon = L.divIcon({
+      html: noImageUrlIcon(imageInfo.name),
+      iconSize: NO_IMAGE_MARKER_SIZE
+    })
+  } else {
+    myIcon = L.icon({
+      iconUrl: imageInfo.url,
+      iconSize: NO_IMAGE_MARKER_SIZE
+    })
   }
+
+  // 先纬度再经度
+  const marker = L.marker([imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude], {
+    icon: myIcon,
+    title: imageInfo.name,
+    type: 'image',
+    id: imageInfo.id
+  }).addTo(map)
+  // 添加到store中
+  mapStore.addMarker(marker)
 }
 
 /**
@@ -61,6 +59,7 @@ export function addGroupIconToMap(map, groupInfo) {
   const marker = L.marker([groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude], {
     icon: myIcon,
     title: groupInfo.name,
+    type: 'group',
     id: groupInfo.id
   }).addTo(map)
   // 添加到store中
@@ -80,7 +79,7 @@ export function observeMapMoveToUpgradeMarker(map) {
 }
 
 /**
- * @description: 更新在可视范围内marker的图片
+ * @description: 更新在可视范围内marker的图片,防抖
  * @param {*} map
  * @return {*}
  */
@@ -91,12 +90,28 @@ export function updateVisibleMarkers(map) {
   markers.forEach(marker => {
     if (isMarkerInView(marker.getLatLng(), map)) {
       if (!visibleMarkers.includes(marker)) {
-        // 更新一下marker
-        updateMarker(marker, map)
+        if (marker.options.type === 'image') {
+          // 更新一下marker
+          updateMarker(marker, map)
+        }
       }
     }
   })
 }
+
+// function debounce(fn, delay) {
+//   // timer是一个定时器
+//   let timer = null
+//   // 返回一个闭包函数，用闭包保存timer确保其不会销毁，重复点击会清理上一次的定时器
+//   return function (args) {
+//     // 调用一次就清除上一次的定时器
+//     clearTimeout(timer)
+//     // 开启这一次的定时器
+//     timer = setTimeout(() => {
+//       fn(args)
+//     }, delay)
+//   }
+// }
 
 /**
  * @description: 判断当前marker是否在地图可视范围内
@@ -117,22 +132,27 @@ function isMarkerInView(markerLatLng, map) {
  * @param {*} newMarkerData
  * @return {*}
  */
-async function updateMarker(marker, map) {
+function updateMarker(marker, map) {
   const mapStore = useMapStore()
+  // TODO:将marker添加到已经渲染的store中
   const index = mapStore.getVisibleMarker.findIndex(item => item.options.id === marker.options.id)
   if (index === -1) {
+    mapStore.addVisibleMarker(marker)
     // TODO:渲染图片操作
     // TODO:请求图片
-    const res = await imageHttp.getImage({ imageId: marker.options.id })
-    const base64String = arrayBufferToBase64(res.data.file.data)
-    const fileUrl = `data:image/jpeg;base64,${base64String}`
-    const myIcon = L.icon({
-      iconUrl: fileUrl,
-      iconSize: NO_IMAGE_MARKER_SIZE
+    imageHttp.getImage({ imageId: marker.options.id }).then(res => {
+      if (res.code !== 200) {
+        // 如果没有请求成功需要先删除掉
+        mapStore.visibleMarkers(marker)
+        return
+      }
+      const fileUrl = arrayBufferToBase64(res.data.file)
+      const myIcon = L.icon({
+        iconUrl: fileUrl,
+        iconSize: NO_IMAGE_MARKER_SIZE
+      })
+      marker.setIcon(myIcon)
     })
-    marker.setIcon(myIcon)
-    // TODO:将marker添加到已经渲染的store中
-    mapStore.addVisibleMarker(marker)
   }
 }
 
@@ -141,14 +161,20 @@ async function updateMarker(marker, map) {
  * @param {ArrayBuffer} buffer
  * @return {string}
  */
-function arrayBufferToBase64(buffer) {
-  let binary = ''
-  const bytes = new Uint8Array(buffer)
-  const len = bytes.byteLength
-  for (let i = 0; i < len; i++) {
-    binary += String.fromCharCode(bytes[i])
+function arrayBufferToBase64(file) {
+  let fileUrl
+  if (file?.type === 'buffer') {
+    let binary = ''
+    const bytes = new Uint8Array(buffer)
+    const len = bytes.byteLength
+    for (let i = 0; i < len; i++) {
+      binary += String.fromCharCode(bytes[i])
+    }
+    fileUrl = `data:image/jpeg;base64,${window.btoa(binary)}`
+  } else {
+    fileUrl = `data:image/jpeg;base64,${file}`
   }
-  return window.btoa(binary)
+  return fileUrl
 }
 
 /**
