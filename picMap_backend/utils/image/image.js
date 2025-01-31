@@ -2,12 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 13:48:18
+ * @LastEditTime: 2025-01-31 19:01:10
  * @FilePath: \Code\picMap_backend\utils\image\image.js
  * @Description:
  */
 const lodash = require('lodash')
-
+const glob = require('glob')
+const fs = require('node:fs')
+const globalVariables = require('../../public/globalVariable').globalVariables
 // 图片id前缀
 const IMAGE_ID_PREFIX = 'PM'
 
@@ -28,7 +30,23 @@ function getImageId(id) {
   return `${IMAGE_ID_PREFIX}${id}`
 }
 
+/**
+ * @description: 根据id获取图片文件
+ * @param {*} id
+ * @return {*}
+ */
+function getImageFileById(id) {
+  const filesPath = glob.sync(`${globalVariables.imageFilePath}${getImageId(id)}*`)
+  if (filesPath.length === 0) {
+    return null
+  } else {
+    const file = fs.readFileSync(filesPath[0])
+    return file
+  }
+}
+
 module.exports = {
   getNewImageId,
-  getImageId
+  getImageId,
+  getImageFileById
 }

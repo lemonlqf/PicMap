@@ -2,12 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-28 14:29:39
+ * @LastEditTime: 2025-01-31 19:32:39
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
 import L from 'leaflet'
 import { useMapStore } from '@/store/map'
+import imageHttp from '@/http/modules/image'
 
 const NO_IMAGE_MARKER_SIZE = [40, 30]
 
@@ -83,7 +84,7 @@ export function observeMapMoveToUpgradeMarker(map) {
  * @param {*} map
  * @return {*}
  */
-function updateVisibleMarkers(map) {
+export function updateVisibleMarkers(map) {
   const mapStore = useMapStore()
   const visibleMarkers = mapStore.getVisibleMarker
   const markers = mapStore.getMarker
@@ -91,7 +92,7 @@ function updateVisibleMarkers(map) {
     if (isMarkerInView(marker.getLatLng(), map)) {
       if (!visibleMarkers.includes(marker)) {
         // 更新一下marker
-        updateMarker(marker)
+        updateMarker(marker, map)
       }
     }
   })
@@ -116,15 +117,38 @@ function isMarkerInView(markerLatLng, map) {
  * @param {*} newMarkerData
  * @return {*}
  */
-function updateMarker(marker, newMarkerData) {
+async function updateMarker(marker, map) {
   const mapStore = useMapStore()
-  const index = mapStore.getMarker.findIndex(item => item.options.id === marker.options.id)
-  if (index !== -1) {
+  const index = mapStore.getVisibleMarker.findIndex(item => item.options.id === marker.options.id)
+  if (index === -1) {
     // TODO:渲染图片操作
-    // this.markers[index] = { ...this.markers[index], ...newMarkerData };
-    // 将marker添加到已经渲染的store中
+    // TODO:请求图片
+    const res = await imageHttp.getImage({ imageId: marker.options.id })
+    const base64String = arrayBufferToBase64(res.data.file.data)
+    const fileUrl = `data:image/jpeg;base64,${base64String}`
+    const myIcon = L.icon({
+      iconUrl: fileUrl,
+      iconSize: NO_IMAGE_MARKER_SIZE
+    })
+    marker.setIcon(myIcon)
+    // TODO:将marker添加到已经渲染的store中
     mapStore.addVisibleMarker(marker)
   }
+}
+
+/**
+ * @description: 将ArrayBuffer转换为Base64字符串
+ * @param {ArrayBuffer} buffer
+ * @return {string}
+ */
+function arrayBufferToBase64(buffer) {
+  let binary = ''
+  const bytes = new Uint8Array(buffer)
+  const len = bytes.byteLength
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i])
+  }
+  return window.btoa(binary)
 }
 
 /**

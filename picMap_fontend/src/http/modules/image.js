@@ -15,5 +15,12 @@ export default {
       method: 'post',
       data
     })
+  },
+  getImage: data => {
+    return http({
+      url: 'image/getImage',
+      method: 'post',
+      data
+    })
   }
 }

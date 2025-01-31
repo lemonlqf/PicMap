@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-28 14:24:52
+ * @LastEditTime: 2025-01-31 19:35:17
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -27,7 +27,12 @@ import appMapTile from './appMapTile'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import schemaHttp from '@/http/modules/schema'
 import { useSchemaStore } from '@/store/schema'
-import { addImageIconToMap, addGroupIconToMap, observeMapMoveToUpgradeMarker } from '@/utils/map.js'
+import {
+  addImageIconToMap,
+  addGroupIconToMap,
+  observeMapMoveToUpgradeMarker,
+  updateVisibleMarkers
+} from '@/utils/map.js'
 import { getGroupAndImageList } from '@/utils/schema.js'
 const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
@@ -105,6 +110,9 @@ onMounted(() => {
   initTile()
   initMarker()
   observeMapMoveToUpgradeMarker(map.value)
+  setTimeout(() => {
+    updateVisibleMarkers(map.value)
+  }, 300)
 })
 </script>
 
