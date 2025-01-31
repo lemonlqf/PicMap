@@ -1,15 +1,15 @@
 /*
  * @Author: Do not edit
  * @Date: 2024-12-14 19:37:46
- * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2025-01-25 20:02:26
- * @FilePath: \PicMap\picMap_backend\utils\file\writeFile.js
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-01-31 16:09:40
+ * @FilePath: \Code\picMap_backend\utils\file\writeFile.js
  * @Description:
  */
 const { error } = require('node:console')
 const fs = require('node:fs')
 const path = require('path')
-const globalVariables = require('../../public/globalVariable')
+const globalVariables = require('../../public/globalVariable').globalVariables
 const { getNewImageId, getImageId } = require('../image/image.js')
 
 /**

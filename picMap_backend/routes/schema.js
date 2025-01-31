@@ -8,13 +8,22 @@
  */
 var express = require('express')
 var router = express.Router()
+var defaultSchema = require('../public/globalVariable').defaultSchema
 const fs = require('node:fs')
-const globalVariables = require('../public/globalVariable')
+const globalVariables = require('../public/globalVariable').globalVariables
 const Result = require('./resultCode/result.js')
 
 /* GET schema. */
 router.get('/getSchema', function (req, res, next) {
-  const schema = fs.readFileSync(globalVariables.schemaPath, { encoding: 'utf-8' })
+  let schema = null
+  // 判断文件是否存在
+  const fileExists = fs.existsSync(globalVariables.schemaPath)
+  if (!fileExists) {
+    schema = defaultSchema
+  } else {
+    schema = fs.readFileSync(globalVariables.schemaPath, { encoding: 'utf-8' })
+  }
+
   res.send(Result.success(schema))
 })
 
