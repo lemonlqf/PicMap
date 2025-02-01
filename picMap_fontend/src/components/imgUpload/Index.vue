@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-01 22:07:33
+ * @LastEditTime: 2025-02-02 00:06:56
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -44,6 +44,7 @@ import API from '@/http/index.js'
 import { v5 as uuidv5 } from 'uuid'
 import { cloneDeep } from 'lodash-es'
 const schemaStore = useSchemaStore()
+import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.js'
 
 const props = defineProps({
   map: {
@@ -95,8 +96,10 @@ function setGPSInfo(tags, index) {
   let GPSLatitude = ''
   let GPSLongitude = ''
   if (tags.gps) {
-    GPSLatitude = tags.gps.Latitude
-    GPSLongitude = tags.gps.Longitude
+    // 坐标是WGS84标准的，国内坐标是GCJ02标准的，需要转化
+    const GcGPSInfo = wgs84ToGcj02(tags.gps.Longitude, tags.gps.Latitude)
+    GPSLongitude = GcGPSInfo[0]
+    GPSLatitude = GcGPSInfo[1]
   }
   GPSInfo.value[index] = { GPSLatitude, GPSLongitude }
 }

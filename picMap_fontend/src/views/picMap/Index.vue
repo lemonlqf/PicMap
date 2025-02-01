@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-31 21:37:44
+ * @LastEditTime: 2025-02-01 23:39:01
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -65,7 +65,7 @@ async function initSchema() {
  */
 function initMap() {
   map.value = L.map('map', {
-    center: [30.2489634, 120.2052342], //中心坐标
+    center: [28.636652099722223, 120.15097149972223], //中心坐标
     zoom: 12, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
     minZoom: 3,
     maxZoom: 18,

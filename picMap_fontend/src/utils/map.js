@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-01 21:44:39
+ * @LastEditTime: 2025-02-01 23:24:21
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -10,7 +10,7 @@ import L from 'leaflet'
 import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
 
-const NO_IMAGE_MARKER_SIZE = [40, 30]
+const NO_IMAGE_MARKER_SIZE = [40]
 
 /**
  * @description: 添加图片到地图中
