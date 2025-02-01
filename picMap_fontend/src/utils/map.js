@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-31 21:27:20
+ * @LastEditTime: 2025-02-01 21:44:39
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -143,7 +143,7 @@ function updateMarker(marker, map) {
     imageHttp.getImage({ imageId: marker.options.id }).then(res => {
       if (res.code !== 200) {
         // 如果没有请求成功需要先删除掉
-        mapStore.visibleMarkers(marker)
+        mapStore.deleteVisbleMarker(marker)
         return
       }
       const fileUrl = arrayBufferToBase64(res.data.file)

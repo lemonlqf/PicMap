@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-28 14:36:04
+ * @LastEditTime: 2025-02-01 22:07:33
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -41,6 +41,7 @@ import L from 'leaflet'
 import { addImageIconToMap } from '@/utils/map.js'
 import { useSchemaStore } from '@/store/schema'
 import API from '@/http/index.js'
+import { v5 as uuidv5 } from 'uuid'
 import { cloneDeep } from 'lodash-es'
 const schemaStore = useSchemaStore()
 
@@ -71,8 +72,10 @@ const formData = computed(() => {
 
 // 通过raw文件获取相关的文件数据
 function getFileInfoByFile(raw) {
-  const { id, lastModified, name, size, type, uid } = raw
-  return { id: id ?? uid, lastModified, name, size, type }
+  const { lastModified, name, size, type } = raw
+  // id通过name和type来生成
+  const id = uuidv5(name + type, uuidv5.URL)
+  return { id, lastModified, name, size, type }
 }
 
 // 从图片信息对象中提取GPS信息
