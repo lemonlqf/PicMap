@@ -3,6 +3,12 @@
 </template>
 
 <script setup>
+import eventBus from './utils/eventBus'
+
+document.addEventListener('mouseup', () => {
+  // 隐藏所有右击出现的弹框
+  eventBus.emit('hidden-content-menu')
+})
 </script>
 
 <style scoped>

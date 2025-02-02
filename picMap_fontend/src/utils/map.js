@@ -2,13 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-01 23:24:21
+ * @LastEditTime: 2025-02-02 15:33:34
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
 import L from 'leaflet'
 import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
+import eventBus from '@/utils/eventBus'
 
 const NO_IMAGE_MARKER_SIZE = [40]
 
@@ -75,6 +76,22 @@ export function observeMapMoveToUpgradeMarker(map) {
   map.on('moveend', () => {
     // 更新在可视范围内marker的图片
     updateVisibleMarkers(map)
+  })
+  map.on('movestart', () => {
+    // 隐藏所有右击出现的弹框
+    eventBus.emit('hidden-content-menu')
+  })
+}
+
+/**
+ * @description: 点击地图时，关闭图片信息抽屉
+ * @param {*} map
+ * @return {*}
+ */
+export function hiddenImageInfoDrawerMapClick(map) {
+  map.on('click', () => {
+    // 点击地图时，关闭图片详细信息抽屉
+    eventBus.emit('drawer-hidden')
   })
 }
 

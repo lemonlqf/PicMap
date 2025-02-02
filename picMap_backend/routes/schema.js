@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:30:32
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 14:49:34
+ * @LastEditTime: 2025-02-02 19:08:23
  * @FilePath: \Code\picMap_backend\routes\schema.js
  * @Description:
  */
@@ -30,7 +30,7 @@ router.get('/getSchema', function (req, res, next) {
 router.post('/setSchema', function (req, res, next) {
   const schema = req.body.schema
   fs.writeFileSync(globalVariables.schemaPath, schema)
-  res.send(Result.success('保存schema成功'))
+  res.send(Result.success('schema数据更新成功！'))
 })
 
 module.exports = router

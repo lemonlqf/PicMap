@@ -1,10 +1,10 @@
 /*
  * @Author: Do not edit
  * @Date: 2024-12-13 00:25:49
- * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2025-01-25 22:08:01
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-02-02 19:01:44
  * @FilePath: \Code\picMap_fontend\src\http\modules\image.js
- * @Description:
+ * @Description: 对图片库的操作，CRUD相关
  */
 import http from '../axios.js'
 
@@ -19,6 +19,20 @@ export default {
   getImage: data => {
     return http({
       url: 'image/getImage',
+      method: 'post',
+      data
+    })
+  },
+  deleteImages: data => {
+    return http({
+      url: 'image/deleteImages',
+      method: 'post',
+      data
+    })
+  },
+  updateImages: data => {
+    return http({
+      url: 'image/updateImages',
       method: 'post',
       data
     })

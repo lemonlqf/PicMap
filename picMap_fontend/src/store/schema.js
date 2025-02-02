@@ -42,6 +42,11 @@ export const useSchemaStore = defineStore('schema', {
         })
       }
     },
+    deleteImageInImageInfo(imageId) {
+      this.schema.imageInfo = this.schema.imageInfo.filter(item => {
+        return item.id !== imageId
+      })
+    },
     setVersion(value) {
       this.version = value
     },

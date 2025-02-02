@@ -43,9 +43,9 @@ import { useSchemaStore } from '@/store/schema'
 import API from '@/http/index.js'
 import { v5 as uuidv5 } from 'uuid'
 import { cloneDeep } from 'lodash-es'
-const schemaStore = useSchemaStore()
 import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.js'
 
+const schemaStore = useSchemaStore()
 const props = defineProps({
   map: {
     type: Object
