@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-02 19:25:14
+ * @LastEditTime: 2025-02-02 20:12:46
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -20,9 +20,15 @@ import eventBus from '@/utils/eventBus.js'
 import API from '@/http/index.js'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
+import { isExistInImageInfo } from '@/utils/schema.js'
+import { deleteMarkerInMap } from '@/utils/map.js'
+
+const props = defineProps({
+  map: {}
+})
 const schemaStore = useSchemaStore()
 const isShow = ref(false)
-const imageId = ref('')
+const marker = ref({})
 const postionInfo = ref({
   left: '10px',
   top: '0px'
@@ -32,13 +38,14 @@ const menuList = ref([
     label: '删除图片',
     clickEvent: async () => {
       // 在schema的imageInfo中添加图片信息
-      schemaStore.deleteImageInImageInfo(imageId.value)
+      schemaStore.deleteImageInImageInfo(marker.value.options.id)
       const newSchema = schemaStore.getSchema
       const res2 = await API.schema.setSchema({ schema: JSON.stringify(newSchema) })
       Promise.all([
         API.schema.setSchema({ schema: JSON.stringify(newSchema) }),
-        API.image.deleteImages({ deleteImages: [imageId.value] })
+        API.image.deleteImages({ deleteImages: [marker.value.options.id] })
       ]).then(res => {
+        deleteMarkerInMap(marker.value, props.map)
         const tipMsg = res.reduce((msg, item) => {
           return msg + item.data
         }, '')
@@ -58,9 +65,13 @@ function getPxValue(value) {
 }
 
 function menuShow(event) {
+  // 如果marker不在schema中，则说明是临时添加的，需要出现右键的菜单
+  if (!isExistInImageInfo(event.target.options.id)) {
+    return
+  }
   console.log(event)
   const { x, y } = event.originalEvent
-  imageId.value = event.target.options.id
+  marker.value = event.target
   postionInfo.value.left = getPxValue(x ?? 0)
   postionInfo.value.top = getPxValue(y ?? 0)
   isShow.value = true

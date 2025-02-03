@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-02 15:33:34
+ * @LastEditTime: 2025-02-03 19:14:52
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -10,6 +10,7 @@ import L from 'leaflet'
 import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
 import eventBus from '@/utils/eventBus'
+import { isExistInImageInfo } from '@/utils/schema.js'
 
 const NO_IMAGE_MARKER_SIZE = [40]
 
@@ -45,6 +46,17 @@ export function addImageIconToMap(map, imageInfo) {
   }).addTo(map)
   // 添加到store中
   mapStore.addMarker(marker)
+}
+
+/**
+ * @description: 删除地图中的marker
+ * @param {*} marker
+ * @return {*}
+ */
+export function deleteMarkerInMap(marker, map) {
+  if (map && marker) {
+    map.removeLayer(marker)
+  }
 }
 
 /**
@@ -116,20 +128,6 @@ export function updateVisibleMarkers(map) {
   })
 }
 
-// function debounce(fn, delay) {
-//   // timer是一个定时器
-//   let timer = null
-//   // 返回一个闭包函数，用闭包保存timer确保其不会销毁，重复点击会清理上一次的定时器
-//   return function (args) {
-//     // 调用一次就清除上一次的定时器
-//     clearTimeout(timer)
-//     // 开启这一次的定时器
-//     timer = setTimeout(() => {
-//       fn(args)
-//     }, delay)
-//   }
-// }
-
 /**
  * @description: 判断当前marker是否在地图可视范围内
  * @param {*} markerLatLng marker.getLatLng()获取marker的经纬度
@@ -144,7 +142,7 @@ function isMarkerInView(markerLatLng, map) {
 }
 
 /**
- * @description: 更新marker，用于渲染如片等
+ * @description: 更新marker，用于渲染图片等
  * @param {*} id
  * @param {*} newMarkerData
  * @return {*}
@@ -153,7 +151,9 @@ function updateMarker(marker, map) {
   const mapStore = useMapStore()
   // TODO:将marker添加到已经渲染的store中
   const index = mapStore.getVisibleMarker.findIndex(item => item.options.id === marker.options.id)
-  if (index === -1) {
+  // 判断是否在schema中
+  const isInSchema = isExistInImageInfo(marker.options.id)
+  if (index === -1 && isInSchema) {
     mapStore.addVisibleMarker(marker)
     // TODO:渲染图片操作
     // TODO:请求图片
@@ -205,4 +205,21 @@ function noImageUrlIcon(text) {
   div.innerHTML = text
   div.style.lineHeight = NO_IMAGE_MARKER_SIZE[1] + 'px'
   return div
+}
+
+/**
+ * @description: 根据id获取marker
+ * @param {*} id
+ * @return {*}
+ */
+export function getMarkerById(id) {
+  const mapStore = useMapStore()
+  const markers = mapStore.getMarker
+  let res
+  markers.forEach(marker => {
+    if (marker.options.id === id) {
+      res = marker
+    }
+  })
+  return res
 }

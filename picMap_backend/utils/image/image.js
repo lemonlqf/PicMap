@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-31 21:25:25
+ * @LastEditTime: 2025-02-03 20:06:18
  * @FilePath: \Code\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -40,6 +40,7 @@ function getImageFileById(id) {
   if (filesPath.length === 0) {
     return null
   } else {
+    // 读取文件
     const file = fs.readFileSync(filesPath[0])
     const baseUrl = file.toString('base64')
     return baseUrl

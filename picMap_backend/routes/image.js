@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-02 19:24:45
+ * @LastEditTime: 2025-02-02 19:51:58
  * @FilePath: \Code\picMap_backend\routes\image.js
  * @Description:
  */
@@ -11,7 +11,6 @@ const Result = require('./resultCode/result.js')
 const fs = require('node:fs')
 const globalVariables = require('../public/globalVariable').globalVariables
 const express = require('express')
-const { executeQuery } = require('../public/dbconfig.js')
 const router = express.Router()
 const getImageFileById = require('../utils/image/image.js').getImageFileById
 const { getImageId } = require('../utils/image/image.js')
@@ -19,7 +18,7 @@ const glob = require('glob')
 
 router.post('/uploadImages', async function (req, res, next) {
   const bodyData = req.body.images
-  bodyData.forEach(item => {
+  bodyData?.forEach?.(item => {
     writeBase64File(item.url, item.name, item.id)
   })
   // const res1 = await executeQuery('select * from test')
@@ -43,7 +42,7 @@ router.post('/deleteImages', function (req, res, next) {
     deleteImages.forEach(imageId => {
       const filesPath = glob.sync(`${globalVariables.imageFilePath}${getImageId(imageId)}*`)
       if (filesPath.length === 0) {
-        res.send(Result.fail('图片已被删除！'))
+        res.send(Result.fail('图片还未上传！'))
       } else {
         fs.unlink(filesPath[0], () => {
           res.send(Result.success('图片删除成功！'))
