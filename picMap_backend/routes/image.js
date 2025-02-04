@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-02 19:51:58
+ * @LastEditTime: 2025-02-03 23:02:16
  * @FilePath: \Code\picMap_backend\routes\image.js
  * @Description:
  */
@@ -12,7 +12,7 @@ const fs = require('node:fs')
 const globalVariables = require('../public/globalVariable').globalVariables
 const express = require('express')
 const router = express.Router()
-const getImageFileById = require('../utils/image/image.js').getImageFileById
+const { getImageFileById, getSmallImageFileById } = require('../utils/image/image.js')
 const { getImageId } = require('../utils/image/image.js')
 const glob = require('glob')
 
@@ -25,7 +25,21 @@ router.post('/uploadImages', async function (req, res, next) {
   res.send(Result.success('上传成功'))
 })
 
-router.post('/getImage', async function (req, res, next) {
+// 获取缩略图
+router.post('/getSmallImage', async function (req, res, next) {
+  let { imageId } = req.body
+  const file = await getSmallImageFileById(imageId)
+  // const file = getImageFileById(imageId)
+
+  if (file) {
+    res.send(Result.success({ file }))
+  } else {
+    res.send(Result.fail('调整图片分辨率失败'))
+  }
+})
+
+// 获取原图
+router.post('/getFullImage', async function (req, res, next) {
   let { imageId } = req.body
   const file = getImageFileById(imageId)
   if (file) {

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-25 20:00:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-31 21:33:14
+ * @LastEditTime: 2025-02-04 12:47:06
  * @FilePath: \Code\picMap_backend\public\globalVariable.js
  * @Description:
  */

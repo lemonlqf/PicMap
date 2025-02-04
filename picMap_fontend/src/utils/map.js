@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-03 19:14:52
+ * @LastEditTime: 2025-02-04 13:00:28
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -155,15 +155,13 @@ function updateMarker(marker, map) {
   const isInSchema = isExistInImageInfo(marker.options.id)
   if (index === -1 && isInSchema) {
     mapStore.addVisibleMarker(marker)
-    // TODO:渲染图片操作
-    // TODO:请求图片
     imageHttp.getImage({ imageId: marker.options.id }).then(res => {
       if (res.code !== 200) {
         // 如果没有请求成功需要先删除掉
         mapStore.deleteVisbleMarker(marker)
         return
       }
-      const fileUrl = arrayBufferToBase64(res.data.file)
+      const fileUrl = fileToBase64(res.data.file)
       const myIcon = L.icon({
         iconUrl: fileUrl,
         iconSize: NO_IMAGE_MARKER_SIZE
@@ -174,15 +172,15 @@ function updateMarker(marker, map) {
 }
 
 /**
- * @description: 将ArrayBuffer转换为Base64字符串
+ * @description: 将后端返回的各种类型的文件转换为Base64字符串
  * @param {ArrayBuffer} buffer
  * @return {string}
  */
-function arrayBufferToBase64(file) {
+function fileToBase64(file) {
   let fileUrl
-  if (file?.type === 'buffer') {
+  if (file?.type === 'Buffer') {
     let binary = ''
-    const bytes = new Uint8Array(buffer)
+    const bytes = new Uint8Array(file?.data)
     const len = bytes.byteLength
     for (let i = 0; i < len; i++) {
       binary += String.fromCharCode(bytes[i])
@@ -222,4 +220,19 @@ export function getMarkerById(id) {
     }
   })
   return res
+}
+
+/**
+ * @description: 定位到当前marker
+ * @param {*} lat
+ * @param {*} lng
+ * @return {*}
+ */
+export function setView(lat, lng, map) {
+  if (map) {
+    map.setView([lat, lng], map.getZoom() ?? 10, {
+      animate: true,
+      duration: 0.5 // 动画持续时间，单位为秒
+    })
+  }
 }

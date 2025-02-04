@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-03 19:44:20
+ * @LastEditTime: 2025-02-04 13:51:04
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -25,8 +25,8 @@
       <div class="duplicate-image-box" v-show="duplicateFormData.length">
         <!-- 重复的图片 -->
         <h3>已上传图片：</h3>
-        <div class="duplicate-upload-img-card" v-for="(item, index) in duplicateFormData">
-          <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url" />
+        <div class="duplicate-upload-img-card" v-for="(item, index) in duplicateFormData" >
+          <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"  @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map)"/>
           <!-- <h1>照片名:{{ item.name }}</h1>
         <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
         <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1> -->
@@ -36,7 +36,7 @@
         <h3>待上传图片：</h3>
         <div class="upload-img-card" v-for="(item, index) in noDuplicateFormData" :key="item.name">
           <div class="image-info" >
-            <img :src="item.url" alt="" :title="item.name" height="50px" />
+            <img :src="item.url" alt="" :title="item.name" height="50px" @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map)" />
             <h1>照片名:{{ item.name }}</h1>
             <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
             <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1>
@@ -63,7 +63,7 @@ import { ref, watch, computed } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage } from 'element-plus'
 import L from 'leaflet'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap } from '@/utils/map.js'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView } from '@/utils/map.js'
 import { isExistInImageInfo } from '@/utils/schema.js'
 import { useSchemaStore } from '@/store/schema'
 import API from '@/http/index.js'
@@ -261,7 +261,7 @@ async function uploadImages(data) {
   // subimtData.append('data', 123)
   const res1 = await API.image.uploadImages({ images: data })
   // 删除url属性
-  const noUrlFormData = cloneDeep(noDuplicateFormData.value).map(item => {
+  const noUrlFormData = cloneDeep(data).map(item => {
     delete item.url
     return item
   })

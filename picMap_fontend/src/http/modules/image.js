@@ -18,7 +18,7 @@ export default {
   },
   getImage: data => {
     return http({
-      url: 'image/getImage',
+      url: 'image/getSmallImage',
       method: 'post',
       data
     })

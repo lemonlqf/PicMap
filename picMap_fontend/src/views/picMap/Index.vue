@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-01 23:39:01
+ * @LastEditTime: 2025-02-04 14:02:57
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -16,6 +16,8 @@
   <div class="fix-group upload-group">
     <ImageUpolad :map="map"></ImageUpolad>
   </div>
+  <Drawer></Drawer>
+  <contentMenu :map="map"></contentMenu>
 </template>
 
 <script setup>
@@ -23,6 +25,8 @@ import { onBeforeMount, onMounted, ref } from 'vue'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ImageUpolad from '@/components/imgUpload/Index.vue'
+import Drawer from '@/components/drawer/Index.vue'
+import contentMenu from '@/components/contentMenu/Index.vue'
 import appMapTile from './appMapTile'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import schemaHttp from '@/http/modules/schema'
@@ -31,18 +35,20 @@ import {
   addImageIconToMap,
   addGroupIconToMap,
   observeMapMoveToUpgradeMarker,
-  updateVisibleMarkers
+  updateVisibleMarkers,
+  hiddenImageInfoDrawerMapClick
 } from '@/utils/map.js'
 import { getGroupAndImageList } from '@/utils/schema.js'
+import eventBus from '@/utils/eventBus'
+
 const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
+const map = ref()
 
 function changeMapTile(item) {
   currentMapTile.value = item
   initTile()
 }
-
-const map = ref()
 
 /**
  * @description: 获取地图的schema
@@ -74,12 +80,18 @@ function initMap() {
   })
 }
 
+const currentTileLayer = ref()
+
 /**
  * @description: 初始化地图瓦片
  * @return {*}
  */
 function initTile() {
-  L.tileLayer(`${currentMapTile.value.url}`, {
+  // 移除旧的图层
+  if (currentTileLayer.value) {
+    map.value.removeLayer(currentTileLayer.value)
+  }
+  currentTileLayer.value = L.tileLayer(`${currentMapTile.value.url}`, {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
   }).addTo(map.value)
 }
@@ -110,6 +122,7 @@ onMounted(() => {
   initTile()
   initMarker()
   observeMapMoveToUpgradeMarker(map.value)
+  hiddenImageInfoDrawerMapClick(map.value)
   setTimeout(() => {
     updateVisibleMarkers(map.value)
   }, 300)

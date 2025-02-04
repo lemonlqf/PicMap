@@ -2,13 +2,12 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 19:37:46
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-31 16:09:40
+ * @LastEditTime: 2025-02-04 12:46:55
  * @FilePath: \Code\picMap_backend\utils\file\writeFile.js
  * @Description:
  */
 const { error } = require('node:console')
 const fs = require('node:fs')
-const path = require('path')
 const globalVariables = require('../../public/globalVariable').globalVariables
 const { getNewImageId, getImageId } = require('../image/image.js')
 
@@ -32,10 +31,9 @@ function writeBase64File(baseUrl, imageName = 'image.png', id, path = globalVari
   !fs.existsSync(path) && fs.mkdirSync(path)
   let filePath = ''
   if (id) {
-    // 所有文件名前都加上一个新的图片id
-    filePath = `${path}${getImageId(id)}_${imageName}`
+    filePath = `${path}${getImageId(id)}`
   } else {
-    filePath = `${path}${getNewImageId()}_${imageName}`
+    filePath = `${path}${getNewImageId()}`
   }
   // 写入文件，w为覆盖，a为累加
   fs.writeFile(filePath, dataBuffer, { flag: 'w' }, function (err) {
