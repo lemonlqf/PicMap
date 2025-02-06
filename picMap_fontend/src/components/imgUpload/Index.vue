@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 14:06:01
+ * @LastEditTime: 2025-02-06 20:30:48
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -22,31 +22,31 @@
     </el-upload>
     <!-- 上传到表单中图片数据 -->
     <el-scrollbar max-height="75vh">
-      <div class="duplicate-image-box" v-show="duplicateFormData.length">
+      <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <!-- 重复的图片 -->
         <h3>已上传图片：</h3>
-        <div class="duplicate-upload-img-card" v-for="(item, index) in duplicateFormData" >
+        <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos" >
           <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"  @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map)"/>
           <!-- <h1>照片名:{{ item.name }}</h1>
         <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
         <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1> -->
         </div>
       </div>
-      <div v-show="noDuplicateFormData.length">
+      <div v-show="needUploadImageInfos.length">
         <h3>待上传图片：</h3>
-        <div class="upload-img-card" v-for="(item, index) in noDuplicateFormData" :key="item.name">
+        <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info" >
             <img :src="item.url" alt="" :title="item.name" height="50px" @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map)" />
             <h1>照片名:{{ item.name }}</h1>
-            <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
-            <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1>
+            <h1>纬度:{{ item?.GPSInfo?.GPSLatitude ?? '无数据' }}</h1>
+            <h1>经度:{{ item?.GPSInfo?.GPSLongitude ?? '无数据' }}</h1>
             <!-- <h1>id: {{ item.id }}</h1> -->
           </div>
           <div class="uplod-delete-buttons">
-            <div @click="uploadImage(item.name)">
+            <div @click="uploadImage1(item.name)">
               <img src="@/assets/icon/上传 (白色).png" width="20px">上传</img>
             </div>
-            <div @click="deleteImage(item.name)">
+            <div @click="deleteImage1(item.name)">
               <img src="@/assets/icon/删除 (白色).png" width="20px">删除</img>
             </div>
           </div>
@@ -54,22 +54,24 @@
       </div>
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
-    <el-button v-if="noDuplicateFormData.length" @click="uploadImages(noDuplicateFormData)" type="primary">批量上传</el-button>
+    <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)" type="primary">批量上传</el-button>
   </div>
 </template>
 
 <script setup>
 import { ref, watch, computed } from 'vue'
 import ExifReader from 'exifreader'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElLoading  } from 'element-plus'
 import L from 'leaflet'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView } from '@/utils/map.js'
-import { isExistInImageInfo } from '@/utils/schema.js'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers } from '@/utils/map.js'
+import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema.js'
+import { uploadImages as UploadImages } from '@/utils/image.js'
 import { useSchemaStore } from '@/store/schema'
 import API from '@/http/index.js'
 import { v5 as uuidv5 } from 'uuid'
-import { before, cloneDeep } from 'lodash-es'
+import { before, cloneDeep, has } from 'lodash-es'
 import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.js'
+
 
 const schemaStore = useSchemaStore()
 const props = defineProps({
@@ -78,133 +80,109 @@ const props = defineProps({
   }
 })
 
-// 缩略图地址数组，没有重复的
-const noDuplicateImageUrls = ref({})
-// 缩略图地址数组，有重复的
-const duplicateImageUrls = ref({})
+const imageUrls = ref({})
 // 图片gps信息，通过el-upload获取的fileList没有这个数据，用这个额变量暂时存一下，后续在formData中添加对应数据
 const moreInfo = ref({})
 // 上传组件获取到的文件
 const elUploadFileList = ref([])
+// 最完整的，在el-upload获取到文件的基础上，解析到了GPS和base64Url等信息
+const hasUrlFileList = ref([])
 
-// 过滤掉重复图片后的实际用于上传的文件
-const noDuplicateFileList = computed(() => {
-  // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
-  return elUploadFileList.value.filter(item => {
-    const fileInfo = getFileInfoByFile(item.raw)
-    // 如果已经在schema里的图片（同名的图片）就不在上传了
-    return !isExistInImageInfo(fileInfo.id)
+function isInHasUrlFileList(id) {
+  return hasUrlFileList.value.some(item => {
+    return item.id === id || item.name == id
   })
-})
-
-// 重复的图片
-const duplicateFileList = computed(() => {
-  // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
-  return elUploadFileList.value.filter(item => {
-    const fileInfo = getFileInfoByFile(item.raw)
-    // 如果已经在schema里的图片（同名的图片）就不在上传了
-    return isExistInImageInfo(fileInfo.id)
-  })
-})
-
-// 提交的表单信息，最全，包括所有其他信息，这里是没有重复的图片
-const noDuplicateFormData = computed(() => {
-  const res = []
-  if (noDuplicateFileList.value?.length > 0) {
-    for (let i = 0; i < noDuplicateFileList.value.length; i++) {
-      const imageName = noDuplicateFileList.value[i].name
-      // 获取文件信息
-      const fileInfo = getFileInfoByFile(noDuplicateFileList.value[i].raw)
-      res[i] = {  ...moreInfo?.value?.[imageName], ...fileInfo, url: noDuplicateImageUrls.value[imageName] }
-    }
-  }
-  return res
-})
-
-// 提交的表单信息，最全，包括所有其他信息
-const duplicateFormData = computed(() => {
-  const res = []
-  if (duplicateFileList.value?.length > 0) {
-    for (let i = 0; i < duplicateFileList.value.length; i++) {
-      const imageName = duplicateFileList.value[i].name
-      // 获取文件信息
-      const fileInfo = getFileInfoByFile(duplicateFileList.value[i].raw)
-      res[i] = { ...moreInfo?.value?.[imageName], ...fileInfo, url: duplicateImageUrls.value[imageName] }
-    }
-  }
-  return res
-})
-
-/**
- * @description: 上传在左侧上传列表中的单张照片
- * @param {*} name
- * @return {*}
- */
-function uploadImage(name) {
-  const data = noDuplicateFormData.value.filter(item => {
-    return item.id === name
-  })
-  uploadImages(data)
 }
 
-/**
- * @description: 删除在左侧上传列表中的单张照片
- * @param {*} name
- * @return {*}
- */
-function deleteImage(name) {
-  elUploadFileList.value = elUploadFileList.value.filter(item => {
-    return item.name !== name
-  })
-  // 获取对应的marker，name和id是一样的
-  const marker = getMarkerById(name)
-  // 删除掉marker
-  deleteMarkerInMap(marker, props.map)
+watch(
+  () => elUploadFileList.value,
+  async (newValue) => {
+    for (let i = 0; i < newValue.length; i++) {
+      const imageName = newValue[i].name
+      // 如果没有的话
+      if (!isInHasUrlFileList(imageName)) {
+        const file = newValue[i].raw
+        // res包括id, lasetModified, name, size, type
+        const res1 = getFileInfoByFile1(file)
+        // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
+        const res2 = await setMoreInfoByExifReader1(file)
+        // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
+        if (!imageUrls.value[imageName]) {
+          const url = await readFileAsDataURL(file);
+          imageUrls.value[imageName] = url
+          hasUrlFileList.value[i] = { ...res1, ...res2, url }
+        } else {
+          // 如果已经有了，直接拿过来用
+          hasUrlFileList.value[i] = { ...res1, ...res2, url: imageUrls.value[imageName] }
+        }
+        // 如果有坐标内容的话，在地图上添加对应的marker
+        if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
+          addImageIconToMap(props.map, hasUrlFileList.value[i])
+        }
+      }
+    }
+  }
+)
 
-  console.log('---',elUploadFileList.value)
-}
+const needUploadImageInfos = computed(() => {
+  // 走完更新一波可见的markers
+  updateVisibleMarkers(props.map)
+  // 更新schema，新的信息保存到schema中
+  schemaStore.pushImagesToImageInfo(hasUrlFileList.value)
+  // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
+  return hasUrlFileList.value.filter(item => {
+    return !judgeHadUploadImage(item.id)
+  })
+})
+const uploadedImageInfos = computed(() => {
+  // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
+  return hasUrlFileList.value.filter(item => {
+    return judgeHadUploadImage(item.id)
+  })
+})
+
 
 // 通过raw文件获取相关的文件数据
-function getFileInfoByFile(raw) {
-  const { lastModified, name, size, type } = raw
+function getFileInfoByFile1(file) {
+  const { lastModified, name, size, type } = file
   // id通过name和type来生成
   const id = name
   return { id, lastModified, name, size, type }
 }
 
+
 // 从图片信息对象中提取GPS信息，并添加到地图里面
-async function setMoreInfoByExifReader(file, name) {
+async function setMoreInfoByExifReader1(file, name) {
   const tags = await ExifReader.load(file, { expanded: true })
   console.log('--', tags)
-  moreInfo.value[name] = {}
   // 设置经纬度到moreInfo中
-  setGPSInfo(tags, name)
+  const GPSInfo = getGPSInfo1(tags)
   // 图片信息
-  setImageInfo(tags, name)
+  const imageInfo = getImageInfo1(tags)
   // 相机信息
-  setCameraInfo(tags, name)
+  const cameraInfo = getCameraInfo1(tags)
   // 作者信息
-  setAuthorInfo(tags, name)
+  const authorInfo = getAuthorInfo1(tags)
   // TODO:设置其他值
   // setxxxInfo(tags, name)
-  // TODO:设置完后，在地图里面生产对应的节点，名字再取
-  addMarkerToMap()
+  
+  return { GPSInfo, imageInfo, cameraInfo , authorInfo}
 }
 
 // 获取不同图片经纬度信息
-function setGPSInfo(tags, name) {
+function getGPSInfo1(info) {
   let GPSLatitude = ''
   let GPSLongitude = ''
   let GPSAltitude = 0
-  if (tags.gps) {
+  if (info.gps) {
     // 坐标是WGS84标准的，国内坐标是GCJ02标准的，需要转化
-    const GcjGPSInfo = wgs84ToGcj02(tags.gps.Longitude, tags.gps.Latitude)
+    const GcjGPSInfo = wgs84ToGcj02(info.gps.Longitude, info.gps.Latitude)
     GPSLongitude = GcjGPSInfo[0]
     GPSLatitude = GcjGPSInfo[1]
     // 海拔（m）
-    GPSAltitude = tags?.gps?.Altitude
+    GPSAltitude = info?.gps?.Altitude
   }
-  moreInfo.value[name].GPSInfo = { GPSLatitude, GPSLongitude, GPSAltitude }
+  return { GPSLatitude, GPSLongitude, GPSAltitude }
 }
 
 /**
@@ -213,9 +191,9 @@ function setGPSInfo(tags, name) {
  * @param {*} name
  * @return {*}
  */
-function setAuthorInfo(tags, name) {
-  const exif = tags.exif
-  moreInfo.value[name].author = {
+function getAuthorInfo1(info) {
+  const exif = info.exif
+  return {
     // 拍摄时间
     DateTime: exif?.DateTime?.value,
     // 图像作者
@@ -223,7 +201,6 @@ function setAuthorInfo(tags, name) {
     // 图像软件
     SoftWare: exif?.SoftWare?.value,
   }
-  // moreInfo.value[name].GPSInfo = { GPSLatitude, GPSLongitude }
 }
 
 /**
@@ -232,9 +209,9 @@ function setAuthorInfo(tags, name) {
  * @param {*} name
  * @return {*}
  */
-function setCameraInfo(tags, name) {
-  const exif = tags.exif
-  moreInfo.value[name].cameraInfo = {
+function getCameraInfo1(info) {
+  const exif = info.exif
+  return {
     // 相机制造商
     Make: exif?.Make?.value,
     // 相机型号
@@ -261,9 +238,9 @@ function setCameraInfo(tags, name) {
  * @param {*} name
  * @return {*}
  */
-function setImageInfo(tags, name) {
-  const exif = tags.exif
-  moreInfo.value[name].imageInfo = {
+function getImageInfo1(info) {
+  const exif = info.exif
+  return {
     // 分辨率
     Resolution: `${exif?.PixelYDimension?.value} x ${exif?.PixelXDimension?.value}`,
     // 亮度
@@ -272,78 +249,79 @@ function setImageInfo(tags, name) {
   }
 }
 
+const needUploadImageLoading = ref(false)
+const uploadedImageLoading = ref(false)
+const loadingInstance = ref()
+
+watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
+  if (needUploadImageLoading.value || uploadedImageLoading.value) {
+    loadingInstance.value = ElLoading.service({fullscreen: true, text: '图片数据解析中......',})
+  } else {
+    loadingInstance.value && loadingInstance.value.close()
+  }
+})
+
+
 /**
- * @description: 在地图中添加图片标记
+ * @description: 上传在左侧上传列表中的单张照片
+ * @param {*} name
  * @return {*}
  */
-function addMarkerToMap() {
-  // 显示图像
-  noDuplicateFormData.value.forEach(item => {
-    if (item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude) {
-      addImageIconToMap(props.map, item)
-    }
+function uploadImage1(name) {
+  const data = needUploadImageInfos.value.filter(item => {
+    return item.id === name
   })
+  uploadImages(data)
 }
 
-// 无重复的图片文件
-watch(
-  () => noDuplicateFileList.value,
-  newValue => {
-    for (let i = 0; i < newValue.length; i++) {
-      const imageName = newValue[i].name
-      // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
-      if (!noDuplicateImageUrls.value[imageName]) {
-        const fr = new FileReader()
-        const file = newValue[i].raw
-        // 获取base64的url，用于缩略图展示，不用于表单
-        fr.readAsDataURL(file)
-        fr.onload = function () {
-          // 暂存在数组中，最后赋值给缩略图
-          noDuplicateImageUrls.value[imageName] = fr.result
-          // 设置数据
-          setMoreInfoByExifReader(file, imageName)
-        }
-      }
-    }
-  }
-)
 
-// 有重复的图片文件
-watch(
-  () => duplicateFileList.value,
-  newValue => {
-    for (let i = 0; i < newValue.length; i++) {
-      const imageName = newValue[i].name
-      // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
-      if (!duplicateImageUrls.value[imageName]) {
-        const fr = new FileReader()
-        const file = newValue[i].raw
-        // 获取base64的url，用于缩略图展示，不用于表单
-        fr.readAsDataURL(file)
-        fr.onload = function () {
-          // 暂存在数组中，最后赋值给缩略图
-          duplicateImageUrls.value[imageName] = fr.result
-          // 设置数据
-          setMoreInfoByExifReader(file, imageName)
-        }
-      }
-    }
-  }
-)
+/**
+ * @description: 删除在左侧上传列表中的单张照片
+ * @param {*} name
+ * @return {*}
+ */
+function deleteImage1(name) {
+  // 删除原来解析好的base64
+  delete imageUrls.value[name]
+  // 删除上传文件中的图片
+  hasUrlFileList.value = hasUrlFileList.value.filter(item => {
+    return item.name !== name
+  })
+  // 删除上传文件中的图片
+  elUploadFileList.value = elUploadFileList.value.filter(item => {
+    return item.name !== name
+  })
+  // 获取对应的marker，name和id是一样的
+  const marker = getMarkerById(name)
+  // 删除掉marker
+  deleteMarkerInMap(marker, props.map)
+}
+
+// 通过raw文件获取相关的文件数据
+function getFileInfoByFile(raw) {
+  const { lastModified, name, size, type } = raw
+  // id通过name和type来生成
+  const id = name
+  return { id, lastModified, name, size, type }
+}
+
+
+async function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const fr = new FileReader();
+    fr.onload = () => resolve(fr.result);
+    fr.onerror = () => reject(fr.error);
+    fr.readAsDataURL(file);
+  });
+}
 
 // 添加图片
-async function uploadImages(data) {
+async function uploadImages(imagInfos) {
   // subimtData.append('data', 123)
-  const res1 = await API.image.uploadImages({ images: data })
-  // 删除url属性
-  const noUrlFormData = cloneDeep(data).map(item => {
-    delete item.url
-    return item
-  })
-  // 在schema的imageInfo中添加图片信息
-  schemaStore.pushImagesToImageInfo(noUrlFormData)
-  const newSchema = schemaStore.getSchema
-  const res2 = await API.schema.setSchema({ schema: JSON.stringify(newSchema) })
+  // 上传图片一定要用UploadImages因为有特殊操作，而且要先上传图片再保存schema
+  const res1 = await UploadImages(imagInfos)
+  // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
+  const res2 = await SaveSchema()
   if (res1.code === 200 && res2.code === 200) {
     ElMessage.success('图片上传成功!')
     // 上传完成后，点击右键可以出现操作菜单

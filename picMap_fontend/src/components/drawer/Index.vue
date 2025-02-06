@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 12:09:21
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 13:08:50
+ * @LastEditTime: 2025-02-06 19:28:54
  * @FilePath: \Code\picMap_fontend\src\components\drawer\index.vue
  * @Description: 
 -->
@@ -26,7 +26,7 @@
 <script setup>
 import eventBus from '@/utils/eventBus'
 import { onMounted, onUnmounted, ref } from 'vue'
-import { isExistInImageInfo, getSchemaInfoById } from '@/utils/schema.js'
+import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema.js'
 import { calcMBSize } from '@/utils/Image'
 import keyValue from './components/keyValue.vue'
 
@@ -36,9 +36,9 @@ const marker = ref({})
 
 function drawerShow(event) {
   // 如果marker不在schema中，则说明是临时添加的，需要出现抽屉
-  if (!isExistInImageInfo(event.target.options.id)) {
-    return
-  }
+  // if (!judgeHadUploadImage(event.target.options.id)) {
+  //   return
+  // }
 
   isShow.value = true
 }

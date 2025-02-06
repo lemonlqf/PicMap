@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 00:00:32
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 14:07:37
+ * @LastEditTime: 2025-02-06 14:36:50
  * @FilePath: \Code\picMap_fontend\src\utils\WGS84-GCJ02.js
  * @Description:
  */
@@ -31,10 +31,10 @@ function wgs84ToGcj02(lng, lat) {
   let mglat = (lat + dlat).toFixed(7)
   let mglng = (lng + dlng).toFixed(7)
   if (mglat === 'NaN') {
-    mglat = '无数据'
+    mglat = undefined
   }
   if (mglng === 'NaN') {
-    mglng = '无数据'
+    mglng = undefined
   }
   return [mglng, mglat]
 }

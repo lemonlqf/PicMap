@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 13:58:12
+ * @LastEditTime: 2025-02-06 20:51:21
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -10,7 +10,7 @@ import L from 'leaflet'
 import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
 import eventBus from '@/utils/eventBus'
-import { isExistInImageInfo } from '@/utils/schema.js'
+import { judgeHadUploadImage } from '@/utils/schema.js'
 
 const NO_IMAGE_MARKER_SIZE = [40]
 
@@ -36,16 +36,28 @@ export function addImageIconToMap(map, imageInfo) {
       iconSize: NO_IMAGE_MARKER_SIZE
     })
   }
-
-  // 先纬度再经度
-  const marker = L.marker([imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude], {
-    icon: myIcon,
-    title: imageInfo.name,
-    type: 'image',
-    id: imageInfo.id
-  }).addTo(map)
-  // 添加到store中
-  mapStore.addMarker(marker)
+  if (imageInfo.GPSInfo.GPSLatitude && imageInfo.GPSInfo.GPSLongitude) {
+    const isExist = mapStore.getVisibleMarkers.some(item => {
+      return item.options.id === imageInfo.id
+    })
+    if (!isExist) {
+      // 如果还没有需要新建，传参先纬度再经度
+      const marker = L.marker([imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude], {
+        icon: myIcon,
+        title: imageInfo.name,
+        type: 'image',
+        id: imageInfo.id
+      }).addTo(map)
+      // 添加到store中
+      mapStore.addMarker(marker)
+    } else {
+      // 如果已经有了就复用
+      const marker = mapStore.getVisibleMarkers.find(item => {
+        return item.options.id === imageInfo.id
+      })
+      marker.setIcon(myIcon)
+    }
+  }
 }
 
 /**
@@ -152,7 +164,7 @@ function updateMarker(marker, map) {
   // TODO:将marker添加到已经渲染的store中
   const index = mapStore.getVisibleMarkers.findIndex(item => item.options.id === marker.options.id)
   // 判断是否在schema中
-  const isInSchema = isExistInImageInfo(marker.options.id)
+  const isInSchema = judgeHadUploadImage(marker.options.id)
   if (index === -1 && marker?.options?.icon?.options?.iconUrl) {
     // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
     mapStore.addVisibleMarker(marker)

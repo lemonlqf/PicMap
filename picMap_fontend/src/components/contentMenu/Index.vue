@@ -20,7 +20,7 @@ import eventBus from '@/utils/eventBus.js'
 import API from '@/http/index.js'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
-import { isExistInImageInfo } from '@/utils/schema.js'
+import { judgeHadUploadImage, saveSchema } from '@/utils/schema.js'
 import { deleteMarkerInMap } from '@/utils/map.js'
 
 const props = defineProps({
@@ -39,8 +39,7 @@ const menuList = ref([
     clickEvent: async () => {
       // 在schema的imageInfo中添加图片信息
       schemaStore.deleteImageInImageInfo(marker.value.options.id)
-      const newSchema = schemaStore.getSchema
-      const res2 = await API.schema.setSchema({ schema: JSON.stringify(newSchema) })
+      const res2 = saveSchema()
       Promise.all([
         API.schema.setSchema({ schema: JSON.stringify(newSchema) }),
         API.image.deleteImages({ deleteImages: [marker.value.options.id] })
@@ -66,7 +65,7 @@ function getPxValue(value) {
 
 function menuShow(event) {
   // 如果marker不在schema中，则说明是临时添加的，不需要出现右键的菜单
-  if (!isExistInImageInfo(event.target.options.id)) {
+  if (!judgeHadUploadImage(event.target.options.id)) {
     return
   }
   console.log(event)

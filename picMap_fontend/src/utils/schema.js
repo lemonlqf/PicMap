@@ -2,12 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 13:35:42
+ * @LastEditTime: 2025-02-06 20:08:05
  * @FilePath: \Code\picMap_fontend\src\utils\schema.js
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep } from 'lodash-es'
+import API from '@/http/index.js'
 
 /**
  * @description: 获取图片组和图片列表，用于直接在地图上展示
@@ -52,12 +53,43 @@ export function getSchemaInfoById(id) {
 }
 
 /**
- * @description: 判断id是否存在于图片信息中
+ * @description: 判断图片是否已经上传了
  * @param {*} id
  * @return {*}
  */
-export function isExistInImageInfo(id) {
+export function judgeHadUploadImage(id) {
   const schemaStore = useSchemaStore()
-  const imageInfo = schemaStore.getSchema.imageInfo
-  return imageInfo.some(item => item?.id === id)
+  return schemaStore.getUploadedImageIds.some(item => {
+    return item === id
+  })
+}
+
+/**
+ * @description: 获取schema中imageInfo的所有id
+ * @return {*}
+ */
+export function getAllImageIdInSchema() {
+  const schemaStore = useSchemaStore()
+  const res = schemaStore?.getSchema?.imageInfo?.map(item => item.id)
+  return res
+}
+
+/**
+ * @description: 保存schema
+ * @return {*}
+ */
+export async function saveSchema() {
+  const schemaStore = useSchemaStore()
+  const schema = cloneDeep(schemaStore.getSchema)
+  const updateImages = schemaStore.getUploadedImageIds
+  // 只保留已经上传的图片信息（剔除未上传的）
+  schema.imageInfo = schema.imageInfo.filter(item => {
+    return updateImages.includes(item.id)
+  })
+  schema?.imageInfo?.forEach?.(item => {
+    // 删除url，精简schema
+    delete item.url
+  })
+  const res = await API.schema.setSchema({ schema: JSON.stringify(schema) })
+  return res
 }
