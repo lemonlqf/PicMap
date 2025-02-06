@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-04 13:00:28
+ * @LastEditTime: 2025-02-06 13:58:12
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -114,8 +114,8 @@ export function hiddenImageInfoDrawerMapClick(map) {
  */
 export function updateVisibleMarkers(map) {
   const mapStore = useMapStore()
-  const visibleMarkers = mapStore.getVisibleMarker
-  const markers = mapStore.getMarker
+  const visibleMarkers = mapStore.getVisibleMarkers
+  const markers = mapStore.getMarkers
   markers.forEach(marker => {
     if (isMarkerInView(marker.getLatLng(), map)) {
       if (!visibleMarkers.includes(marker)) {
@@ -150,9 +150,15 @@ function isMarkerInView(markerLatLng, map) {
 function updateMarker(marker, map) {
   const mapStore = useMapStore()
   // TODO:将marker添加到已经渲染的store中
-  const index = mapStore.getVisibleMarker.findIndex(item => item.options.id === marker.options.id)
+  const index = mapStore.getVisibleMarkers.findIndex(item => item.options.id === marker.options.id)
   // 判断是否在schema中
   const isInSchema = isExistInImageInfo(marker.options.id)
+  if (index === -1 && marker?.options?.icon?.options?.iconUrl) {
+    // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
+    mapStore.addVisibleMarker(marker)
+    return
+  }
+  // move地图后请求图片数据
   if (index === -1 && isInSchema) {
     mapStore.addVisibleMarker(marker)
     imageHttp.getImage({ imageId: marker.options.id }).then(res => {
@@ -212,7 +218,7 @@ function noImageUrlIcon(text) {
  */
 export function getMarkerById(id) {
   const mapStore = useMapStore()
-  const markers = mapStore.getMarker
+  const markers = mapStore.getMarkers
   let res
   markers.forEach(marker => {
     if (marker.options.id === id) {

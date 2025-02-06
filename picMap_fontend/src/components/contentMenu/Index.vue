@@ -65,7 +65,7 @@ function getPxValue(value) {
 }
 
 function menuShow(event) {
-  // 如果marker不在schema中，则说明是临时添加的，需要出现右键的菜单
+  // 如果marker不在schema中，则说明是临时添加的，不需要出现右键的菜单
   if (!isExistInImageInfo(event.target.options.id)) {
     return
   }

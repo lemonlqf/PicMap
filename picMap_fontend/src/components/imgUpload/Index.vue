@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-04 13:51:04
+ * @LastEditTime: 2025-02-06 14:06:01
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -83,7 +83,7 @@ const noDuplicateImageUrls = ref({})
 // 缩略图地址数组，有重复的
 const duplicateImageUrls = ref({})
 // 图片gps信息，通过el-upload获取的fileList没有这个数据，用这个额变量暂时存一下，后续在formData中添加对应数据
-const GPSInfo = ref({})
+const moreInfo = ref({})
 // 上传组件获取到的文件
 const elUploadFileList = ref([])
 
@@ -115,7 +115,7 @@ const noDuplicateFormData = computed(() => {
       const imageName = noDuplicateFileList.value[i].name
       // 获取文件信息
       const fileInfo = getFileInfoByFile(noDuplicateFileList.value[i].raw)
-      res[i] = { GPSInfo: GPSInfo.value[imageName], ...fileInfo, url: noDuplicateImageUrls.value[imageName] }
+      res[i] = {  ...moreInfo?.value?.[imageName], ...fileInfo, url: noDuplicateImageUrls.value[imageName] }
     }
   }
   return res
@@ -129,7 +129,7 @@ const duplicateFormData = computed(() => {
       const imageName = duplicateFileList.value[i].name
       // 获取文件信息
       const fileInfo = getFileInfoByFile(duplicateFileList.value[i].raw)
-      res[i] = { GPSInfo: GPSInfo.value[imageName], ...fileInfo, url: duplicateImageUrls.value[imageName] }
+      res[i] = { ...moreInfo?.value?.[imageName], ...fileInfo, url: duplicateImageUrls.value[imageName] }
     }
   }
   return res
@@ -173,13 +173,20 @@ function getFileInfoByFile(raw) {
 }
 
 // 从图片信息对象中提取GPS信息，并添加到地图里面
-async function setInfoByExifReader(file, name) {
+async function setMoreInfoByExifReader(file, name) {
   const tags = await ExifReader.load(file, { expanded: true })
-  // 设置经纬度
+  console.log('--', tags)
+  moreInfo.value[name] = {}
+  // 设置经纬度到moreInfo中
   setGPSInfo(tags, name)
+  // 图片信息
+  setImageInfo(tags, name)
+  // 相机信息
+  setCameraInfo(tags, name)
+  // 作者信息
+  setAuthorInfo(tags, name)
   // TODO:设置其他值
-  // setxxxInfo(tags, index)
-
+  // setxxxInfo(tags, name)
   // TODO:设置完后，在地图里面生产对应的节点，名字再取
   addMarkerToMap()
 }
@@ -188,13 +195,81 @@ async function setInfoByExifReader(file, name) {
 function setGPSInfo(tags, name) {
   let GPSLatitude = ''
   let GPSLongitude = ''
+  let GPSAltitude = 0
   if (tags.gps) {
     // 坐标是WGS84标准的，国内坐标是GCJ02标准的，需要转化
-    const GcGPSInfo = wgs84ToGcj02(tags.gps.Longitude, tags.gps.Latitude)
-    GPSLongitude = GcGPSInfo[0]
-    GPSLatitude = GcGPSInfo[1]
+    const GcjGPSInfo = wgs84ToGcj02(tags.gps.Longitude, tags.gps.Latitude)
+    GPSLongitude = GcjGPSInfo[0]
+    GPSLatitude = GcjGPSInfo[1]
+    // 海拔（m）
+    GPSAltitude = tags?.gps?.Altitude
   }
-  GPSInfo.value[name] = { GPSLatitude, GPSLongitude }
+  moreInfo.value[name].GPSInfo = { GPSLatitude, GPSLongitude, GPSAltitude }
+}
+
+/**
+ * @description: 作者相关信息
+ * @param {*} tags
+ * @param {*} name
+ * @return {*}
+ */
+function setAuthorInfo(tags, name) {
+  const exif = tags.exif
+  moreInfo.value[name].author = {
+    // 拍摄时间
+    DateTime: exif?.DateTime?.value,
+    // 图像作者
+    Artis: exif?.Artis?.value,
+    // 图像软件
+    SoftWare: exif?.SoftWare?.value,
+  }
+  // moreInfo.value[name].GPSInfo = { GPSLatitude, GPSLongitude }
+}
+
+/**
+ * @description: 设置相机参数信息
+ * @param {*} tags
+ * @param {*} name
+ * @return {*}
+ */
+function setCameraInfo(tags, name) {
+  const exif = tags.exif
+  moreInfo.value[name].cameraInfo = {
+    // 相机制造商
+    Make: exif?.Make?.value,
+    // 相机型号
+    Model: exif?.Model?.value,
+    // 光圈值
+    FNumber: exif?.FNumber?.value,
+    // 曝光时间
+    ExposureTime: exif?.ExposureTime?.value,
+    // ISO速度
+    ISOSpeedRatings: exif?.ISOSpeedRatings?.value,
+    // 曝光补偿
+    ExposureBiasValue: exif?.ExposureBiasValue?.value,
+    // 焦距（mm）
+    FocalLength: exif?.FocalLength?.value,
+    // 最大光圈
+    MaxApertureValue: exif?.MaxApertureValue?.value,
+    // 其他数据......
+  }
+}
+
+/**
+ * @description: 图片相关的信息
+ * @param {*} tags
+ * @param {*} name
+ * @return {*}
+ */
+function setImageInfo(tags, name) {
+  const exif = tags.exif
+  moreInfo.value[name].imageInfo = {
+    // 分辨率
+    Resolution: `${exif?.PixelYDimension?.value} x ${exif?.PixelXDimension?.value}`,
+    // 亮度
+    BrightnessValue: exif?.BrightnessValue?.value,
+
+  }
 }
 
 /**
@@ -226,7 +301,7 @@ watch(
           // 暂存在数组中，最后赋值给缩略图
           noDuplicateImageUrls.value[imageName] = fr.result
           // 设置数据
-          setInfoByExifReader(file, imageName)
+          setMoreInfoByExifReader(file, imageName)
         }
       }
     }
@@ -249,7 +324,7 @@ watch(
           // 暂存在数组中，最后赋值给缩略图
           duplicateImageUrls.value[imageName] = fr.result
           // 设置数据
-          setInfoByExifReader(file, imageName)
+          setMoreInfoByExifReader(file, imageName)
         }
       }
     }
@@ -355,5 +430,9 @@ h3 {
 .duplicate-upload-img-card {
   display: inline-block;
   margin: 1px 2px;
+}
+
+img {
+  cursor: pointer;
 }
 </style>

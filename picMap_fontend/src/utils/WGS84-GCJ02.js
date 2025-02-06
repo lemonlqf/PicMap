@@ -1,3 +1,11 @@
+/*
+ * @Author: Do not edit
+ * @Date: 2025-02-02 00:00:32
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-02-06 14:07:37
+ * @FilePath: \Code\picMap_fontend\src\utils\WGS84-GCJ02.js
+ * @Description:
+ */
 const PI = 3.1415926535897932384626
 const A = 6378245.0 // 长半轴
 const EE = 0.00669342162296594323 // 扁率
@@ -20,8 +28,14 @@ function wgs84ToGcj02(lng, lat) {
   const sqrtmagic = Math.sqrt(magic)
   dlat = (dlat * 180.0) / (((A * (1 - EE)) / (magic * sqrtmagic)) * PI)
   dlng = (dlng * 180.0) / ((A / sqrtmagic) * Math.cos(radlat) * PI)
-  const mglat = lat + dlat
-  const mglng = lng + dlng
+  let mglat = (lat + dlat).toFixed(7)
+  let mglng = (lng + dlng).toFixed(7)
+  if (mglat === 'NaN') {
+    mglat = '无数据'
+  }
+  if (mglng === 'NaN') {
+    mglng = '无数据'
+  }
   return [mglng, mglat]
 }
 
