@@ -63,7 +63,7 @@ h1 {
 }
 
 div {
-  width: 200px;
+  width: 250px;
   display: flex;
   justify-content: space-between;
   span:first-child {

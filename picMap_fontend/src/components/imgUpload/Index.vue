@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 20:30:48
+ * @LastEditTime: 2025-02-11 21:39:13
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -38,15 +38,18 @@
           <div class="image-info" >
             <img :src="item.url" alt="" :title="item.name" height="50px" @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map)" />
             <h1>照片名:{{ item.name }}</h1>
-            <h1>纬度:{{ item?.GPSInfo?.GPSLatitude ?? '无数据' }}</h1>
-            <h1>经度:{{ item?.GPSInfo?.GPSLongitude ?? '无数据' }}</h1>
+            <h1>纬度:{{ !item?.GPSInfo?.GPSLatitude ? '无数据' : item?.GPSInfo?.GPSLatitude }}</h1>
+            <h1>经度:{{ !item?.GPSInfo?.GPSLongitude  ? '无数据' : item?.GPSInfo?.GPSLongitude }}</h1>
             <!-- <h1>id: {{ item.id }}</h1> -->
           </div>
           <div class="uplod-delete-buttons">
-            <div @click="uploadImage1(item.name)">
+            <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude" @click="showLocateDialog(item.name)">
+              <img src="@/assets/icon/定位(白色).png" width="20px" alt="">定位</img>
+            </div>
+            <div v-else @click="uploadImage(item.name)">
               <img src="@/assets/icon/上传 (白色).png" width="20px">上传</img>
             </div>
-            <div @click="deleteImage1(item.name)">
+            <div @click="deleteImage(item.name)">
               <img src="@/assets/icon/删除 (白色).png" width="20px">删除</img>
             </div>
           </div>
@@ -56,14 +59,56 @@
     <!-- 测试用，后续删除 -->
     <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)" type="primary">批量上传</el-button>
   </div>
+  <!-- 定位弹框 -->
+  <el-dialog
+   v-model="locateDialogShow"
+   title="设置图片位置"
+   style="width: 500px;"
+  >
+    <el-form
+      ref="formRef"
+      :model="needLocateImageIdFormData"
+      style="width: 400px"
+      label-width="auto"
+      :rules="rules"
+    >
+      <el-form-item
+        label="经度"
+        prop="GPSLongitude"
+      >
+        <el-input v-model="needLocateImageIdFormData.GPSLongitude"></el-input>
+      </el-form-item>
+      <el-form-item
+        label="纬度"
+        prop="GPSLatitude"
+      >
+        <el-input v-model="needLocateImageIdFormData.GPSLatitude"></el-input>
+      </el-form-item>
+      <el-form-item
+        label="海拔"
+        prop="GPSAltitude"
+      >
+        <el-input v-model="needLocateImageIdFormData.GPSAltitude" placeholder="0"></el-input>
+      </el-form-item>
+      <el-button @click="manualLocateImage">手动定位</el-button>
+    </el-form>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="cancelLocateImage">取消</el-button>
+        <el-button type="primary" @click="locateImage(formRef)">
+          确认
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script setup>
-import { ref, watch, computed } from 'vue'
+import { ref, watch, computed, reactive } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading  } from 'element-plus'
 import L from 'leaflet'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers } from '@/utils/map.js'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap } from '@/utils/map.js'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema.js'
 import { uploadImages as UploadImages } from '@/utils/image.js'
 import { useSchemaStore } from '@/store/schema'
@@ -87,6 +132,16 @@ const moreInfo = ref({})
 const elUploadFileList = ref([])
 // 最完整的，在el-upload获取到文件的基础上，解析到了GPS和base64Url等信息
 const hasUrlFileList = ref([])
+// 设置定位的弹框
+const locateDialogShow = ref(true)
+// 定位的数据
+const needLocateImageIdFormData = ref({
+  id: null,
+  GPSAltitude: null,
+  GPSLatitude: null,
+  GPSLongitude: null
+})
+const formRef = ref()
 
 function isInHasUrlFileList(id) {
   return hasUrlFileList.value.some(item => {
@@ -103,9 +158,9 @@ watch(
       if (!isInHasUrlFileList(imageName)) {
         const file = newValue[i].raw
         // res包括id, lasetModified, name, size, type
-        const res1 = getFileInfoByFile1(file)
+        const res1 = getFileInfoByFile(file)
         // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
-        const res2 = await setMoreInfoByExifReader1(file)
+        const res2 = await setMoreInfoByExifReader(file)
         // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
         if (!imageUrls.value[imageName]) {
           const url = await readFileAsDataURL(file);
@@ -143,7 +198,7 @@ const uploadedImageInfos = computed(() => {
 
 
 // 通过raw文件获取相关的文件数据
-function getFileInfoByFile1(file) {
+function getFileInfoByFile(file) {
   const { lastModified, name, size, type } = file
   // id通过name和type来生成
   const id = name
@@ -152,17 +207,17 @@ function getFileInfoByFile1(file) {
 
 
 // 从图片信息对象中提取GPS信息，并添加到地图里面
-async function setMoreInfoByExifReader1(file, name) {
+async function setMoreInfoByExifReader(file, name) {
   const tags = await ExifReader.load(file, { expanded: true })
   console.log('--', tags)
   // 设置经纬度到moreInfo中
-  const GPSInfo = getGPSInfo1(tags)
+  const GPSInfo = getGPSInfo(tags)
   // 图片信息
-  const imageInfo = getImageInfo1(tags)
+  const imageInfo = getImageInfo(tags)
   // 相机信息
-  const cameraInfo = getCameraInfo1(tags)
+  const cameraInfo = getCameraInfo(tags)
   // 作者信息
-  const authorInfo = getAuthorInfo1(tags)
+  const authorInfo = getAuthorInfo(tags)
   // TODO:设置其他值
   // setxxxInfo(tags, name)
   
@@ -170,15 +225,15 @@ async function setMoreInfoByExifReader1(file, name) {
 }
 
 // 获取不同图片经纬度信息
-function getGPSInfo1(info) {
-  let GPSLatitude = ''
-  let GPSLongitude = ''
+function getGPSInfo(info) {
+  let GPSLatitude = null
+  let GPSLongitude = null
   let GPSAltitude = 0
   if (info.gps) {
     // 坐标是WGS84标准的，国内坐标是GCJ02标准的，需要转化
     const GcjGPSInfo = wgs84ToGcj02(info.gps.Longitude, info.gps.Latitude)
-    GPSLongitude = GcjGPSInfo[0]
-    GPSLatitude = GcjGPSInfo[1]
+    GPSLongitude = GcjGPSInfo[0] === '' ? null : GcjGPSInfo[0]
+    GPSLatitude = GcjGPSInfo[1] === '' ? null : GcjGPSInfo[1]
     // 海拔（m）
     GPSAltitude = info?.gps?.Altitude
   }
@@ -191,7 +246,7 @@ function getGPSInfo1(info) {
  * @param {*} name
  * @return {*}
  */
-function getAuthorInfo1(info) {
+function getAuthorInfo(info) {
   const exif = info.exif
   return {
     // 拍摄时间
@@ -209,7 +264,7 @@ function getAuthorInfo1(info) {
  * @param {*} name
  * @return {*}
  */
-function getCameraInfo1(info) {
+function getCameraInfo(info) {
   const exif = info.exif
   return {
     // 相机制造商
@@ -238,7 +293,7 @@ function getCameraInfo1(info) {
  * @param {*} name
  * @return {*}
  */
-function getImageInfo1(info) {
+function getImageInfo(info) {
   const exif = info.exif
   return {
     // 分辨率
@@ -267,11 +322,15 @@ watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
  * @param {*} name
  * @return {*}
  */
-function uploadImage1(name) {
+function uploadImage(name) {
   const data = needUploadImageInfos.value.filter(item => {
     return item.id === name
   })
-  uploadImages(data)
+  if (data[0].GPSInfo.GPSLongitude !== '' && data[0].GPSInfo.GPSLatitude !== '') {
+    uploadImages(data)
+  } else {
+    ElMessage.error('图片无地址信息，无法直接上传！')
+  }
 }
 
 
@@ -280,7 +339,7 @@ function uploadImage1(name) {
  * @param {*} name
  * @return {*}
  */
-function deleteImage1(name) {
+function deleteImage(name) {
   // 删除原来解析好的base64
   delete imageUrls.value[name]
   // 删除上传文件中的图片
@@ -296,15 +355,6 @@ function deleteImage1(name) {
   // 删除掉marker
   deleteMarkerInMap(marker, props.map)
 }
-
-// 通过raw文件获取相关的文件数据
-function getFileInfoByFile(raw) {
-  const { lastModified, name, size, type } = raw
-  // id通过name和type来生成
-  const id = name
-  return { id, lastModified, name, size, type }
-}
-
 
 async function readFileAsDataURL(file) {
   return new Promise((resolve, reject) => {
@@ -326,6 +376,92 @@ async function uploadImages(imagInfos) {
     ElMessage.success('图片上传成功!')
     // 上传完成后，点击右键可以出现操作菜单
   }
+}
+
+/**
+ * @description: 为没有位置的图片设置定位信息
+ * @param {*} id
+ * @return {*}
+ */
+function showLocateDialog(id) {
+  locateDialogShow.value = true
+  needLocateImageIdFormData.value.id = id
+}
+
+/**
+ * @description: 取消定位
+ * @return {*}
+ */
+function cancelLocateImage() {
+  resetForm()
+  locateDialogShow.value = false
+}
+
+/**
+ * @description: 情空表单
+ * @return {*}
+ */
+function resetForm() {
+  // 清空form表单的数据
+  Object.keys(needLocateImageIdFormData.value).forEach(key => {
+    needLocateImageIdFormData.value[key] = null
+  })
+}
+
+/**
+ * @description: 定位图片，将数据保存到schema中
+ * @return {*}
+ */
+async function locateImage(formRef) {
+  if (!formRef) return
+  await formRef.validate((valid, fields) => {
+    if (valid) {
+      console.log(needLocateImageIdFormData.value)
+      if (needLocateImageIdFormData.value.id) {
+        const { GPSLatitude, GPSAltitude, GPSLongitude = 0 } = needLocateImageIdFormData.value
+        const imageInfo = needUploadImageInfos.value.find(item => {
+          return item.id === needLocateImageIdFormData.value.id
+        })
+        imageInfo.GPSInfo = { GPSLatitude, GPSAltitude, GPSLongitude }
+      }
+      locateDialogShow.value = false
+
+      console.log('submit!')
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+// 校验规则
+const rules = reactive({
+  GPSLongitude: [{
+    required: true,
+    message: '经度值不能为空！',
+    trigger: 'change',
+  }],
+  GPSLatitude: [{
+    required: true,
+    message: '纬度值不能为空！',
+    trigger: 'change',
+  }]
+})
+
+/**
+ * @description: 手动定位
+ * @return {*}
+ */
+async function manualLocateImage() {
+  locateDialogShow.value = false
+  // TODO:添加一个可以移动的图片，移动后更新坐标
+  const fileInfo = hasUrlFileList.value.find(item => {
+    return item.id === needLocateImageIdFormData.value.id
+  })
+  const markerLatLng = props.map.getCenter()
+  needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
+  needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
+  const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng)
+  // TODO:移动后定位，更新坐标
 }
 
 // TODO:更新图片信息

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 20:51:21
+ * @LastEditTime: 2025-02-11 20:34:42
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -58,6 +58,38 @@ export function addImageIconToMap(map, imageInfo) {
       marker.setIcon(myIcon)
     }
   }
+}
+
+/**
+ * @description: 添加可移动的图标
+ * @param {*} map
+ * @param {*} imageInfo
+ * @return {*}
+ */
+export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
+  let myIcon = null
+  // 如果没有url直接用文字名称代替
+  if (!imageInfo?.url) {
+    myIcon = L.divIcon({
+      html: noImageUrlIcon(imageInfo.name),
+      iconSize: NO_IMAGE_MARKER_SIZE
+    })
+  } else {
+    myIcon = L.icon({
+      iconUrl: imageInfo.url,
+      iconSize: NO_IMAGE_MARKER_SIZE
+    })
+  }
+  // 地图中心
+  const markerLatLng = lat && Lng ? [lat, Lng] : [map.getCenter().lat, map.getCenter().lng]
+  const marker = L.marker(markerLatLng, {
+    icon: myIcon,
+    title: imageInfo.name,
+    type: 'image',
+    id: imageInfo.id,
+    draggable: true
+  }).addTo(map)
+  return marker
 }
 
 /**
