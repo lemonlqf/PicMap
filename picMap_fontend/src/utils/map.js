@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-11 20:34:42
+ * @LastEditTime: 2025-02-12 22:48:29
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -12,7 +12,9 @@ import imageHttp from '@/http/modules/image'
 import eventBus from '@/utils/eventBus'
 import { judgeHadUploadImage } from '@/utils/schema.js'
 
-const NO_IMAGE_MARKER_SIZE = [40]
+const NO_IMAGE_MARKER_SIZE = [40, 40]
+// marker向上偏移的量
+const markerTranslateY = NO_IMAGE_MARKER_SIZE[1]
 
 /**
  * @description: 添加图片到地图中
@@ -28,12 +30,16 @@ export function addImageIconToMap(map, imageInfo) {
   if (!imageInfo?.url) {
     myIcon = L.divIcon({
       html: noImageUrlIcon(imageInfo.name),
-      iconSize: NO_IMAGE_MARKER_SIZE
+      iconSize: NO_IMAGE_MARKER_SIZE,
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
     })
   } else {
-    myIcon = L.icon({
+    myIcon = L.divIcon({
+      // 传值使用
       iconUrl: imageInfo.url,
-      iconSize: NO_IMAGE_MARKER_SIZE
+      html: imageUrlIcon(imageInfo.url),
+      iconSize: NO_IMAGE_MARKER_SIZE,
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
     })
   }
   if (imageInfo.GPSInfo.GPSLatitude && imageInfo.GPSInfo.GPSLongitude) {
@@ -72,12 +78,16 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
   if (!imageInfo?.url) {
     myIcon = L.divIcon({
       html: noImageUrlIcon(imageInfo.name),
-      iconSize: NO_IMAGE_MARKER_SIZE
+      iconSize: NO_IMAGE_MARKER_SIZE,
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
     })
   } else {
-    myIcon = L.icon({
+    myIcon = L.divIcon({
+      // 传值使用
       iconUrl: imageInfo.url,
-      iconSize: NO_IMAGE_MARKER_SIZE
+      html: imageUrlIcon(imageInfo.url),
+      iconSize: NO_IMAGE_MARKER_SIZE,
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
     })
   }
   // 地图中心
@@ -111,7 +121,11 @@ export function deleteMarkerInMap(marker, map) {
  */
 export function addGroupIconToMap(map, groupInfo) {
   const mapStore = useMapStore()
-  const myIcon = L.divIcon({ html: noImageUrlIcon(groupInfo.name), iconSize: NO_IMAGE_MARKER_SIZE })
+  const myIcon = L.divIcon({
+    html: noImageUrlIcon(groupInfo.name),
+    iconSize: NO_IMAGE_MARKER_SIZE,
+    iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY]
+  })
   // 先纬度再经度
   const marker = L.marker([groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude], {
     icon: myIcon,
@@ -197,7 +211,7 @@ function updateMarker(marker, map) {
   const index = mapStore.getVisibleMarkers.findIndex(item => item.options.id === marker.options.id)
   // 判断是否在schema中
   const isInSchema = judgeHadUploadImage(marker.options.id)
-  if (index === -1 && marker?.options?.icon?.options?.iconUrl) {
+  if (index === -1 && marker?.options?.divIcon?.options?.iconUrl) {
     // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
     mapStore.addVisibleMarker(marker)
     return
@@ -212,9 +226,12 @@ function updateMarker(marker, map) {
         return
       }
       const fileUrl = fileToBase64(res.data.file)
-      const myIcon = L.icon({
+      const myIcon = L.divIcon({
+        html: imageUrlIcon(fileUrl),
+        // 传值使用
         iconUrl: fileUrl,
-        iconSize: NO_IMAGE_MARKER_SIZE
+        iconSize: NO_IMAGE_MARKER_SIZE,
+        iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
       })
       marker.setIcon(myIcon)
     })
@@ -248,10 +265,32 @@ function fileToBase64(file) {
  * @return {*}
  */
 function noImageUrlIcon(text) {
+  const locationDiv = document.createElement('div')
+  locationDiv.className = 'location'
   const div = document.createElement('div')
+  div.appendChild(locationDiv)
   div.className = 'no-image-icon'
   div.innerHTML = text
-  div.style.lineHeight = NO_IMAGE_MARKER_SIZE[1] + 'px'
+  div.style.lineHeight = markerTranslateY + 'px'
+  return div
+}
+
+/**
+ * @description: 有图片时的icon
+ * @param {*} text
+ * @return {*}
+ */
+function imageUrlIcon(imgUrl) {
+  const locationDiv = document.createElement('div')
+  locationDiv.className = 'location'
+  const div = document.createElement('div')
+  div.appendChild(locationDiv)
+  const img = document.createElement('img')
+  img.width = `${NO_IMAGE_MARKER_SIZE[0]}`
+  img.height = `${markerTranslateY}`
+  img.src = imgUrl
+  div.className = 'no-image-icon'
+  div.appendChild(img)
   return div
 }
 

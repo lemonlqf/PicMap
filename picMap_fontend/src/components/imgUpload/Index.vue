@@ -462,6 +462,7 @@ async function manualLocateImage() {
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
   const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng)
   // TODO:移动后定位，更新坐标
+  
 }
 
 // TODO:更新图片信息
