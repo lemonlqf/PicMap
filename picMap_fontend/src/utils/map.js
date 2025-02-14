@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-12 22:48:29
+ * @LastEditTime: 2025-02-14 22:35:22
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -108,8 +108,10 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
  * @return {*}
  */
 export function deleteMarkerInMap(marker, map) {
+  const mapStore = useMapStore()
   if (map && marker) {
     map.removeLayer(marker)
+    mapStore.deleteMarker(marker)
   }
 }
 
@@ -181,6 +183,7 @@ export function updateVisibleMarkers(map) {
           // 更新一下marker
           updateMarker(marker, map)
         }
+        mapStore.addVisibleMarker(marker)
       }
     }
   })
@@ -213,12 +216,10 @@ function updateMarker(marker, map) {
   const isInSchema = judgeHadUploadImage(marker.options.id)
   if (index === -1 && marker?.options?.divIcon?.options?.iconUrl) {
     // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
-    mapStore.addVisibleMarker(marker)
     return
   }
   // move地图后请求图片数据
   if (index === -1 && isInSchema) {
-    mapStore.addVisibleMarker(marker)
     imageHttp.getImage({ imageId: marker.options.id }).then(res => {
       if (res.code !== 200) {
         // 如果没有请求成功需要先删除掉

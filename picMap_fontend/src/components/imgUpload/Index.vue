@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-11 21:39:13
+ * @LastEditTime: 2025-02-14 22:18:21
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -104,7 +104,7 @@
 </template>
 
 <script setup>
-import { ref, watch, computed, reactive } from 'vue'
+import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading  } from 'element-plus'
 import L from 'leaflet'
@@ -112,6 +112,8 @@ import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVis
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema.js'
 import { uploadImages as UploadImages } from '@/utils/image.js'
 import { useSchemaStore } from '@/store/schema'
+import { useMapStore } from '@/store/map'
+import eventBus from '@/utils/eventBus.js'
 import API from '@/http/index.js'
 import { v5 as uuidv5 } from 'uuid'
 import { before, cloneDeep, has } from 'lodash-es'
@@ -133,7 +135,7 @@ const elUploadFileList = ref([])
 // 最完整的，在el-upload获取到文件的基础上，解析到了GPS和base64Url等信息
 const hasUrlFileList = ref([])
 // 设置定位的弹框
-const locateDialogShow = ref(true)
+const locateDialogShow = ref(false)
 // 定位的数据
 const needLocateImageIdFormData = ref({
   id: null,
@@ -152,27 +154,32 @@ function isInHasUrlFileList(id) {
 watch(
   () => elUploadFileList.value,
   async (newValue) => {
-    for (let i = 0; i < newValue.length; i++) {
-      const imageName = newValue[i].name
-      // 如果没有的话
-      if (!isInHasUrlFileList(imageName)) {
-        const file = newValue[i].raw
-        // res包括id, lasetModified, name, size, type
-        const res1 = getFileInfoByFile(file)
-        // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
-        const res2 = await setMoreInfoByExifReader(file)
-        // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
-        if (!imageUrls.value[imageName]) {
-          const url = await readFileAsDataURL(file);
-          imageUrls.value[imageName] = url
-          hasUrlFileList.value[i] = { ...res1, ...res2, url }
-        } else {
-          // 如果已经有了，直接拿过来用
-          hasUrlFileList.value[i] = { ...res1, ...res2, url: imageUrls.value[imageName] }
-        }
-        // 如果有坐标内容的话，在地图上添加对应的marker
-        if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
-          addImageIconToMap(props.map, hasUrlFileList.value[i])
+    // 如果无值直接清空
+    if (newValue?.length === 0) {
+      hasUrlFileList.value = []
+    } else {
+      for (let i = 0; i < newValue.length; i++) {
+        const imageName = newValue[i].name
+        // 如果没有的话
+        if (!isInHasUrlFileList(imageName)) {
+          const file = newValue[i].raw
+          // res包括id, lasetModified, name, size, type
+          const res1 = getFileInfoByFile(file)
+          // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
+          const res2 = await setMoreInfoByExifReader(file)
+          // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
+          if (!imageUrls.value[imageName]) {
+            const url = await readFileAsDataURL(file);
+            imageUrls.value[imageName] = url
+            hasUrlFileList.value[i] = { ...res1, ...res2, url }
+          } else {
+            // 如果已经有了，直接拿过来用
+            hasUrlFileList.value[i] = { ...res1, ...res2, url: imageUrls.value[imageName] }
+          }
+          // 如果有坐标内容的话，在地图上添加对应的marker
+          if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
+            addImageIconToMap(props.map, hasUrlFileList.value[i])
+          }
         }
       }
     }
@@ -185,15 +192,18 @@ const needUploadImageInfos = computed(() => {
   // 更新schema，新的信息保存到schema中
   schemaStore.pushImagesToImageInfo(hasUrlFileList.value)
   // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
-  return hasUrlFileList.value.filter(item => {
+  const res = hasUrlFileList.value.filter(item => {
     return !judgeHadUploadImage(item.id)
   })
+  return res
 })
+
 const uploadedImageInfos = computed(() => {
   // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
-  return hasUrlFileList.value.filter(item => {
+  const res = hasUrlFileList.value.filter(item => {
     return judgeHadUploadImage(item.id)
   })
+  return res
 })
 
 
@@ -452,6 +462,7 @@ const rules = reactive({
  * @return {*}
  */
 async function manualLocateImage() {
+  const mapStore = useMapStore()
   locateDialogShow.value = false
   // TODO:添加一个可以移动的图片，移动后更新坐标
   const fileInfo = hasUrlFileList.value.find(item => {
@@ -461,12 +472,29 @@ async function manualLocateImage() {
   needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
   const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng)
+  // 加入marker
+  mapStore.addMarker(marker)
+  // 加入visibleMarker
+  mapStore.addVisibleMarker(marker)
   // TODO:移动后定位，更新坐标
-  
+  marker.on('moveend', () => {
+    console.log('---', marker.getLatLng())
+    const { lat, lng } = marker.getLatLng()
+    if (lat && lng) {
+      // TODO:更新位置
+      fileInfo.GPSInfo.GPSLatitude = lat
+      fileInfo.GPSInfo.GPSLongitude = lng
+    }
+  })
 }
 
 // TODO:更新图片信息
 function updateImgs() {}
+
+onMounted(() => {
+  // 监听右键删除
+  eventBus.on('delete-image', deleteImage)
+})
 </script>
 
 <style lang="scss" scoped>

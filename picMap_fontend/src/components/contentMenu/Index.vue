@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-02 20:12:46
+ * @LastEditTime: 2025-02-14 21:37:23
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -39,11 +39,10 @@ const menuList = ref([
     clickEvent: async () => {
       // 在schema的imageInfo中添加图片信息
       schemaStore.deleteImageInImageInfo(marker.value.options.id)
-      const res2 = saveSchema()
-      Promise.all([
-        API.schema.setSchema({ schema: JSON.stringify(newSchema) }),
-        API.image.deleteImages({ deleteImages: [marker.value.options.id] })
-      ]).then(res => {
+      // 通知上传组件，删除对应的文件
+      eventBus.emit('delete-image', marker.value.options.id)
+      saveSchema()
+      Promise.all([API.image.deleteImages({ deleteImages: [marker.value.options.id] })]).then(res => {
         deleteMarkerInMap(marker.value, props.map)
         const tipMsg = res.reduce((msg, item) => {
           return msg + item.data

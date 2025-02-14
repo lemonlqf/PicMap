@@ -2,6 +2,7 @@ $border-color: rgb(122, 195, 224);
 $background-color: rgb(0, 0, 0);
 // 定位标记的宽度
 $location-width: 10px;
+$location-border-color: rgba(200, 0, 0, 1);
 
 .no-image-icon {
   height: 100%;
@@ -29,7 +30,10 @@ $location-width: 10px;
 
 // 高亮可拖动marker
 .leaflet-marker-draggable {
-  border-color: red !important;
+  border-color: $location-border-color !important;
+  .location {
+    background-color: $location-border-color;
+  }
 }
 
 // 外边的边框
