@@ -2,7 +2,7 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-12 20:38:47
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-01-26 14:31:22
+ * @LastEditTime: 2025-02-15 21:36:29
  * @FilePath: \Code\picMap_backend\app.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -13,6 +13,7 @@ var express = require('express')
 var path = require('path')
 var cookieParser = require('cookie-parser')
 var logger = require('morgan')
+var cors = require('cors')
 
 var indexRouter = require('./routes/index')
 var usersRouter = require('./routes/users')
@@ -36,6 +37,8 @@ app.use('/', indexRouter)
 app.use('/user', usersRouter)
 app.use('/image', image)
 app.use('/schema', schema)
+
+app.use(cors())
 
 // catch 404 and forward to error handler
 app.use(function (req, res, next) {
