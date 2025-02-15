@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-14 22:35:22
+ * @LastEditTime: 2025-02-15 11:55:35
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -15,6 +15,9 @@ import { judgeHadUploadImage } from '@/utils/schema.js'
 const NO_IMAGE_MARKER_SIZE = [40, 40]
 // marker向上偏移的量
 const markerTranslateY = NO_IMAGE_MARKER_SIZE[1]
+
+export let MARKER_SHOW_RADIO = 1
+export let MARKER_HOVER_SHOW_RADIO = 1.3
 
 /**
  * @description: 添加图片到地图中
@@ -52,6 +55,7 @@ export function addImageIconToMap(map, imageInfo) {
         icon: myIcon,
         title: imageInfo.name,
         type: 'image',
+        riseOnHover: true,
         id: imageInfo.id
       }).addTo(map)
       // 添加到store中
@@ -96,6 +100,7 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
     icon: myIcon,
     title: imageInfo.name,
     type: 'image',
+    riseOnHover: true,
     id: imageInfo.id,
     draggable: true
   }).addTo(map)
@@ -133,6 +138,7 @@ export function addGroupIconToMap(map, groupInfo) {
     icon: myIcon,
     title: groupInfo.name,
     type: 'group',
+    riseOnHover: true,
     id: groupInfo.id
   }).addTo(map)
   // 添加到store中
@@ -140,11 +146,11 @@ export function addGroupIconToMap(map, groupInfo) {
 }
 
 /**
- * @description: 监听地图移动事件，用于更新marker
+ * @description: 监听地图改变事件，用于更新marker
  * @param {*} map
  * @return {*}
  */
-export function observeMapMoveToUpgradeMarker(map) {
+export function observeMapChangeToUpgradeMarker(map) {
   map.on('moveend', () => {
     // 更新在可视范围内marker的图片
     updateVisibleMarkers(map)
@@ -152,6 +158,10 @@ export function observeMapMoveToUpgradeMarker(map) {
   map.on('movestart', () => {
     // 隐藏所有右击出现的弹框
     eventBus.emit('hidden-content-menu')
+  })
+  // 地图缩放改变marker大小
+  map.on('zoomend', () => {
+    scaleMarkerByMap(map)
   })
 }
 
@@ -210,7 +220,7 @@ function isMarkerInView(markerLatLng, map) {
  */
 function updateMarker(marker, map) {
   const mapStore = useMapStore()
-  // TODO:将marker添加到已经渲染的store中
+  // 将marker添加到已经渲染的store中
   const index = mapStore.getVisibleMarkers.findIndex(item => item.options.id === marker.options.id)
   // 判断是否在schema中
   const isInSchema = judgeHadUploadImage(marker.options.id)
@@ -236,6 +246,66 @@ function updateMarker(marker, map) {
       })
       marker.setIcon(myIcon)
     })
+  }
+}
+
+/**
+ * @description: 根据地图缩放比例适当缩放marker
+ * @param {*} map
+ * @return {*}
+ */
+function scaleMarkerByMap(map) {
+  const mapStore = useMapStore()
+  const markers = mapStore.getVisibleMarkers
+  const zoom = map.getZoom()
+  if (zoom >= 15) {
+    MARKER_SHOW_RADIO = 1.4
+    MARKER_HOVER_SHOW_RADIO = 1.6
+  } else if (zoom < 15 && zoom >= 12) {
+    MARKER_SHOW_RADIO = 1.2
+    MARKER_HOVER_SHOW_RADIO = 1.6
+  } else if (zoom < 10 && zoom >= 8) {
+    MARKER_SHOW_RADIO = 0.8
+    MARKER_HOVER_SHOW_RADIO = 1.3
+  } else if (zoom < 8 && zoom >= 6) {
+    MARKER_SHOW_RADIO = 0.6
+    MARKER_HOVER_SHOW_RADIO = 1.2
+  } else if (zoom < 6) {
+    MARKER_SHOW_RADIO = 0.4
+    MARKER_HOVER_SHOW_RADIO = 1.1
+  }
+  markers.forEach(marker => {
+    const markerElement = marker.getElement()
+    if (markerElement) {
+      const originalTransform = window.getComputedStyle(markerElement).transform
+      const newTransform = originalTransform.replace(/scale\([^)]*\)/, '').trim() + ` scale(${MARKER_SHOW_RADIO})`
+      markerElement.style.transform = newTransform
+    }
+  })
+}
+
+// 高亮marker
+export function highlightMarker(marker) {
+  const markerElement = marker.getElement()
+  if (markerElement) {
+    const oldTransformCss = markerElement.style.transform
+    let newTransformCss = ''
+    if (oldTransformCss.includes('scale')) {
+      newTransformCss = oldTransformCss.replace(/scale\([^)]*\)/, `scale(${MARKER_HOVER_SHOW_RADIO})`).trim()
+    } else {
+      newTransformCss = `${oldTransformCss} scale(${MARKER_HOVER_SHOW_RADIO})`
+    }
+    markerElement.style.transform = newTransformCss
+  }
+}
+
+// 将marker回复会原来的样式
+export function resetMarker(marker) {
+  const markerElement = marker.getElement()
+  if (markerElement) {
+    const oldTransformCss = markerElement.style.transform
+    const newTransformCss = oldTransformCss.replace(/scale\([^)]*\)/, `scale(${MARKER_SHOW_RADIO})`).trim()
+    markerElement.style.transform = newTransformCss
   }
 }
 
@@ -318,11 +388,23 @@ export function getMarkerById(id) {
  * @param {*} lng
  * @return {*}
  */
-export function setView(lat, lng, map) {
+export function setView(lat, lng, map, id) {
   if (map) {
-    map.setView([lat, lng], map.getZoom() ?? 10, {
-      animate: true,
-      duration: 0.5 // 动画持续时间，单位为秒
-    })
+    if (lat && lng) {
+      map.setView([lat, lng], map.getZoom() ?? 10, {
+        animate: true,
+        duration: 0.5 // 动画持续时间，单位为秒
+      })
+      return
+    }
+    if (id) {
+      const marker = getMarkerById(id)
+      const { lat, lng } = marker?.getLatLng?.()
+      map.setView([lat, lng], map.getZoom() ?? 10, {
+        animate: true,
+        duration: 0.5 // 动画持续时间，单位为秒
+      })
+      return
+    }
   }
 }

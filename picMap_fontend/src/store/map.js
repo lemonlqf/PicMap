@@ -2,13 +2,14 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:41:27
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 20:24:19
+ * @LastEditTime: 2025-02-15 11:42:07
  * @FilePath: \Code\picMap_fontend\src\store\map.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { defineStore } from 'pinia'
 import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
+import { resetMarker, highlightMarker } from '../utils/map'
 export const useMapStore = defineStore('map', {
   state: () => ({
     // 地图中添加的所有marker，包括在可视范围外的
@@ -46,6 +47,14 @@ export const useMapStore = defineStore('map', {
         ElMessage.success('触发Marker右键事件')
         // 出现右键菜单
         eventBus.emit('show-content-menu', event)
+      })
+      // 高亮
+      marker.on('mouseover', () => {
+        highlightMarker(marker)
+      })
+      // 取消高亮
+      marker.on('mouseout', () => {
+        resetMarker(marker)
       })
     },
     deleteVisbleMarker(marker) {

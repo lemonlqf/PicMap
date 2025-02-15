@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-12 21:10:50
+ * @LastEditTime: 2025-02-15 10:25:57
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -34,7 +34,7 @@ import { useSchemaStore } from '@/store/schema'
 import {
   addImageIconToMap,
   addGroupIconToMap,
-  observeMapMoveToUpgradeMarker,
+  observeMapChangeToUpgradeMarker,
   updateVisibleMarkers,
   hiddenImageInfoDrawerMapClick
 } from '@/utils/map.js'
@@ -74,8 +74,8 @@ async function initSchema() {
  */
 function initMap() {
   map.value = L.map('map', {
-    center: [28.636652099722223, 120.15097149972223], //中心坐标
-    zoom: 12, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+    center: [30.177754, 120.18097149972223], //中心坐标
+    zoom: 15, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
     minZoom: 3,
     maxZoom: 18,
     zoomControl: true, //缩放组件
@@ -124,7 +124,7 @@ onMounted(() => {
   initMap()
   initTile()
   initMarker()
-  observeMapMoveToUpgradeMarker(map.value)
+  observeMapChangeToUpgradeMarker(map.value)
   hiddenImageInfoDrawerMapClick(map.value)
   setTimeout(() => {
     updateVisibleMarkers(map.value)

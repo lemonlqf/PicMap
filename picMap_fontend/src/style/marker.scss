@@ -38,6 +38,7 @@ $location-border-color: rgba(200, 0, 0, 1);
 
 // 外边的边框
 .leaflet-marker-icon {
+  transform-origin: bottom center;
   border-radius: 3px;
   object-fit: cover;
   border: 2px solid $border-color;
@@ -45,6 +46,14 @@ $location-border-color: rgba(200, 0, 0, 1);
   -moz-border-radius: 3px;
   -ms-border-radius: 3px;
   -o-border-radius: 3px;
+}
+
+.leaflet-marker-icon:not(.leaflet-marker-draggable) {
+  transition: all 0.3s ease;
+  -webkit-transition: all 0.3s ease;
+  -moz-transition: all 0.3s ease;
+  -ms-transition: all 0.3s ease;
+  -o-transition: all 0.3s ease;
 }
 
 // 定位的小尖尖
