@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 10:25:57
+ * @LastEditTime: 2025-02-16 16:53:28
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -12,6 +12,7 @@
     <template v-for="item in appMapTile" :key="item.name">
       <el-button @click="changeMapTile(item)">{{ item.name }}</el-button>
     </template>
+    <el-button @click="setMapCenter">初始中心</el-button>
   </div>
   <div class="fix-group upload-group">
     <ImageUpolad :map="map"></ImageUpolad>
@@ -21,7 +22,8 @@
 </template>
 
 <script setup>
-import { onBeforeMount, onMounted, ref } from 'vue'
+import { onBeforeMount, onMounted, ref, watch, nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import ImageUpolad from '@/components/imgUpload/Index.vue'
@@ -36,14 +38,17 @@ import {
   addGroupIconToMap,
   observeMapChangeToUpgradeMarker,
   updateVisibleMarkers,
-  hiddenImageInfoDrawerMapClick
+  hiddenImageInfoDrawerMapClick,
+  setView
 } from '@/utils/map.js'
-import { getGroupAndImageList, getAllImageIdInSchema } from '@/utils/schema.js'
+import { getGroupAndImageList, getAllImageIdInSchema, saveSchema } from '@/utils/schema.js'
 import eventBus from '@/utils/eventBus'
+import { useMapStore } from '../../store/map'
 
 const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
-const map = ref()
+const map = ref(null)
+const mapCenter = ref([30.2489634, 120.2052342])
 
 function changeMapTile(item) {
   currentMapTile.value = item
@@ -57,8 +62,10 @@ function changeMapTile(item) {
 async function initSchema() {
   const res = await schemaHttp.getSchema()
   if (res.code === 200) {
+    const schema = JSON.parse(res.data)
     // 将schema信息保存到store中
     schemaStore.setSchema(JSON.parse(res.data))
+    mapCenter.value = schema.mapInfo?.center
     const imagesId = getAllImageIdInSchema()
     // 将所有的图片id保存到uploadedImageIds中
     schemaStore.setUploadedImageIds(imagesId)
@@ -68,19 +75,38 @@ async function initSchema() {
   }
 }
 
+// 设置坐标
+watch(() => mapCenter.value, (newVal) => {
+  if (map.value) {
+    setView(newVal[0], newVal[1], map.value)
+  }
+})
+
 /**
  * @description: 初始化地图
  * @return {*}
  */
 function initMap() {
+  const mapStore = useMapStore()
   map.value = L.map('map', {
-    center: [30.177754, 120.18097149972223], //中心坐标
     zoom: 15, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
     minZoom: 3,
     maxZoom: 18,
     zoomControl: true, //缩放组件
     attributionControl: false //去掉右下角logol
   })
+}
+
+async function setMapCenter() {
+  const { lat, lng } = map.value.getCenter()
+  if (lat && lng) {
+    schemaStore.setMapAttr('center', [lat, lng])
+  }
+  const res = await saveSchema()
+  if (res.code === 200) {
+    ElMessage.success('设置成功！')
+    // 上传完成后，点击右键可以出现操作菜单
+  }
 }
 
 const currentTileLayer = ref()
@@ -126,9 +152,6 @@ onMounted(() => {
   initMarker()
   observeMapChangeToUpgradeMarker(map.value)
   hiddenImageInfoDrawerMapClick(map.value)
-  setTimeout(() => {
-    updateVisibleMarkers(map.value)
-  }, 300)
 })
 </script>
 

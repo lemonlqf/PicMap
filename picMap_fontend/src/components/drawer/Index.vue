@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 12:09:21
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 22:54:01
+ * @LastEditTime: 2025-02-16 17:34:38
  * @FilePath: \Code\picMap_fontend\src\components\drawer\index.vue
  * @Description: 
 -->
@@ -14,13 +14,11 @@
           <img src="@/assets/icon/关闭.png" alt="" />
         </div>
         <div class="img-box">
-          <el-image
-            :alt="marker?.name"
-            :src="marker?.url"
-            :teleported="true"
-            style="width: 100%; height: 300px"
-            :preview-src-list="[marker?.url]"
-          />
+          <div class="download-button" @click="downloadImage">
+            <img src="@/assets/icon/下载.png" alt="" width="30px" title="下载原图" />
+          </div>
+          <el-image :alt="marker?.name" :src="marker?.url" :teleported="true" style="width: 100%; height: 300px"
+            :preview-src-list="[marker?.url]" />
         </div>
         <div class="img-info-box">
           <keyValue v-if="marker.imageInfo" title="图片信息" :info="marker.imageInfo"></keyValue>
@@ -35,10 +33,12 @@
 
 <script setup>
 import eventBus from '@/utils/eventBus'
+import { fileToBase64 } from '@/utils/map.js'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema.js'
 import { calcMBSize } from '@/utils/Image'
 import keyValue from './components/keyValue.vue'
+import API from '@/http/index'
 
 const props = defineProps({})
 const isShow = ref(false)
@@ -77,6 +77,28 @@ function showImageData(event) {
   // TODO:更新图片信息的逻辑
 }
 
+/**
+ * @description: 下载原图
+ * @return {*}
+ */
+async function downloadImage() {
+  const imageId = marker.value.id
+  if (imageId) {
+    const res = await API.image.downloadImage({ imageId })
+    const code = res.code
+    if (code === 200) {
+      const fileName = marker.value.name ?? 'image.jpg'
+      const fileUrl = fileToBase64(res.data.file)
+      let a = document.createElement('a');
+      a.download = fileName;
+      a.href = fileUrl;
+      a.click();
+    }
+  }
+}
+
+
+
 onMounted(() => {
   eventBus.on('drawer-show', drawerShow)
   eventBus.on('drawer-hidden', drawerHidden)
@@ -99,6 +121,7 @@ onUnmounted(() => {
   opacity: 0;
   z-index: 9999;
   box-shadow: 0 20px 30px 30px rgba(0, 0, 0, 0.5);
+
   .flex-box {
     display: flex;
     flex-wrap: wrap;
@@ -122,20 +145,39 @@ onUnmounted(() => {
   pointer-events: all;
   border-radius: 4px;
   cursor: pointer;
+
   img {
     width: 100%;
   }
 }
+
 .hidden-button:hover {
   background-color: rgba(177, 174, 171, 0.2);
 }
+
 .img-box {
   max-width: 900px;
   min-width: 200px;
+  position: relative;
   flex: 1;
   background-color: rgb(53, 53, 53);
   display: flex;
   justify-content: center;
+
+  .download-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    cursor: pointer;
+    pointer-events: all;
+    opacity: 0.6;
+    z-index: 999;
+  }
+
+  .download-button:hover {
+    opacity: 1;
+  }
+
   :deep(.el-image) {
     img {
       object-fit: scale-down;
@@ -144,16 +186,15 @@ onUnmounted(() => {
 }
 
 .img-info-box {
-  padding: 20px 30px;
-  max-height: 260px;
+  padding: 15px 15px;
+  max-height: 280px;
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
 }
 
-@media screen and (max-width: 400px) {
+@media screen and (max-width: 600px) {
   .img-info-box {
-    padding: 20px 30px;
     display: flex;
     max-height: unset;
     flex-direction: column;

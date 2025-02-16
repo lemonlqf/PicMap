@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-14 21:37:23
+ * @LastEditTime: 2025-02-16 17:26:45
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -106,13 +106,16 @@ onUnmounted(() => {
   background-color: rgba(255, 255, 255, 1);
   z-index: 999999;
   border: 1px solid black;
+
   .menu-item {
     border-bottom: 1px solid black;
     cursor: pointer;
   }
+
   .menu-item:hover {
     background-color: antiquewhite;
   }
+
   .menu-item:last-child {
     border-bottom: 0px;
   }

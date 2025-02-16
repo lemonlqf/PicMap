@@ -20,13 +20,13 @@ export function calcMBSize(size) {
  * @param {*} imageInfos
  * @return {*}
  */
-export async function uploadImages(imageInfos) {
+export async function uploadImages(imageInfos, map) {
   const schemaStore = useSchemaStore()
   imageInfos.forEach(imageInfo => {
     // 将图片保存到已经上传的地方
     schemaStore.pushImageToUploadedImageIds(imageInfo.id)
     // marker中可以移动的图片重新设置为不可移动
-    const marker = getMarkerById(imageInfo.id)
+    const marker = getMarkerById(imageInfo.id, map)
     if (marker) {
       // 将 marker 设置为不可移动
       marker?.dragging?.disable?.()

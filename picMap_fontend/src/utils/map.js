@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 11:55:35
+ * @LastEditTime: 2025-02-16 17:25:13
  * @FilePath: \Code\picMap_fontend\src\utils\map.js
  * @Description:
  */
@@ -11,6 +11,8 @@ import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
 import eventBus from '@/utils/eventBus'
 import { judgeHadUploadImage } from '@/utils/schema.js'
+import { nextTick } from 'vue'
+import { ElMessage } from 'element-plus'
 
 const NO_IMAGE_MARKER_SIZE = [40, 40]
 // marker向上偏移的量
@@ -46,8 +48,8 @@ export function addImageIconToMap(map, imageInfo) {
     })
   }
   if (imageInfo.GPSInfo.GPSLatitude && imageInfo.GPSInfo.GPSLongitude) {
-    const isExist = mapStore.getVisibleMarkers.some(item => {
-      return item.options.id === imageInfo.id
+    const isExist = mapStore.getVisibleMarkerIdList.some(markerId => {
+      return markerId === imageInfo.id
     })
     if (!isExist) {
       // 如果还没有需要新建，传参先纬度再经度
@@ -57,14 +59,16 @@ export function addImageIconToMap(map, imageInfo) {
         type: 'image',
         riseOnHover: true,
         id: imageInfo.id
-      }).addTo(map)
-      // 添加到store中
-      mapStore.addMarker(marker)
+      })
+      marker.addTo(map)
+      // 添加id到store中
+      mapStore.addMarkerId(imageInfo.id)
     } else {
       // 如果已经有了就复用
-      const marker = mapStore.getVisibleMarkers.find(item => {
-        return item.options.id === imageInfo.id
+      const markerId = mapStore.getVisibleMarkerIdList.find(markerId => {
+        return markerId === imageInfo.id
       })
+      const marker = getMarkerById(markerId, map)
       marker.setIcon(myIcon)
     }
   }
@@ -103,7 +107,8 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
     riseOnHover: true,
     id: imageInfo.id,
     draggable: true
-  }).addTo(map)
+  })
+  marker.addTo(map)
   return marker
 }
 
@@ -140,9 +145,10 @@ export function addGroupIconToMap(map, groupInfo) {
     type: 'group',
     riseOnHover: true,
     id: groupInfo.id
-  }).addTo(map)
+  })
+  marker.addTo(map)
   // 添加到store中
-  mapStore.addMarker(marker)
+  mapStore.addMarkerId(groupInfo.id)
 }
 
 /**
@@ -184,16 +190,17 @@ export function hiddenImageInfoDrawerMapClick(map) {
  */
 export function updateVisibleMarkers(map) {
   const mapStore = useMapStore()
-  const visibleMarkers = mapStore.getVisibleMarkers
-  const markers = mapStore.getMarkers
-  markers.forEach(marker => {
-    if (isMarkerInView(marker.getLatLng(), map)) {
-      if (!visibleMarkers.includes(marker)) {
+  const visibleMarkerIdList = mapStore.getVisibleMarkerIdList
+  const getMarkerIdList = mapStore.getMarkerIdList
+  getMarkerIdList.forEach(markerId => {
+    const marker = getMarkerById(markerId, map)
+    if (marker && isMarkerInView(marker.getLatLng(), map)) {
+      if (!visibleMarkerIdList.includes(markerId)) {
         if (marker.options.type === 'image') {
           // 更新一下marker
           updateMarker(marker, map)
         }
-        mapStore.addVisibleMarker(marker)
+        addVisibleMarker(markerId, map)
       }
     }
   })
@@ -221,7 +228,7 @@ function isMarkerInView(markerLatLng, map) {
 function updateMarker(marker, map) {
   const mapStore = useMapStore()
   // 将marker添加到已经渲染的store中
-  const index = mapStore.getVisibleMarkers.findIndex(item => item.options.id === marker.options.id)
+  const index = mapStore.getVisibleMarkerIdList.findIndex(markerId => markerId === marker.options.id)
   // 判断是否在schema中
   const isInSchema = judgeHadUploadImage(marker.options.id)
   if (index === -1 && marker?.options?.divIcon?.options?.iconUrl) {
@@ -233,7 +240,7 @@ function updateMarker(marker, map) {
     imageHttp.getImage({ imageId: marker.options.id }).then(res => {
       if (res.code !== 200) {
         // 如果没有请求成功需要先删除掉
-        mapStore.deleteVisbleMarker(marker)
+        mapStore.deleteVisbleMarkerId(marker.options.id)
         return
       }
       const fileUrl = fileToBase64(res.data.file)
@@ -256,7 +263,7 @@ function updateMarker(marker, map) {
  */
 function scaleMarkerByMap(map) {
   const mapStore = useMapStore()
-  const markers = mapStore.getVisibleMarkers
+  const markerIdList = mapStore.getVisibleMarkerIdList
   const zoom = map.getZoom()
   if (zoom >= 15) {
     MARKER_SHOW_RADIO = 1.4
@@ -274,7 +281,8 @@ function scaleMarkerByMap(map) {
     MARKER_SHOW_RADIO = 0.4
     MARKER_HOVER_SHOW_RADIO = 1.1
   }
-  markers.forEach(marker => {
+  markerIdList.forEach(markerId => {
+    const marker = getMarkerById(markerId, map)
     const markerElement = marker.getElement()
     if (markerElement) {
       const originalTransform = window.getComputedStyle(markerElement).transform
@@ -314,7 +322,7 @@ export function resetMarker(marker) {
  * @param {ArrayBuffer} buffer
  * @return {string}
  */
-function fileToBase64(file) {
+export function fileToBase64(file) {
   let fileUrl
   if (file?.type === 'Buffer') {
     let binary = ''
@@ -366,20 +374,18 @@ function imageUrlIcon(imgUrl) {
 }
 
 /**
- * @description: 根据id获取marker
+ * @description: 根据id获取地图中的marker
  * @param {*} id
  * @return {*}
  */
-export function getMarkerById(id) {
-  const mapStore = useMapStore()
-  const markers = mapStore.getMarkers
-  let res
-  markers.forEach(marker => {
-    if (marker.options.id === id) {
-      res = marker
+export function getMarkerById(markerId, map) {
+  let foundMarker;
+  map.eachLayer?.(layer => {
+    if (layer instanceof L.Marker && layer.options.id === markerId) {
+      foundMarker = layer;
     }
-  })
-  return res
+  });
+  return foundMarker;
 }
 
 /**
@@ -398,7 +404,7 @@ export function setView(lat, lng, map, id) {
       return
     }
     if (id) {
-      const marker = getMarkerById(id)
+      const marker = getMarkerById(id, map)
       const { lat, lng } = marker?.getLatLng?.()
       map.setView([lat, lng], map.getZoom() ?? 10, {
         animate: true,
@@ -407,4 +413,36 @@ export function setView(lat, lng, map, id) {
       return
     }
   }
+}
+
+/**
+ * @description: 添加可视marker到store，并且更新实例，实现左键右键等功能
+ * @param {*} markerId
+ * @param {*} map
+ * @return {*}
+ */
+export function addVisibleMarker(markerId, map) {
+  const mapStore = useMapStore()
+  mapStore.addVisibleMarkerId(markerId)
+  const marker = getMarkerById(markerId, map)
+  // 添加点击事件监听，这里的mouseEvent的target中有marker信息
+  marker.on('click', event => {
+    ElMessage.success('触发Marker点击事件')
+    // 点击节点后弹出图片详情框
+    eventBus.emit('show-image-data', event)
+  })
+  // 添加右击时间监听
+  marker.on('contextmenu', event => {
+    ElMessage.success('触发Marker右键事件')
+    // 出现右键菜单
+    eventBus.emit('show-content-menu', event)
+  })
+  // 高亮
+  marker.on('mouseover', () => {
+    highlightMarker(marker)
+  })
+  // 取消高亮
+  marker.on('mouseout', () => {
+    resetMarker(marker)
+  })
 }

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-06 11:44:34
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 11:48:54
+ * @LastEditTime: 2025-02-16 12:23:58
  * @FilePath: \Code\picMap_fontend\src\components\drawer\imageInfo.js
  * @Description:
  */
@@ -22,5 +22,25 @@ export const labels = {
   FocalLength: '焦距',
   MaxApertureValue: '最大光圈',
   Resolution: '分辨率',
-  BrightnessValue: '亮度'
+  BrightnessValue: '亮度',
+  size: '图片大小'
 }
+
+export const showIndicators = [
+  'GPSLatitude',
+  'GPSLongitude',
+  'GPSAltitude',
+  'DateTime',
+  'Arits',
+  'SoftWare',
+  'Make',
+  'Model',
+  'FNumber',
+  'ExposureTime',
+  'ISOSpeedRatings',
+  'ExposureBiasValue',
+  'FocalLength',
+  'MaxApertureValue',
+  'Resolution',
+  'size'
+]

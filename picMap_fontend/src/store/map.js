@@ -2,64 +2,52 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:41:27
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 11:42:07
+ * @LastEditTime: 2025-02-16 16:46:30
  * @FilePath: \Code\picMap_fontend\src\store\map.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { defineStore } from 'pinia'
 import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
-import { resetMarker, highlightMarker } from '../utils/map'
+import { resetMarker, highlightMarker, getMarkerById } from '../utils/map'
 export const useMapStore = defineStore('map', {
   state: () => ({
+    map: null,
     // 地图中添加的所有marker，包括在可视范围外的
-    markers: [],
+    markerIdList: [],
     // 已经可见的marker，即已经请求过图片数据了
-    visibleMarkers: [],
+    visibleMarkerIdList: [],
     // TODO:选中的marker，后续用于分组使用？
-    selectedMarkers: []
+    selectedMarkerIdList: []
   }),
   getters: {
-    getMarkers: state => state.markers,
-    getVisibleMarkers: state => state.visibleMarkers,
-    getSelectedMarkers: state => state.selectedMarkers
+    getMap: state => state.map,
+    getMarkerIdList: state => state.markerIdList,
+    getVisibleMarkerIdList: state => state.visibleMarkerIdList,
+    getSelectedMarkerIdList: state => state.selectedMarkerIdList
   },
   actions: {
-    addMarker(marker) {
-      this.markers.push(marker)
+    setMap(map) {
+      this.map = map
     },
-    deleteMarker(marker) {
-      this.markers = this.markers.filter(item => {
-        return item.options.id !== marker.options.id
-      })
-      this.deleteVisbleMarker(marker)
+    removeMap() {
+      this.map = null
     },
-    addVisibleMarker(marker) {
-      this.visibleMarkers.push(marker)
-      // 添加点击事件监听，这里的mouseEvent的target中有marker信息
-      marker.on('click', event => {
-        ElMessage.success('触发Marker点击事件')
-        // 点击节点后弹出图片详情框
-        eventBus.emit('show-image-data', event)
-      })
-      // 添加右击时间监听
-      marker.on('contextmenu', event => {
-        ElMessage.success('触发Marker右键事件')
-        // 出现右键菜单
-        eventBus.emit('show-content-menu', event)
-      })
-      // 高亮
-      marker.on('mouseover', () => {
-        highlightMarker(marker)
-      })
-      // 取消高亮
-      marker.on('mouseout', () => {
-        resetMarker(marker)
-      })
+    addMarkerId(markerId) {
+      this.markerIdList.push(markerId)
     },
-    deleteVisbleMarker(marker) {
-      this.visibleMarkers = this.visibleMarkers.filter(item => {
-        return item.options.id !== marker.options.id
+    deleteMarker(markerId) {
+      this.markerIdList = this.markerIdList.filter(item => {
+        return item !== markerId
+      })
+      this.deleteVisbleMarkerId(markerId)
+    },
+    addVisibleMarkerId(markerId) {
+      this.visibleMarkerIdList.push(markerId)
+    },
+    deleteVisbleMarkerId(markerId) {
+      this.visibleMarkerIdList = this.visibleMarkerIdList.filter(item => {
+        return item !== markerId
       })
     }
   }

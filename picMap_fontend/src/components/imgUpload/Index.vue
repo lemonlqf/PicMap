@@ -2,19 +2,14 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 11:56:40
+ * @LastEditTime: 2025-02-16 17:45:54
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
 <template>
   <div class="img-upload">
-    <el-upload
-      v-model:file-list="elUploadFileList"
-      class="upload-demo"
-      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15"
-      :auto-upload="false"
-      :multiple="true"
-    >
+    <el-upload v-model:file-list="elUploadFileList" class="upload-demo"
+      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
       <el-button style="margin-right: 10px; width: 180px;" type="primary">Click to upload</el-button>
       <template #tip>
         <div class="el-upload__tip">请上传图片</div>
@@ -25,8 +20,9 @@
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <!-- 重复的图片 -->
         <h3>已上传图片：</h3>
-        <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos" >
-          <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"  @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map, item.name)"/>
+        <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
+          <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
+            @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map, item.name)" />
           <!-- <h1>照片名:{{ item.name }}</h1>
         <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
         <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1> -->
@@ -35,15 +31,17 @@
       <div v-show="needUploadImageInfos.length">
         <h3>待上传图片：</h3>
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
-          <div class="image-info" >
-            <img :src="item.url" alt="" :title="item.name" height="50px" @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map, item.name)" />
+          <div class="image-info">
+            <img :src="item.url" alt="" :title="item.name" height="50px"
+              @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map, item.name)" />
             <h1>照片名:{{ item.name }}</h1>
             <h1>纬度:{{ !item?.GPSInfo?.GPSLatitude ? '无数据' : item?.GPSInfo?.GPSLatitude }}</h1>
-            <h1>经度:{{ !item?.GPSInfo?.GPSLongitude  ? '无数据' : item?.GPSInfo?.GPSLongitude }}</h1>
+            <h1>经度:{{ !item?.GPSInfo?.GPSLongitude ? '无数据' : item?.GPSInfo?.GPSLongitude }}</h1>
             <!-- <h1>id: {{ item.id }}</h1> -->
           </div>
           <div class="uplod-delete-buttons">
-            <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude" @click="showLocateDialog(item.name)">
+            <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude"
+              @click="showLocateDialog(item.name)">
               <img src="@/assets/icon/定位(白色).png" width="20px" alt="">定位</img>
             </div>
             <div v-else @click="uploadImage(item.name)">
@@ -57,37 +55,20 @@
       </div>
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
-    <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)" type="primary">批量上传</el-button>
+    <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos, props.map)"
+      type="primary">批量上传</el-button>
+    <el-button v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">全部清空</el-button>
   </div>
   <!-- 定位弹框 -->
-  <el-dialog
-   v-model="locateDialogShow"
-   title="设置图片位置"
-   style="width: 500px;"
-  >
-    <el-form
-      ref="formRef"
-      :model="needLocateImageIdFormData"
-      style="width: 400px"
-      label-width="auto"
-      :rules="rules"
-    >
-      <el-form-item
-        label="经度"
-        prop="GPSLongitude"
-      >
+  <el-dialog v-model="locateDialogShow" title="设置图片位置" style="width: 500px;">
+    <el-form ref="formRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto" :rules="rules">
+      <el-form-item label="经度" prop="GPSLongitude">
         <el-input v-model="needLocateImageIdFormData.GPSLongitude"></el-input>
       </el-form-item>
-      <el-form-item
-        label="纬度"
-        prop="GPSLatitude"
-      >
+      <el-form-item label="纬度" prop="GPSLatitude">
         <el-input v-model="needLocateImageIdFormData.GPSLatitude"></el-input>
       </el-form-item>
-      <el-form-item
-        label="海拔"
-        prop="GPSAltitude"
-      >
+      <el-form-item label="海拔" prop="GPSAltitude">
         <el-input v-model="needLocateImageIdFormData.GPSAltitude" placeholder="0"></el-input>
       </el-form-item>
       <el-button @click="manualLocateImage">手动定位</el-button>
@@ -106,11 +87,11 @@
 <script setup>
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
-import { ElMessage, ElLoading  } from 'element-plus'
+import { ElMessage, ElLoading } from 'element-plus'
 import L from 'leaflet'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap } from '@/utils/map.js'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarker } from '@/utils/map.js'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema.js'
-import { uploadImages as UploadImages } from '@/utils/image.js'
+import { uploadImages as UploadImages, calcMBSize } from '@/utils/image.js'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus.js'
@@ -187,14 +168,16 @@ watch(
 )
 
 const needUploadImageInfos = computed(() => {
-  // 走完更新一波可见的markers
-  updateVisibleMarkers(props.map)
   // 更新schema，新的信息保存到schema中
   schemaStore.pushImagesToImageInfo(hasUrlFileList.value)
   // 点击上传后，schema中默认有相关的图片了，因此在schema中的图片会消失
   const res = hasUrlFileList.value.filter(item => {
     return !judgeHadUploadImage(item.id)
   })
+  // 如果有数据的话，走完更新一波可见的markers
+  if (res.length) {
+    updateVisibleMarkers(props.map)
+  }
   return res
 })
 
@@ -223,15 +206,15 @@ async function setMoreInfoByExifReader(file, name) {
   // 设置经纬度到moreInfo中
   const GPSInfo = getGPSInfo(tags)
   // 图片信息
-  const imageInfo = getImageInfo(tags)
+  const imageInfo = getImageInfo(tags, file)
   // 相机信息
   const cameraInfo = getCameraInfo(tags)
   // 作者信息
   const authorInfo = getAuthorInfo(tags)
   // TODO:设置其他值
   // setxxxInfo(tags, name)
-  
-  return { GPSInfo, imageInfo, cameraInfo , authorInfo}
+
+  return { GPSInfo, imageInfo, cameraInfo, authorInfo }
 }
 
 // 获取不同图片经纬度信息
@@ -303,14 +286,15 @@ function getCameraInfo(info) {
  * @param {*} name
  * @return {*}
  */
-function getImageInfo(info) {
+function getImageInfo(info, file) {
   const exif = info.exif
   return {
     // 分辨率
     Resolution: `${exif?.PixelYDimension?.value} x ${exif?.PixelXDimension?.value}`,
     // 亮度
     BrightnessValue: exif?.BrightnessValue?.value,
-
+    // 大小
+    size: calcMBSize(file.size)
   }
 }
 
@@ -320,7 +304,7 @@ const loadingInstance = ref()
 
 watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   if (needUploadImageLoading.value || uploadedImageLoading.value) {
-    loadingInstance.value = ElLoading.service({fullscreen: true, text: '图片数据解析中......',})
+    loadingInstance.value = ElLoading.service({ fullscreen: true, text: '图片数据解析中......', })
   } else {
     loadingInstance.value && loadingInstance.value.close()
   }
@@ -337,7 +321,7 @@ function uploadImage(name) {
     return item.id === name
   })
   if (data[0].GPSInfo.GPSLongitude !== '' && data[0].GPSInfo.GPSLatitude !== '') {
-    uploadImages(data)
+    uploadImages(data, props.map)
   } else {
     ElMessage.error('图片无地址信息，无法直接上传！')
   }
@@ -361,7 +345,7 @@ function deleteImage(name) {
     return item.name !== name
   })
   // 获取对应的marker，name和id是一样的
-  const marker = getMarkerById(name)
+  const marker = getMarkerById(name, props.map)
   // 删除掉marker
   deleteMarkerInMap(marker, props.map)
 }
@@ -379,7 +363,7 @@ async function readFileAsDataURL(file) {
 async function uploadImages(imagInfos) {
   // subimtData.append('data', 123)
   // 上传图片一定要用UploadImages因为有特殊操作，而且要先上传图片再保存schema
-  const res1 = await UploadImages(imagInfos)
+  const res1 = await UploadImages(imagInfos, props.map)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
   if (res1.code === 200 && res2.code === 200) {
@@ -473,23 +457,35 @@ async function manualLocateImage() {
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
   const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng)
   // 加入marker
-  mapStore.addMarker(marker)
+  mapStore.addMarkerId(marker.options.id)
   // 加入visibleMarker
-  mapStore.addVisibleMarker(marker)
+  addVisibleMarker(marker.options.id, props.map)
+  updateLocate(marker, fileInfo)
   // TODO:移动后定位，更新坐标
   marker.on('moveend', () => {
-    console.log('---', marker.getLatLng())
-    const { lat, lng } = marker.getLatLng()
-    if (lat && lng) {
-      // TODO:更新位置
-      fileInfo.GPSInfo.GPSLatitude = lat
-      fileInfo.GPSInfo.GPSLongitude = lng
-    }
+    updateLocate(marker, fileInfo)
   })
 }
 
+function updateLocate(marker, fileInfo) {
+  const { lat, lng } = marker.getLatLng()
+  if (lat && lng) {
+    // TODO:更新位置
+    fileInfo.GPSInfo.GPSLatitude = lat
+    fileInfo.GPSInfo.GPSLongitude = lng
+  }
+}
+
+/**
+ * @description: 清空上传组件内的所有图片
+ * @return {*}
+ */
+function deleteAll() {
+  elUploadFileList.value = []
+}
+
 // TODO:更新图片信息
-function updateImgs() {}
+function updateImgs() { }
 
 onMounted(() => {
   // 监听右键删除
@@ -503,9 +499,11 @@ onMounted(() => {
   border-radius: 10px;
   padding: 10px 0 10px 10px;
 }
+
 :deep(.el-upload-list) {
   display: none;
 }
+
 .img-cards {
   max-height: calc(100vh - 100px);
   overflow: auto;
@@ -532,12 +530,15 @@ h3 {
   border-radius: 5px;
   margin-top: 5px;
   transition: 0.3s;
+
   h1 {
     font-size: 12px;
   }
+
   .image-info {
     margin-right: 20px;
   }
+
   .uplod-delete-buttons {
     width: 40px;
     height: 100%;
@@ -550,6 +551,7 @@ h3 {
     font-size: 12px;
     color: white;
     background-color: rgb(154, 154, 154);
+
     div {
       cursor: pointer;
       flex: 1;
@@ -560,16 +562,20 @@ h3 {
     }
   }
 }
+
 .upload-img-card:hover {
   background-color: rgba(232, 232, 232, 0.4);
   border-color: rgba(0, 0, 0, 0.2);
+
   .uplod-delete-buttons {
     opacity: 1;
+
     div:hover {
       background-color: rgb(114, 114, 114);
     }
   }
 }
+
 .duplicate-upload-img-card {
   display: inline-block;
   margin: 1px 2px;

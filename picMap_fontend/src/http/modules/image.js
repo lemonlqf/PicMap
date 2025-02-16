@@ -36,5 +36,12 @@ export default {
       method: 'post',
       data
     })
+  },
+  downloadImage: data => {
+    return http({
+      url: 'image/downloadImage',
+      method: 'post',
+      data
+    })
   }
 }

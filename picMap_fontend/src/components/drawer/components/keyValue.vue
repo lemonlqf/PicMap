@@ -2,21 +2,21 @@
  * @Author: Do not edit
  * @Date: 2025-02-06 11:53:37
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 21:48:51
+ * @LastEditTime: 2025-02-16 13:42:05
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
  * @Description: 
 -->
 <template>
   <h1>{{ props.title }}</h1>
   <div v-for="key in keys">
-    <span>{{ labels[key] }}:</span>
-    <span style="max-width: 200px">{{ getValue(props.info[key]) }}</span>
+    <span v-if="needShow(key)">{{ labels[key] }}:</span>
+    <span v-if="needShow(key)" style="max-width: 200px">{{ getValue(props.info[key]) ?? '无数据' }}</span>
   </div>
 </template>
 
 <script setup>
 import { computed } from 'vue'
-import { labels } from '../imageInfo'
+import { labels, showIndicators } from '../imageInfo'
 const props = defineProps({
   info: {
     default: {}
@@ -29,6 +29,10 @@ const props = defineProps({
 const keys = computed(() => {
   return Object.keys(props.info)
 })
+
+const needShow = function (key) {
+  return showIndicators.includes(key)
+}
 
 /**
  * @description: 获取实际数据值
@@ -66,9 +70,11 @@ div {
   width: 250px;
   display: flex;
   justify-content: space-between;
+
   span:first-child {
     width: 90px;
   }
+
   margin-bottom: 5px;
   margin-right: 30px;
 }

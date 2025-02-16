@@ -2,13 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-04 13:10:01
+ * @LastEditTime: 2025-02-16 12:15:17
  * @FilePath: \Code\picMap_backend\utils\image\image.js
  * @Description:
  */
 const lodash = require('lodash')
 const glob = require('glob')
 const fs = require('node:fs')
+const { Blob } = require('buffer')
 const sharp = require('sharp')
 const globalVariables = require('../../public/globalVariable').globalVariables
 // 图片id前缀
@@ -80,5 +81,5 @@ module.exports = {
   getNewImageId,
   getImageId,
   getImageFileById,
-  getSmallImageFileById
+  getSmallImageFileById,
 }

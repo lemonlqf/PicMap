@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-03 23:02:16
+ * @LastEditTime: 2025-02-16 12:15:02
  * @FilePath: \Code\picMap_backend\routes\image.js
  * @Description:
  */
@@ -69,6 +69,16 @@ router.post('/deleteImages', function (req, res, next) {
 router.post('/updateImages', function (req, res, next) {
   // TODO:图片更新的逻辑
   res.send('接口还在开发完善中....')
+})
+
+router.post('/downloadImage', function (req, res, next) {
+  const { imageId } = req.body
+  const file = getImageFileById(imageId)
+  if (file) {
+    res.send(Result.success({ file }))
+  } else {
+    res.send(Result.fail('文件不存在'))
+  }
 })
 
 module.exports = router
