@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 17:45:54
+ * @LastEditTime: 2025-02-21 22:45:35
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -42,13 +42,17 @@
           <div class="uplod-delete-buttons">
             <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude"
               @click="showLocateDialog(item.name)">
-              <img src="@/assets/icon/定位(白色).png" width="20px" alt="">定位</img>
+              <img src="@/assets/icon/定位(白色).png" width="16px" alt="">定位</img>
             </div>
             <div v-else @click="uploadImage(item.name)">
-              <img src="@/assets/icon/上传 (白色).png" width="20px">上传</img>
+              <img src="@/assets/icon/上传 (白色).png" width="16px">上传</img>
+            </div>
+            <!-- 分组信息 -->
+            <div @click="showGroupDialog">
+              <img src="@/assets/icon/分组（白色）.png" width="16px">分组</img>
             </div>
             <div @click="deleteImage(item.name)">
-              <img src="@/assets/icon/删除 (白色).png" width="20px">删除</img>
+              <img src="@/assets/icon/删除 (白色).png" width="16px">删除</img>
             </div>
           </div>
         </div>
@@ -60,8 +64,9 @@
     <el-button v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">全部清空</el-button>
   </div>
   <!-- 定位弹框 -->
-  <el-dialog v-model="locateDialogShow" title="设置图片位置" style="width: 500px;">
-    <el-form ref="formRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto" :rules="rules">
+  <el-dialog v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
+    <el-form ref="formRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto"
+      :rules="locateRules">
       <el-form-item label="经度" prop="GPSLongitude">
         <el-input v-model="needLocateImageIdFormData.GPSLongitude"></el-input>
       </el-form-item>
@@ -71,12 +76,29 @@
       <el-form-item label="海拔" prop="GPSAltitude">
         <el-input v-model="needLocateImageIdFormData.GPSAltitude" placeholder="0"></el-input>
       </el-form-item>
-      <el-button @click="manualLocateImage">手动定位</el-button>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
+        <el-button @click="manualLocateImage" class="locate-button" type="primary">手动定位</el-button>
         <el-button @click="cancelLocateImage">取消</el-button>
         <el-button type="primary" @click="locateImage(formRef)">
+          确认
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
+  <!-- 分组设置弹框 -->
+  <el-dialog v-model="groupDialogShow" title="设置分组信息" style="width: 440px;">
+    <el-form ref="" :model="groupInfoFormData" style="width: 400px" label-width="auto" :rules="groupEditRules">
+      <el-form-item label="分组名称" prop="groupId">
+        <!-- 下拉框选择 -->
+        <el-input v-model="groupInfoFormData.groupIds"></el-input>
+      </el-form-item>
+    </el-form>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="cancleGroupEdit">取消</el-button>
+        <el-button type="primary" @click="">
           确认
         </el-button>
       </div>
@@ -117,12 +139,21 @@ const elUploadFileList = ref([])
 const hasUrlFileList = ref([])
 // 设置定位的弹框
 const locateDialogShow = ref(false)
+// 分组设置的蓝光
+const groupDialogShow = ref(true)
 // 定位的数据
 const needLocateImageIdFormData = ref({
   id: null,
   GPSAltitude: null,
   GPSLatitude: null,
   GPSLongitude: null
+})
+
+const groupInfoFormData = ref({
+  // TODO:应该可以被分到多组中
+  groupIds: [],
+  // 是否作为分组封面？
+  isCover: false
 })
 const formRef = ref()
 
@@ -387,7 +418,7 @@ function showLocateDialog(id) {
  * @return {*}
  */
 function cancelLocateImage() {
-  resetForm()
+  resetLocateForm()
   locateDialogShow.value = false
 }
 
@@ -395,7 +426,7 @@ function cancelLocateImage() {
  * @description: 情空表单
  * @return {*}
  */
-function resetForm() {
+function resetLocateForm() {
   // 清空form表单的数据
   Object.keys(needLocateImageIdFormData.value).forEach(key => {
     needLocateImageIdFormData.value[key] = null
@@ -427,8 +458,8 @@ async function locateImage(formRef) {
   })
 }
 
-// 校验规则
-const rules = reactive({
+// 手动定位校验规则
+const locateRules = reactive({
   GPSLongitude: [{
     required: true,
     message: '经度值不能为空！',
@@ -439,6 +470,12 @@ const rules = reactive({
     message: '纬度值不能为空！',
     trigger: 'change',
   }]
+})
+
+const groupEditRules = reactive({
+  groupIds: [{
+  }],
+  isCover: [{}]
 })
 
 /**
@@ -484,12 +521,36 @@ function deleteAll() {
   elUploadFileList.value = []
 }
 
+/**
+ * @description: 
+ * @return {*}
+ */
+function showGroupDialog() {
+  resetGroupForm()
+  groupDialogShow.value = true
+}
+
+function cancleGroupEdit() {
+  resetGroupForm()
+  groupDialogShow.value = false
+}
+
+/**
+ * @description: 重置表单
+ * @return {*}
+ */
+function resetGroupForm() {
+
+}
+
 // TODO:更新图片信息
 function updateImgs() { }
 
 onMounted(() => {
   // 监听右键删除
   eventBus.on('delete-image', deleteImage)
+  // 监听右键设置分组
+  eventBus.on('edit-group', showGroupDialog)
 })
 </script>
 
@@ -583,5 +644,17 @@ h3 {
 
 img {
   cursor: pointer;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+
+  .locate-button {
+    flex: 1;
+    margin-right: 50px;
+    margin-left: 10px;
+    justify-self: flex-start
+  }
 }
 </style>

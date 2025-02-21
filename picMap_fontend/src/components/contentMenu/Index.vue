@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 17:26:45
+ * @LastEditTime: 2025-02-21 21:58:27
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -50,6 +50,14 @@ const menuList = ref([
         ElMessage.success(tipMsg)
         // console.log('promise all ==>', res)
       })
+    }
+  },
+  {
+    label: '设置分组',
+    clickEvent: async () => {
+      // 编辑分组信息
+      eventBus.emit('edit-group', marker.value.options.id)
+      ElMessage.success('设置分组')
     }
   }
 ])
@@ -105,15 +113,27 @@ onUnmounted(() => {
   opacity: 0;
   background-color: rgba(255, 255, 255, 1);
   z-index: 999999;
-  border: 1px solid black;
 
   .menu-item {
-    border-bottom: 1px solid black;
+    border-color: rgb(104, 104, 228);
+    padding: 2px 13px 5px 13px;
     cursor: pointer;
+
+    span {
+      font-size: 14px;
+      position: relative;
+      text-overflow: ellipsis;
+      color: rgb(96, 98, 102);
+      height: 25px;
+      box-sizing: border-box;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+    }
   }
 
   .menu-item:hover {
-    background-color: antiquewhite;
+    background-color: rgb(226, 226, 226);
   }
 
   .menu-item:last-child {
