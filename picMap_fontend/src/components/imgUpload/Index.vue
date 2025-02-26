@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-21 22:45:35
+ * @LastEditTime: 2025-02-26 22:16:32
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -87,18 +87,54 @@
       </div>
     </template>
   </el-dialog>
-  <!-- 分组设置弹框 -->
+  <!-- 单张图片分组设置弹框 -->
   <el-dialog v-model="groupDialogShow" title="设置分组信息" style="width: 440px;">
-    <el-form ref="" :model="groupInfoFormData" style="width: 400px" label-width="auto" :rules="groupEditRules">
-      <el-form-item label="分组名称" prop="groupId">
-        <!-- 下拉框选择 -->
-        <el-input v-model="groupInfoFormData.groupIds"></el-input>
+    <el-form ref="" :model="singleImageGroupInfoFormData" style="width: 400px" label-width="auto"
+      :rules="groupEditRules">
+      <el-form-item label="目标分组" prop="groupId" label-width="90px">
+        <!-- 下拉框选择已有的分组 -->
+        <el-select v-model="singleImageGroupInfoFormData.groupIds" multiple placeholder="请选择分组">
+          <el-option v-for="item in groupIdAndNameLists" :key="item.id" :label="item.name" :value="item.id">
+          </el-option>
+        </el-select>
       </el-form-item>
+      <el-form-item label="是否添加到新分组中？" label-width="90px">
+        <Switch :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
+          v-model="singleImageGroupInfoFormData.needAddNewGroup">
+        </Switch>
+        <span>{{ singleImageGroupInfoFormData.needAddNewGroup }}</span>
+      </el-form-item>
+      <!-- 新分组相关 -->
+      <template v-if="singleImageGroupInfoFormData.needAddNewGroup">
+        <el-form-item label="新分组名称" prop="groupId" label-width="90px">
+          <el-input v-model="singleImageGroupInfoFormData.groupIds"></el-input>
+        </el-form-item>
+        <el-form-item label="新分组位置" label-width="90px">
+          <Switch :options="[{ value: 'auto', label: '自动定位' }, { value: 'manual', label: '手动定位' }]"
+            v-model="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo">
+          </Switch>
+          {{ singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo }}
+        </el-form-item>
+        <template v-if="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'">
+          <el-form-item label="新分组经度" label-width="90px" prop="GPSLongitude">
+            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.GPSLongitude"></el-input>
+          </el-form-item>
+          <el-form-item label="新分组纬度" label-width="90px" prop="GPSLatitude">
+            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.GPSLatitude"></el-input>
+          </el-form-item>
+          <el-form-item label="新分组海拔" label-width="90px" prop="GPSAltitude">
+            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.GPSAltitude" placeholder="0"></el-input>
+          </el-form-item>
+        </template>
+      </template>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
+        <el-button @click=""
+          v-if="singleImageGroupInfoFormData.needAddNewGroup && singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'"
+          class="locate-button" type="primary">手动定位</el-button>
         <el-button @click="cancleGroupEdit">取消</el-button>
-        <el-button type="primary" @click="">
+        <el-button type="primary" @click="pushImageToGroupInfo">
           确认
         </el-button>
       </div>
@@ -121,6 +157,8 @@ import API from '@/http/index.js'
 import { v5 as uuidv5 } from 'uuid'
 import { before, cloneDeep, has } from 'lodash-es'
 import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.js'
+import { defaultGroupNamePrefix, createNewGroupName, getGroupIdAndNameLists } from '@/utils/group.js'
+import Switch from '@/components/switch/Index.vue'
 
 
 const schemaStore = useSchemaStore()
@@ -140,7 +178,7 @@ const hasUrlFileList = ref([])
 // 设置定位的弹框
 const locateDialogShow = ref(false)
 // 分组设置的蓝光
-const groupDialogShow = ref(true)
+const groupDialogShow = ref(false)
 // 定位的数据
 const needLocateImageIdFormData = ref({
   id: null,
@@ -148,12 +186,22 @@ const needLocateImageIdFormData = ref({
   GPSLatitude: null,
   GPSLongitude: null
 })
-
-const groupInfoFormData = ref({
+// 单张图片对应的分组信息
+const singleImageGroupInfoFormData = ref({
   // TODO:应该可以被分到多组中
   groupIds: [],
-  // 是否作为分组封面？
-  isCover: false
+  // 需要被分配的图片ids
+  imageIds: [],
+  needAddNewGroup: false,
+  newGroupInfo: {
+    newGroupName: '',
+    needSetGPSInfo: 'auto' || 'manual',
+    newGroupGPSInfo: {
+      GPSAltitude: null,
+      GPSLatitude: null,
+      GPSLongitude: null
+    }
+  }
 })
 const formRef = ref()
 
@@ -341,7 +389,6 @@ watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   }
 })
 
-
 /**
  * @description: 上传在左侧上传列表中的单张照片
  * @param {*} name
@@ -521,12 +568,19 @@ function deleteAll() {
   elUploadFileList.value = []
 }
 
+const groupIdAndNameLists = ref([])
+
+watch(() => schemaStore.getGroupInfo, (newVal) => {
+  groupIdAndNameLists.value = getGroupIdAndNameLists()
+}, { immediate: true, deep: true })
+
 /**
  * @description: 
  * @return {*}
  */
-function showGroupDialog() {
+function showGroupDialog(imageId) {
   resetGroupForm()
+  singleImageGroupInfoFormData.value.imageIds = imageId
   groupDialogShow.value = true
 }
 
@@ -540,6 +594,12 @@ function cancleGroupEdit() {
  * @return {*}
  */
 function resetGroupForm() {
+  singleImageGroupInfoFormData.value.groupIds = []
+  singleImageGroupInfoFormData.value.imageIds = ''
+  singleImageGroupInfoFormData.value.isCover = false
+}
+
+function pushImageToGroupInfo() {
 
 }
 
@@ -655,6 +715,13 @@ img {
     margin-right: 50px;
     margin-left: 10px;
     justify-self: flex-start
+  }
+}
+
+:deep() {
+  .el-form-item--default .el-form-item__label {
+    line-height: 16px;
+    align-items: center;
   }
 }
 </style>

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 16:53:28
+ * @LastEditTime: 2025-02-25 21:46:25
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -19,6 +19,9 @@
   </div>
   <Drawer></Drawer>
   <contentMenu :map="map"></contentMenu>
+  <div class="fix-group group-info-group">
+    <GroupInfo :map="map"></GroupInfo>
+  </div>
 </template>
 
 <script setup>
@@ -29,6 +32,7 @@ import 'leaflet/dist/leaflet.css'
 import ImageUpolad from '@/components/imgUpload/Index.vue'
 import Drawer from '@/components/drawer/Index.vue'
 import contentMenu from '@/components/contentMenu/Index.vue'
+import GroupInfo from '@/components/groupInfo/Index.vue'
 import appMapTile from './appMapTile'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import schemaHttp from '@/http/modules/schema'
@@ -174,5 +178,10 @@ onMounted(() => {
 .upload-group {
   top: 100px;
   left: 10px;
+}
+
+.group-info-group {
+  top: 100px;
+  right: 15px;
 }
 </style>
