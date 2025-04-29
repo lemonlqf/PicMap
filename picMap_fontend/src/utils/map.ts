@@ -3,14 +3,14 @@
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-16 17:25:13
- * @FilePath: \Code\picMap_fontend\src\utils\map.js
+ * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
 import L from 'leaflet'
 import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
 import eventBus from '@/utils/eventBus'
-import { judgeHadUploadImage } from '@/utils/schema.js'
+import { judgeHadUploadImage } from '@/utils/schema.ts'
 import { nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 

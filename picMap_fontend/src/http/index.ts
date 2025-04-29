@@ -1,4 +1,4 @@
-const modules = import.meta.glob('./modules/*.js')
+const modules = import.meta.glob('./modules/*.ts')
 const api = {}
 for (const path in modules) {
   modules[path]().then(mod => {

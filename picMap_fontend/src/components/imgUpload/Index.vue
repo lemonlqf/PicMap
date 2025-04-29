@@ -91,22 +91,22 @@
   <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds"></GroupInfoDialog>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import L from 'leaflet'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarker } from '@/utils/map.js'
-import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema.js'
-import { uploadImages as UploadImages, calcMBSize } from '@/utils/image.js'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarker } from '@/utils/map.ts'
+import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema.ts'
+import { uploadImages as UploadImages, calcMBSize } from '@/utils/image.ts'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
-import eventBus from '@/utils/eventBus.js'
-import API from '@/http/index.js'
+import eventBus from '@/utils/eventBus.ts'
+import API from '@/http/index.ts'
 import { v5 as uuidv5 } from 'uuid'
 import { before, cloneDeep, has } from 'lodash-es'
-import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.js'
-import { defaultGroupNamePrefix, createNewGroupName } from '@/utils/group.js'
+import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.ts'
+import { defaultGroupNamePrefix, createNewGroupName } from '@/utils/group.ts'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/groupInfoDialog.vue'
 
 const schemaStore = useSchemaStore()

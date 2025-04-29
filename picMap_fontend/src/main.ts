@@ -3,7 +3,7 @@
  * @Date: 2024-12-12 19:00:05
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-01-27 19:39:01
- * @FilePath: \Code\picMap_fontend\src\main.js
+ * @FilePath: \Code\picMap_fontend\src\main.ts
  * @Description:
  */
 

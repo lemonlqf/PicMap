@@ -2,7 +2,7 @@
   <router-view></router-view>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import eventBus from './utils/eventBus'
 
 document.addEventListener('mouseup', () => {

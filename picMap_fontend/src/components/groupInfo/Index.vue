@@ -18,7 +18,7 @@
   </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { onBeforeMount, onMounted, ref, watch, nextTick } from 'vue'
 import { useSchemaStore } from '../../store/schema';
 import { ElMessage } from 'element-plus';

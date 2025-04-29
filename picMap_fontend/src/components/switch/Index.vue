@@ -15,7 +15,7 @@
   </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { defineProps, defineModel, onMounted, watch } from 'vue'
 const emit = defineEmits(['onclick'])
 const props = defineProps({

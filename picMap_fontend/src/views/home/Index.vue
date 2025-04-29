@@ -11,7 +11,7 @@
   <button @click="toPicMap">to picmap</button>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { useRouter } from 'vue-router'
 const router = useRouter()
 function toPicMap() {

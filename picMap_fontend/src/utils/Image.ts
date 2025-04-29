@@ -3,12 +3,12 @@
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-15 21:07:26
- * @FilePath: \Code\picMap_fontend\src\utils\Image.js
+ * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
 import { useSchemaStore } from '../store/schema'
 import { getMarkerById } from '@/utils/map'
-import API from '@/http/index.js'
+import API from '@/http/index.ts'
 
 // 计算MB大小
 export function calcMBSize(size) {

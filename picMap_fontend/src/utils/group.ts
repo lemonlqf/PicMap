@@ -19,7 +19,7 @@ export const defaultGroupNamePrefix = '未命名分组'
 export function isInGroup(imageId, groupId) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
-  if (isGroupIdExist(gtoupId)) {
+  if (isGroupIdExist(groupId)) {
     return groupLists.find(group => group.id === groupId).groupNumbers?.includes?.(imageId);
   } else {
     return groupLists.find(group => group?.groupNumbers?.includes?.(imageId));

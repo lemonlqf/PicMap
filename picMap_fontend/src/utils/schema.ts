@@ -3,12 +3,12 @@
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-06 20:08:05
- * @FilePath: \Code\picMap_fontend\src\utils\schema.js
+ * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep } from 'lodash-es'
-import API from '@/http/index.js'
+import API from '@/http/index.ts'
 
 /**
  * @description: 获取图片组和图片列表，用于直接在地图上展示

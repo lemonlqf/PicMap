@@ -3,7 +3,7 @@
  * @Date: 2025-02-06 11:44:34
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-16 12:23:58
- * @FilePath: \Code\picMap_fontend\src\components\drawer\imageInfo.js
+ * @FilePath: \Code\picMap_fontend\src\components\drawer\imageInfo.ts
  * @Description:
  */
 export const labels = {

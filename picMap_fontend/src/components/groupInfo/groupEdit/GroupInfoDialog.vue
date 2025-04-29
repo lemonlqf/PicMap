@@ -59,10 +59,10 @@
   </el-dialog>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { ref, reactive, watch } from 'vue'
-import { isNumber } from '@/utils/regex.js'
-import { getGroupIdAndNameLists } from '@/utils/group.js'
+import { isNumber } from '@/utils/regex.ts'
+import { getGroupIdAndNameLists } from '@/utils/group.ts'
 import { useSchemaStore } from '@/store/schema'
 import Switch from '@/components/switch/Index.vue'
 

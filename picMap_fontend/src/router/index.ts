@@ -3,7 +3,7 @@
  * @Date: 2024-12-12 23:57:41
  * @LastEditors: 吕奇峰 1353041516@qq.com
  * @LastEditTime: 2024-12-13 11:52:46
- * @FilePath: \picMap_fontend\src\router\index.js
+ * @FilePath: \picMap_fontend\src\router\index.ts
  */
 import { createWebHashHistory, createRouter } from 'vue-router'
 

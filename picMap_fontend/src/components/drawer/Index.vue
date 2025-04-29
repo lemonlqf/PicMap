@@ -31,11 +31,11 @@
   </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import eventBus from '@/utils/eventBus'
-import { fileToBase64 } from '@/utils/map.js'
+import { fileToBase64 } from '@/utils/map.ts'
 import { onMounted, onUnmounted, ref } from 'vue'
-import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema.js'
+import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema.ts'
 import { calcMBSize } from '@/utils/Image'
 import keyValue from './components/keyValue.vue'
 import API from '@/http/index'

@@ -24,7 +24,7 @@
   </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { onBeforeMount, onMounted, ref, watch, nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import L from 'leaflet'
@@ -44,8 +44,8 @@ import {
   updateVisibleMarkers,
   hiddenImageInfoDrawerMapClick,
   setView
-} from '@/utils/map.js'
-import { getGroupAndImageList, getAllImageIdInSchema, saveSchema } from '@/utils/schema.js'
+} from '@/utils/map.ts'
+import { getGroupAndImageList, getAllImageIdInSchema, saveSchema } from '@/utils/schema.ts'
 import eventBus from '@/utils/eventBus'
 import { useMapStore } from '../../store/map'
 

@@ -14,14 +14,14 @@
   </div>
 </template>
 
-<script setup>
+<script lang="ts" setup>
 import { onMounted, onUnmounted, ref } from 'vue'
-import eventBus from '@/utils/eventBus.js'
-import API from '@/http/index.js'
+import eventBus from '@/utils/eventBus.ts'
+import API from '@/http/index.ts'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
-import { judgeHadUploadImage, saveSchema } from '@/utils/schema.js'
-import { deleteMarkerInMap } from '@/utils/map.js'
+import { judgeHadUploadImage, saveSchema } from '@/utils/schema.ts'
+import { deleteMarkerInMap } from '@/utils/map.ts'
 
 const props = defineProps({
   map: {}
