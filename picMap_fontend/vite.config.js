@@ -1,9 +1,9 @@
 /*
  * @Author: Do not edit
  * @Date: 2024-12-12 19:00:05
- * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2024-12-13 11:51:14
- * @FilePath: \picMap_fontend\vite.config.js
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-04-29 23:06:02
+ * @FilePath: \Code\picMap_fontend\vite.config.js
  * @Description:
  */
 import { defineConfig } from 'vite'
@@ -21,6 +21,6 @@ export default defineConfig({
     alias: {
       '@': resolve(__dirname, 'src') // 路径别名
     },
-    extensions: ['.js', '.json', '.vue']
+    extensions: ['.js', '.json', '.vue', '.ts']
   }
 })

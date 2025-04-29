@@ -2,9 +2,9 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 13:10:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-26 22:16:32
+ * @LastEditTime: 2025-04-29 22:56:53
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
- * @Description: 
+ * @Description: 上传图片的组件
 -->
 <template>
   <div class="img-upload">
@@ -48,7 +48,7 @@
               <img src="@/assets/icon/上传 (白色).png" width="16px">上传</img>
             </div>
             <!-- 分组信息 -->
-            <div @click="showGroupDialog">
+            <div @click="showGroupDialog(item.id)">
               <img src="@/assets/icon/分组（白色）.png" width="16px">分组</img>
             </div>
             <div @click="deleteImage(item.name)">
@@ -64,8 +64,8 @@
     <el-button v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">全部清空</el-button>
   </div>
   <!-- 定位弹框 -->
-  <el-dialog v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
-    <el-form ref="formRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto"
+  <el-dialog z-index="99999" v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
+    <el-form ref="locateFromRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto"
       :rules="locateRules">
       <el-form-item label="经度" prop="GPSLongitude">
         <el-input v-model="needLocateImageIdFormData.GPSLongitude"></el-input>
@@ -81,65 +81,14 @@
       <div class="dialog-footer">
         <el-button @click="manualLocateImage" class="locate-button" type="primary">手动定位</el-button>
         <el-button @click="cancelLocateImage">取消</el-button>
-        <el-button type="primary" @click="locateImage(formRef)">
+        <el-button type="primary" @click="locateImage(locateFromRef)">
           确认
         </el-button>
       </div>
     </template>
   </el-dialog>
   <!-- 单张图片分组设置弹框 -->
-  <el-dialog v-model="groupDialogShow" title="设置分组信息" style="width: 440px;">
-    <el-form ref="" :model="singleImageGroupInfoFormData" style="width: 400px" label-width="auto"
-      :rules="groupEditRules">
-      <el-form-item label="目标分组" prop="groupId" label-width="90px">
-        <!-- 下拉框选择已有的分组 -->
-        <el-select v-model="singleImageGroupInfoFormData.groupIds" multiple placeholder="请选择分组">
-          <el-option v-for="item in groupIdAndNameLists" :key="item.id" :label="item.name" :value="item.id">
-          </el-option>
-        </el-select>
-      </el-form-item>
-      <el-form-item label="是否添加到新分组中？" label-width="90px">
-        <Switch :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
-          v-model="singleImageGroupInfoFormData.needAddNewGroup">
-        </Switch>
-        <span>{{ singleImageGroupInfoFormData.needAddNewGroup }}</span>
-      </el-form-item>
-      <!-- 新分组相关 -->
-      <template v-if="singleImageGroupInfoFormData.needAddNewGroup">
-        <el-form-item label="新分组名称" prop="groupId" label-width="90px">
-          <el-input v-model="singleImageGroupInfoFormData.groupIds"></el-input>
-        </el-form-item>
-        <el-form-item label="新分组位置" label-width="90px">
-          <Switch :options="[{ value: 'auto', label: '自动定位' }, { value: 'manual', label: '手动定位' }]"
-            v-model="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo">
-          </Switch>
-          {{ singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo }}
-        </el-form-item>
-        <template v-if="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'">
-          <el-form-item label="新分组经度" label-width="90px" prop="GPSLongitude">
-            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.GPSLongitude"></el-input>
-          </el-form-item>
-          <el-form-item label="新分组纬度" label-width="90px" prop="GPSLatitude">
-            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.GPSLatitude"></el-input>
-          </el-form-item>
-          <el-form-item label="新分组海拔" label-width="90px" prop="GPSAltitude">
-            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.GPSAltitude" placeholder="0"></el-input>
-          </el-form-item>
-        </template>
-      </template>
-    </el-form>
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click=""
-          v-if="singleImageGroupInfoFormData.needAddNewGroup && singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'"
-          class="locate-button" type="primary">手动定位</el-button>
-        <el-button @click="cancleGroupEdit">取消</el-button>
-        <el-button type="primary" @click="pushImageToGroupInfo">
-          确认
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
+  <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds"></GroupInfoDialog>
 </template>
 
 <script setup>
@@ -157,9 +106,8 @@ import API from '@/http/index.js'
 import { v5 as uuidv5 } from 'uuid'
 import { before, cloneDeep, has } from 'lodash-es'
 import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02.js'
-import { defaultGroupNamePrefix, createNewGroupName, getGroupIdAndNameLists } from '@/utils/group.js'
-import Switch from '@/components/switch/Index.vue'
-
+import { defaultGroupNamePrefix, createNewGroupName } from '@/utils/group.js'
+import GroupInfoDialog from '@/components/groupInfo/groupEdit/groupInfoDialog.vue'
 
 const schemaStore = useSchemaStore()
 const props = defineProps({
@@ -177,7 +125,7 @@ const elUploadFileList = ref([])
 const hasUrlFileList = ref([])
 // 设置定位的弹框
 const locateDialogShow = ref(false)
-// 分组设置的蓝光
+// 分组设置的弹框
 const groupDialogShow = ref(false)
 // 定位的数据
 const needLocateImageIdFormData = ref({
@@ -186,24 +134,8 @@ const needLocateImageIdFormData = ref({
   GPSLatitude: null,
   GPSLongitude: null
 })
-// 单张图片对应的分组信息
-const singleImageGroupInfoFormData = ref({
-  // TODO:应该可以被分到多组中
-  groupIds: [],
-  // 需要被分配的图片ids
-  imageIds: [],
-  needAddNewGroup: false,
-  newGroupInfo: {
-    newGroupName: '',
-    needSetGPSInfo: 'auto' || 'manual',
-    newGroupGPSInfo: {
-      GPSAltitude: null,
-      GPSLatitude: null,
-      GPSLongitude: null
-    }
-  }
-})
-const formRef = ref()
+
+const locateFromRef = ref()
 
 function isInHasUrlFileList(id) {
   return hasUrlFileList.value.some(item => {
@@ -484,9 +416,9 @@ function resetLocateForm() {
  * @description: 定位图片，将数据保存到schema中
  * @return {*}
  */
-async function locateImage(formRef) {
-  if (!formRef) return
-  await formRef.validate((valid, fields) => {
+async function locateImage(locateFromRef) {
+  if (!locateFromRef) return
+  await locateFromRef.validate((valid, fields) => {
     if (valid) {
       console.log(needLocateImageIdFormData.value)
       if (needLocateImageIdFormData.value.id) {
@@ -517,12 +449,6 @@ const locateRules = reactive({
     message: '纬度值不能为空！',
     trigger: 'change',
   }]
-})
-
-const groupEditRules = reactive({
-  groupIds: [{
-  }],
-  isCover: [{}]
 })
 
 /**
@@ -570,38 +496,17 @@ function deleteAll() {
 
 const groupIdAndNameLists = ref([])
 
-watch(() => schemaStore.getGroupInfo, (newVal) => {
-  groupIdAndNameLists.value = getGroupIdAndNameLists()
-}, { immediate: true, deep: true })
-
+// 可以是多个
+const editImageIds = ref([])
 /**
  * @description: 
  * @return {*}
  */
 function showGroupDialog(imageId) {
-  resetGroupForm()
-  singleImageGroupInfoFormData.value.imageIds = imageId
+  editImageIds.value = [imageId]
   groupDialogShow.value = true
 }
 
-function cancleGroupEdit() {
-  resetGroupForm()
-  groupDialogShow.value = false
-}
-
-/**
- * @description: 重置表单
- * @return {*}
- */
-function resetGroupForm() {
-  singleImageGroupInfoFormData.value.groupIds = []
-  singleImageGroupInfoFormData.value.imageIds = ''
-  singleImageGroupInfoFormData.value.isCover = false
-}
-
-function pushImageToGroupInfo() {
-
-}
 
 // TODO:更新图片信息
 function updateImgs() { }

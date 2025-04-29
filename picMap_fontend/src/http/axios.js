@@ -2,14 +2,14 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:07:10
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 21:39:58
+ * @LastEditTime: 2025-04-29 21:28:02
  * @FilePath: \Code\picMap_fontend\src\http\axios.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
 
-const ip = 'http://192.168.3.15'
+const ip = 'http://localhost'
 const port = '5001'
 
 const http = axios.create({

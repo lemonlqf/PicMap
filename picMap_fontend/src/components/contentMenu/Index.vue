@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-21 21:58:27
+ * @LastEditTime: 2025-02-27 21:14:34
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -50,6 +50,8 @@ const menuList = ref([
         ElMessage.success(tipMsg)
         // console.log('promise all ==>', res)
       })
+      // 删除后隐藏右键菜单
+      isShow.value = false
     }
   },
   {
@@ -58,6 +60,8 @@ const menuList = ref([
       // 编辑分组信息
       eventBus.emit('edit-group', marker.value.options.id)
       ElMessage.success('设置分组')
+      // 删除后隐藏右键菜单
+      isShow.value = false
     }
   }
 ])
@@ -111,13 +115,14 @@ onUnmounted(() => {
   left: v-bind('postionInfo.left');
   top: v-bind('postionInfo.top');
   opacity: 0;
+  z-index: -1;
   background-color: rgba(255, 255, 255, 1);
-  z-index: 999999;
 
   .menu-item {
     border-color: rgb(104, 104, 228);
     padding: 2px 13px 5px 13px;
     cursor: pointer;
+    pointer-events: none;
 
     span {
       font-size: 14px;
@@ -143,5 +148,10 @@ onUnmounted(() => {
 
 .is-show {
   opacity: 1;
+  z-index: 999999;
+
+  .menu-item {
+    pointer-events: all;
+  }
 }
 </style>
