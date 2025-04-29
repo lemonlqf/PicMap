@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 19:37:46
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-04 12:46:55
+ * @LastEditTime: 2025-04-29 21:41:21
  * @FilePath: \Code\picMap_backend\utils\file\writeFile.js
  * @Description:
  */
@@ -28,7 +28,7 @@ function writeBase64File(baseUrl, imageName = 'image.png', id, path = globalVari
   // 返回一个被 string 的值初始化的新的 Buffer 实例,原始二进制数据存储在 Buffer 类的实例中，        一个 Buffer 类似于一个整数数组，但它对应于 V8 堆内存之外的一块原始内存。
   var dataBuffer = Buffer.from(base64Data, 'base64')
   // 如果无目录先创建目录，否则会报没有目录的错误
-  !fs.existsSync(path) && fs.mkdirSync(path)
+  !fs.existsSync(path) && fs.mkdirSync(path, { recursive: true })
   let filePath = ''
   if (id) {
     filePath = `${path}${getImageId(id)}`
