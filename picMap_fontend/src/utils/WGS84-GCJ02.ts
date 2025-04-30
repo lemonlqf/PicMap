@@ -3,7 +3,7 @@
  * @Date: 2025-02-02 00:00:32
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-06 14:36:50
- * @FilePath: \Code\picMap_fontend\src\utils\WGS84-GCJ02.ts
+ * @FilePath: \Code\picMap_fontend\src\utils\WGS84-GCJ02
  * @Description:
  */
 const PI = 3.1415926535897932384626

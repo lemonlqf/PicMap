@@ -3,7 +3,7 @@
  * @Date: 2024-12-13 10:58:34
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-04 14:07:43
- * @FilePath: \Code\picMap_fontend\src\views\picMap\appMapTile.ts
+ * @FilePath: \Code\picMap_fontend\src\views\picMap\appMapTile
  * @Description:
  */
 const appMapTile = [

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 17:25:13
+ * @LastEditTime: 2025-04-30 15:03:10
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -10,9 +10,11 @@ import L from 'leaflet'
 import { useMapStore } from '@/store/map'
 import imageHttp from '@/http/modules/image'
 import eventBus from '@/utils/eventBus'
-import { judgeHadUploadImage } from '@/utils/schema.ts'
+import { judgeHadUploadImage } from '@/utils/schema'
 import { nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
+import { IGPSInfo } from '@/type/schema';
+import { de } from 'element-plus/es/locale'
 
 const NO_IMAGE_MARKER_SIZE = [40, 40]
 // marker向上偏移的量
@@ -20,6 +22,12 @@ const markerTranslateY = NO_IMAGE_MARKER_SIZE[1]
 
 export let MARKER_SHOW_RADIO = 1
 export let MARKER_HOVER_SHOW_RADIO = 1.3
+
+export let MAP_INSTANCE
+
+export function setMapInstance(map) {
+  MAP_INSTANCE = map
+}
 
 /**
  * @description: 添加图片到地图中
@@ -122,6 +130,30 @@ export function deleteMarkerInMap(marker, map) {
   if (map && marker) {
     map.removeLayer(marker)
     mapStore.deleteMarker(marker)
+  }
+}
+
+/**
+ * @description: 根据markerId删除地图中的marker
+ * @param {*} markerId
+ * @param {*} map
+ * @return {*}
+ */
+export function deleteMarkerById(markerId, map) {
+  const marker = getMarkerById(markerId, map)
+  deleteMarkerInMap(marker, map)
+}
+
+/**
+ * @description: 隐藏marker
+ * @param {*} markerId
+ * @param {*} map
+ * @return {*}
+ */
+export function hiddenMarkerById(markerId, map) {
+  const marker = getMarkerById(markerId, map)
+  if (marker) {
+    marker.setOpacity(0)
   }
 }
 
@@ -364,9 +396,9 @@ function imageUrlIcon(imgUrl) {
   locationDiv.className = 'location'
   const div = document.createElement('div')
   div.appendChild(locationDiv)
-  const img = document.createElement('img')
-  img.width = `${NO_IMAGE_MARKER_SIZE[0]}`
-  img.height = `${markerTranslateY}`
+  const img = document.createElement('img') as HTMLImageElement
+  img.width = NO_IMAGE_MARKER_SIZE[0]
+  img.height = markerTranslateY
   img.src = imgUrl
   div.className = 'no-image-icon'
   div.appendChild(img)
@@ -375,11 +407,15 @@ function imageUrlIcon(imgUrl) {
 
 /**
  * @description: 根据id获取地图中的marker
- * @param {*} id
+ * @param {*} markerId
+ * @param {*} map 地图实例
  * @return {*}
  */
-export function getMarkerById(markerId, map) {
+export function getMarkerById(markerId: string, map?) {
   let foundMarker;
+  if (!map) {
+    map = MAP_INSTANCE
+  }
   map.eachLayer?.(layer => {
     if (layer instanceof L.Marker && layer.options.id === markerId) {
       foundMarker = layer;
@@ -389,12 +425,37 @@ export function getMarkerById(markerId, map) {
 }
 
 /**
- * @description: 定位到当前marker
- * @param {*} lat
- * @param {*} lng
+ * @description: 获取marker的GPS信息
+ * @param {string} markerId
+ * @param {*} map
  * @return {*}
  */
-export function setView(lat, lng, map, id) {
+export function getGPSInfoById(markerId: string, map?) {
+  if (!map) {
+    map = MAP_INSTANCE
+  }
+  return getGPSInfoByMarkerInstance(getMarkerById(markerId, map))
+}
+
+function getGPSInfoByMarkerInstance(marker):IGPSInfo {
+  if (marker) {
+    const {lng, lat} = marker.getLatLng()
+    return { GPSLatitude: lat, GPSLongitude: lng, GPSAltitude: 0 }
+  } else {
+    ElMessage.error('没有传入marker实例')
+    return { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 }
+  }
+}
+
+/**
+ * @description: 定位到当前marker
+ * @param {number} lat 维度
+ * @param {number} lng 精度
+ * @param {*} map 地图实例
+ * @param {*} id markerId
+ * @return {*}
+ */
+export function setView(lat: number, lng: number, map, id?: string) {
   if (map) {
     if (lat && lng) {
       map.setView([lat, lng], map.getZoom() ?? 10, {
@@ -421,7 +482,7 @@ export function setView(lat, lng, map, id) {
  * @param {*} map
  * @return {*}
  */
-export function addVisibleMarker(markerId, map) {
+export function addVisibleMarker(markerId: string, map) {
   const mapStore = useMapStore()
   mapStore.addVisibleMarkerId(markerId)
   const marker = getMarkerById(markerId, map)

@@ -3,11 +3,11 @@
  * @Date: 2024-12-13 00:25:49
  * @LastEditors: 吕奇峰 1353041516@qq.com
  * @LastEditTime: 2025-01-25 22:08:01
- * @FilePath: \Code\picMap_fontend\src\http\modules\image.ts
+ * @FilePath: \Code\picMap_fontend\src\http\modules\image
  * @Description:
  */
 import { set } from 'lodash-es'
-import http from '../axios.ts'
+import http from '../axios'
 
 export default {
   getSchema: () => {

@@ -3,12 +3,23 @@
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @LastEditTime: 2025-02-06 20:08:05
- * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
+ * @FilePath: \Code\picMap_fontend\src\utils\schema
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep } from 'lodash-es'
-import API from '@/http/index.ts'
+import API from '@/http/index'
+import type { ISchema, IGroupInfo, IImageInfo } from '@/type/schema'
+
+type IGroupList = IGroupInfo & {
+  showType: 'group'
+}
+
+type IImageList = IImageInfo & {
+  showType: 'image'
+}
+
+type IGroupAndImageList = (IGroupList | IImageList)[]
 
 /**
  * @description: 获取图片组和图片列表，用于直接在地图上展示
@@ -17,21 +28,21 @@ import API from '@/http/index.ts'
 export function getGroupAndImageList() {
   const schemaStore = useSchemaStore()
   console.log('-----------', schemaStore.getSchema)
-  const imageInfo = cloneDeep(schemaStore.getSchema.imageInfo)
-  const groupInfo = cloneDeep(schemaStore.getSchema.groupInfo)
+  const imageInfo = cloneDeep(schemaStore.getSchema.imageInfo) as IImageList[]
+  const groupInfo = cloneDeep(schemaStore.getSchema.groupInfo) as IGroupList[]
   const imageIdInGroup = []
-  const res = []
+  const res: IGroupAndImageList = []
   // 将分组的信息放到res中
   groupInfo?.forEach?.(item => {
     // 将本来在放到imageIdInGroup，后续剩余的照片就不放到返回的结果中
     item.groupNumbers && imageIdInGroup.push(...item.groupNumbers)
-    item.type = 'group'
+    item.showType = 'group'
     res.push(item)
   })
   // 将不在分组内的照片放到res中
   imageInfo?.forEach?.(item => {
     if (!imageIdInGroup.includes(item.id)) {
-      item.type = 'image'
+      item.showType = 'image'
       res.push(item)
     }
   })

@@ -2,11 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-25 21:42:50
- * @FilePath: \Code\picMap_fontend\src\utils\group.js
+ * @LastEditTime: 2025-04-30 13:55:30
+ * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
 import { useSchemaStore } from '@/store/schema'
+import { IGPSInfo } from '@/type/schema';
+import { ElMessage } from 'element-plus';
+import { getGPSInfoById } from '@/utils/map';
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -16,7 +19,7 @@ export const defaultGroupNamePrefix = '未命名分组'
  * @param {*} groupId
  * @return {*}
  */
-export function isInGroup(imageId, groupId) {
+export function isInGroup(imageId: string, groupId?) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   if (isGroupIdExist(groupId)) {
@@ -121,3 +124,51 @@ export function getGroupIdAndNameLists() {
   })
 }
 
+/**
+ * @description: 创建一个新的分组id
+ * @return {*}
+ */
+export function createGroupId() {
+  let newId = 'group_' + Date.now()
+  while (isGroupIdExist(newId)) {
+    newId = 'group_' + Date.now()
+  }
+  return newId
+}
+
+export function getAutoGroupGPSInfo(imageId: string[]): IGPSInfo {
+  let GPSLatitude, GPSLongitude, GPSAltitude;
+  if (imageId.length > 0) {
+    // 获取平均值
+    const GPSInfo = getAvarageGPSInfo(imageId)
+    GPSLatitude = GPSInfo.GPSLatitude
+    GPSLongitude = GPSInfo.GPSLongitude
+    GPSAltitude = GPSInfo.GPSAltitude
+  } else {
+    ElMessage.error('没有传入图片id')
+    return { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 }
+  }
+
+  return { GPSLatitude, GPSLongitude, GPSAltitude }
+}
+
+/**
+ * @description: 获取所有图片的GPS信息的平均值
+ * @param {string} imageIds
+ * @return {*}
+ */
+function getAvarageGPSInfo(imageIds: string[]): IGPSInfo {
+  let avarageGPSAltitude = 0, avarageGPSLatitude = 0, avarageGPSLongitude = 0;
+  const imageIdsLength = imageIds.length
+  imageIds.forEach(imageId => {
+    const { GPSAltitude, GPSLatitude, GPSLongitude } = getGPSInfoById(imageId)
+    GPSAltitude && (avarageGPSAltitude += (GPSAltitude / imageIdsLength))
+    GPSLatitude && (avarageGPSLatitude += (GPSLatitude / imageIdsLength))
+    GPSLongitude && (avarageGPSLongitude += (GPSLongitude / imageIdsLength))
+  })
+  return {
+    GPSLatitude: avarageGPSLatitude,
+    GPSLongitude: avarageGPSLongitude,
+    GPSAltitude: avarageGPSAltitude
+  }
+}

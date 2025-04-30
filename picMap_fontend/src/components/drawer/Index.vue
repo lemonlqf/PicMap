@@ -33,9 +33,9 @@
 
 <script lang="ts" setup>
 import eventBus from '@/utils/eventBus'
-import { fileToBase64 } from '@/utils/map.ts'
+import { fileToBase64 } from '@/utils/map'
 import { onMounted, onUnmounted, ref } from 'vue'
-import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema.ts'
+import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema'
 import { calcMBSize } from '@/utils/Image'
 import keyValue from './components/keyValue.vue'
 import API from '@/http/index'

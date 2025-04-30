@@ -2,23 +2,25 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:41:27
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-25 21:44:38
- * @FilePath: \Code\picMap_fontend\src\store\schema.ts
+ * @LastEditTime: 2025-04-30 09:44:04
+ * @FilePath: \Code\picMap_fontend\src\store\schema
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { defineStore } from 'pinia'
 import { judgeHadUploadImage } from '../utils/schema'
+import type { IGroupInfo, ISchema } from '@/type/schema'
+import { isGroupIdExist, createNewGroupName } from '@/utils/group'
 
 export const useSchemaStore = defineStore('schema', {
   state: () => ({
-    schema: {},
+    schema: {} as ISchema,
     // 暂时还没有上传的图片，在保存schema时需要剔除掉这部分图片
-    uploadedImageIds: []
+    uploadedImageIds: [] as string[]
   }),
   getters: {
-    getSchema: state => state.schema,
-    getUploadedImageIds: state => state.uploadedImageIds ?? [],
-    getGroupInfo: state => state.schema.groupInfo ?? [],
+    getSchema: state => state.schema as ISchema,
+    getUploadedImageIds: state => state.uploadedImageIds ?? [] as string[],
+    getGroupInfo: state => state.schema.groupInfo ?? [] as IGroupInfo[],
   },
   actions: {
     setSchema(value) {

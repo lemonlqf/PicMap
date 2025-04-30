@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-25 21:46:25
+ * @LastEditTime: 2025-04-30 13:36:06
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -44,10 +44,11 @@ import {
   updateVisibleMarkers,
   hiddenImageInfoDrawerMapClick,
   setView
-} from '@/utils/map.ts'
-import { getGroupAndImageList, getAllImageIdInSchema, saveSchema } from '@/utils/schema.ts'
+} from '@/utils/map'
+import { getGroupAndImageList, getAllImageIdInSchema, saveSchema } from '@/utils/schema'
 import eventBus from '@/utils/eventBus'
 import { useMapStore } from '../../store/map'
+import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
 
 const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
@@ -81,7 +82,7 @@ async function initSchema() {
 
 // 设置坐标
 watch(() => mapCenter.value, (newVal) => {
-  if (map.value) {
+  if (map.value && newVal) {
     setView(newVal[0], newVal[1], map.value)
   }
 })
@@ -99,6 +100,8 @@ function initMap() {
     zoomControl: true, //缩放组件
     attributionControl: false //去掉右下角logol
   })
+  // 把地图实例保存一下，其他地方可以用
+  setMapInstance(map.value)
 }
 
 async function setMapCenter() {
@@ -137,9 +140,9 @@ function initMarker() {
   const groupAndImageList = getGroupAndImageList()
   if (groupAndImageList?.length) {
     groupAndImageList.forEach(item => {
-      if (item.type === 'group') {
+      if (item.showType === 'group') {
         addGroupIconToMap(map.value, item)
-      } else if (item.type === 'image') {
+      } else if (item.showType === 'image') {
         addImageIconToMap(map.value, item)
       }
     })

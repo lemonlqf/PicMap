@@ -16,12 +16,12 @@
 
 <script lang="ts" setup>
 import { onMounted, onUnmounted, ref } from 'vue'
-import eventBus from '@/utils/eventBus.ts'
-import API from '@/http/index.ts'
+import eventBus from '@/utils/eventBus'
+import API from '@/http/index'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
-import { judgeHadUploadImage, saveSchema } from '@/utils/schema.ts'
-import { deleteMarkerInMap } from '@/utils/map.ts'
+import { judgeHadUploadImage, saveSchema } from '@/utils/schema'
+import { deleteMarkerInMap } from '@/utils/map'
 
 const props = defineProps({
   map: {}

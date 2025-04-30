@@ -1,14 +1,22 @@
 /*
  * @Author: Do not edit
+ * @Date: 2025-04-29 18:33:43
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-04-30 09:46:28
+ * @FilePath: \Code\picMap_fontend\src\utils\Image
+ * @Description: 
+ */
+/*
+ * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-15 21:07:26
- * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
+ * @LastEditTime: 2025-04-30 09:44:53
+ * @FilePath: \Code\picMap_fontend\src\utils\Image
  * @Description:
  */
 import { useSchemaStore } from '../store/schema'
 import { getMarkerById } from '@/utils/map'
-import API from '@/http/index.ts'
+import API from '@/http/index'
 
 // 计算MB大小
 export function calcMBSize(size) {

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:30:32
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-29 22:14:50
+ * @LastEditTime: 2025-04-30 10:29:08
  * @FilePath: \Code\picMap_backend\routes\schema.js
  * @Description:
  */
@@ -22,7 +22,7 @@ router.get('/getSchema', function (req, res, next) {
     // 创建schema保存的目录
     fs.mkdirSync(globalVariables.schemaDirPath, { recursive: true })
     // 在schema保存目录下创建一个空的 schema.json 文件
-    fs.writeFileSync(globalVariables.schemaPath, JSON.stringify(defaultSchema), { encoding: 'utf-8' })
+    fs.writeFileSync(globalVariables.schemaPath, defaultSchema, { encoding: 'utf-8' })
     schema = defaultSchema
   } else {
     schema = fs.readFileSync(globalVariables.schemaPath, { encoding: 'utf-8' })
