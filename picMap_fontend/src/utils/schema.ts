@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-06 20:08:05
- * @FilePath: \Code\picMap_fontend\src\utils\schema
+ * @LastEditTime: 2025-04-30 19:29:29
+ * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
@@ -58,9 +58,21 @@ export function getSchemaInfoById(id) {
   const schemaStore = useSchemaStore()
   const groupInfo = schemaStore.getSchema.groupInfo
   const imageInfo = schemaStore.getSchema.imageInfo
-  return [...groupInfo, ...imageInfo].filter(item => {
+  const filterGroupInfo = groupInfo.find(item => {
     return item.id === id
-  })[0]
+  })
+  const filterImageInfo = imageInfo.find(item => {
+    return item.id === id
+  })
+  if (filterGroupInfo) {
+    return {...filterGroupInfo, showType: 'group'}
+  }
+  if (filterImageInfo) {
+    return {...filterImageInfo, showType: 'image'}
+  }
+  else {
+    return null
+  }
 }
 
 /**

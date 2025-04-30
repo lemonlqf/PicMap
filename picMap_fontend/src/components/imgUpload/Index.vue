@@ -1,10 +1,10 @@
 <!--
  * @Author: Do not edit
- * @Date: 2024-12-13 13:10:15
+ * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-29 22:56:53
+ * @LastEditTime: 2025-04-30 18:29:21
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
- * @Description: 上传图片的组件
+ * @Description: 
 -->
 <template>
   <div class="img-upload">
@@ -95,20 +95,16 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
-import L from 'leaflet'
 import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarker } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize } from '@/utils/image'
+import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
-import API from '@/http/index'
-import { v5 as uuidv5 } from 'uuid'
-import { before, cloneDeep, has } from 'lodash-es'
-import { wgs84ToGcj02, gcj02ToWgs84 } from '@/utils/WGS84-GCJ02'
-import { defaultGroupNamePrefix, createNewGroupName } from '@/utils/group'
-import GroupInfoDialog from '@/components/groupInfo/groupEdit/groupInfoDialog.vue'
-
+import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
+import { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
+import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
+import { IGPSInfo } from '@/type/schema'
 const schemaStore = useSchemaStore()
 const props = defineProps({
   map: {
@@ -211,17 +207,17 @@ function getFileInfoByFile(file) {
 
 
 // 从图片信息对象中提取GPS信息，并添加到地图里面
-async function setMoreInfoByExifReader(file, name) {
+async function setMoreInfoByExifReader(file, name?) {
   const tags = await ExifReader.load(file, { expanded: true })
   console.log('--', tags)
   // 设置经纬度到moreInfo中
-  const GPSInfo = getGPSInfo(tags)
+  const GPSInfo: IGPSInfo = getGPSInfo(tags)
   // 图片信息
-  const imageInfo = getImageInfo(tags, file)
+  const imageInfo: IImageDetailInfo = getImageInfo(tags, file)
   // 相机信息
-  const cameraInfo = getCameraInfo(tags)
+  const cameraInfo: ICameraDetailInfo  = getCameraInfo(tags)
   // 作者信息
-  const authorInfo = getAuthorInfo(tags)
+  const authorInfo: IAuthorDetailInfo = getAuthorInfo(tags)
   // TODO:设置其他值
   // setxxxInfo(tags, name)
 
@@ -331,7 +327,7 @@ function uploadImage(name) {
     return item.id === name
   })
   if (data[0].GPSInfo.GPSLongitude !== '' && data[0].GPSInfo.GPSLatitude !== '') {
-    uploadImages(data, props.map)
+    uploadImages(data)
   } else {
     ElMessage.error('图片无地址信息，无法直接上传！')
   }
@@ -465,7 +461,7 @@ async function manualLocateImage() {
   const markerLatLng = props.map.getCenter()
   needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
-  const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng)
+  const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng.lat, markerLatLng.lng)
   // 加入marker
   mapStore.addMarkerId(marker.options.id)
   // 加入visibleMarker
@@ -630,3 +626,4 @@ img {
   }
 }
 </style>
+
