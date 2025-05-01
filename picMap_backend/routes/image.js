@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 12:15:02
+ * @LastEditTime: 2025-04-30 20:47:28
  * @FilePath: \Code\picMap_backend\routes\image.js
  * @Description:
  */
@@ -35,6 +35,21 @@ router.post('/getSmallImage', async function (req, res, next) {
     res.send(Result.success({ file }))
   } else {
     res.send(Result.fail('调整图片分辨率失败'))
+  }
+})
+
+// 获取缩略图
+router.post('/getSmallImages', async function (req, res, next) {
+  let files = []
+  let { imageIds } = req.body
+  for (let i = 0; i < imageIds.length; i++) {
+    const url = await getSmallImageFileById(imageIds[i])
+    files.push(url)
+  }
+  if (files.length > 0) {
+    res.send(Result.success({ files }))
+  } else {
+    res.send(Result.fail('获取图片失败'))
   }
 })
 

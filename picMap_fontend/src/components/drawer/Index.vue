@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 19:32:34
+ * @LastEditTime: 2025-05-01 12:41:54
  * @FilePath: \Code\picMap_fontend\src\components\drawer\Index.vue
  * @Description: 
 -->
@@ -28,6 +28,7 @@ import { getSchemaInfoById } from '@/utils/schema'
 import { IMarker } from '@/type/image'
 import ImageDetail from './ImageDetail.vue'
 import GroupDetail from './GroupDetail.vue'
+import { getImageUrl } from '@/utils/Image'
 
 const isShow = ref(false)
 const marker = ref<IMarker>({} as IMarker)
@@ -56,7 +57,7 @@ function drawerShowChange() {
  */
 function showImageData(event) {
   const schemaInfo = getSchemaInfoById(event.target.options.id)
-  const url = event.target.options.icon.options.iconUrl
+  const url = getImageUrl(event.target.options.id)
   marker.value = { ...schemaInfo, url } as IMarker
   console.log('marker', marker.value)
   if (!isShow.value) {

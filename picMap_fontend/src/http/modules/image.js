@@ -23,6 +23,13 @@ export default {
       data
     })
   },
+  getImages: data => {
+    return http({
+      url: 'image/getSmallImages',
+      method: 'post',
+      data
+    })
+  },
   deleteImages: data => {
     return http({
       url: 'image/deleteImages',

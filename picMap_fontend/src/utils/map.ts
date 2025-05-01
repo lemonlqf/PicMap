@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 15:03:10
+ * @LastEditTime: 2025-05-01 12:47:30
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -14,15 +14,25 @@ import { judgeHadUploadImage } from '@/utils/schema'
 import { nextTick } from 'vue'
 import { ElMessage } from 'element-plus'
 import { IGPSInfo } from '@/type/schema';
-import { de } from 'element-plus/es/locale'
+import { getImageUrlById, getImageUrlByIds } from '@/utils/Image'
+import { IHttpResponse } from '@/type/http'
 
+// 分组的marker封面图片的数量
+const GROUP_COVER_NUMBER = 4
+// 正常图片的marker大小
 const NO_IMAGE_MARKER_SIZE = [40, 40]
+// 分组的marker大小
+const GROUP_MARKER_SIZE = [60, 60]
 // marker向上偏移的量
-const markerTranslateY = NO_IMAGE_MARKER_SIZE[1]
+const imageMarkerTranslateY = NO_IMAGE_MARKER_SIZE[1]
+// 分组marker向上偏移的量
+const groupMarkerTranslateY = GROUP_MARKER_SIZE[1]
 
+// 放大比例
 export let MARKER_SHOW_RADIO = 1
+// 鼠标悬停时的放大比例
 export let MARKER_HOVER_SHOW_RADIO = 1.3
-
+// 地图实例
 export let MAP_INSTANCE
 
 export function setMapInstance(map) {
@@ -44,7 +54,7 @@ export function addImageIconToMap(map, imageInfo) {
     myIcon = L.divIcon({
       html: noImageUrlIcon(imageInfo.name),
       iconSize: NO_IMAGE_MARKER_SIZE,
-      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY] // 设置锚点为底部中心
     })
   } else {
     myIcon = L.divIcon({
@@ -52,7 +62,7 @@ export function addImageIconToMap(map, imageInfo) {
       iconUrl: imageInfo.url,
       html: imageUrlIcon(imageInfo.url),
       iconSize: NO_IMAGE_MARKER_SIZE,
-      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY] // 设置锚点为底部中心
     })
   }
   if (imageInfo.GPSInfo.GPSLatitude && imageInfo.GPSInfo.GPSLongitude) {
@@ -95,7 +105,7 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
     myIcon = L.divIcon({
       html: noImageUrlIcon(imageInfo.name),
       iconSize: NO_IMAGE_MARKER_SIZE,
-      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY] // 设置锚点为底部中心
     })
   } else {
     myIcon = L.divIcon({
@@ -103,7 +113,7 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
       iconUrl: imageInfo.url,
       html: imageUrlIcon(imageInfo.url),
       iconSize: NO_IMAGE_MARKER_SIZE,
-      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY] // 设置锚点为底部中心
     })
   }
   // 地图中心
@@ -163,12 +173,25 @@ export function hiddenMarkerById(markerId, map) {
  * @param {*} groupInfo
  * @return {*}
  */
-export function addGroupIconToMap(map, groupInfo) {
+export async function addGroupIconToMap(map, groupInfo) {
   const mapStore = useMapStore()
+  // 请求前几张图片，并保存到
+  console.log('groupInfo---', groupInfo)
+  // 先只获取前4张图片
+  const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_COVER_NUMBER))
+  if (!resImageUrls || resImageUrls.length === 0) {
+    ElMessage.error('获取图片失败')
+    return
+  }
+  const imageUrls = resImageUrls.map(item => {
+    return item
+  })
   const myIcon = L.divIcon({
-    html: noImageUrlIcon(groupInfo.name),
-    iconSize: NO_IMAGE_MARKER_SIZE,
-    iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY]
+    // 传值使用
+    imageUrls,
+    html: imageUrlsIcon(imageUrls),
+    iconSize: GROUP_MARKER_SIZE,
+    iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
   })
   // 先纬度再经度
   const marker = L.marker([groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude], {
@@ -230,7 +253,11 @@ export function updateVisibleMarkers(map) {
       if (!visibleMarkerIdList.includes(markerId)) {
         if (marker.options.type === 'image') {
           // 更新一下marker
-          updateMarker(marker, map)
+          updateImageMarker(marker, map)
+        }
+        if (marker.options.type === 'group') {
+          // 更新分组的图片
+          updateGroupMarker(marker, map)
         }
         addVisibleMarker(markerId, map)
       }
@@ -257,7 +284,7 @@ function isMarkerInView(markerLatLng, map) {
  * @param {*} newMarkerData
  * @return {*}
  */
-function updateMarker(marker, map) {
+async function updateImageMarker(marker, map) {
   const mapStore = useMapStore()
   // 将marker添加到已经渲染的store中
   const index = mapStore.getVisibleMarkerIdList.findIndex(markerId => markerId === marker.options.id)
@@ -269,22 +296,36 @@ function updateMarker(marker, map) {
   }
   // move地图后请求图片数据
   if (index === -1 && isInSchema) {
-    imageHttp.getImage({ imageId: marker.options.id }).then(res => {
-      if (res.code !== 200) {
-        // 如果没有请求成功需要先删除掉
-        mapStore.deleteVisbleMarkerId(marker.options.id)
-        return
-      }
-      const fileUrl = fileToBase64(res.data.file)
-      const myIcon = L.divIcon({
-        html: imageUrlIcon(fileUrl),
-        // 传值使用
-        iconUrl: fileUrl,
-        iconSize: NO_IMAGE_MARKER_SIZE,
-        iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, markerTranslateY] // 设置锚点为底部中心
-      })
-      marker.setIcon(myIcon)
+    const fileUrl = await getImageUrlById(marker.options.id)
+    if (!fileUrl || fileUrl === '') {
+      // 如果没有请求成功需要先删除掉
+      mapStore.deleteVisbleMarkerId(marker.options.id)
+      return
+    }
+    const myIcon = L.divIcon({
+      html: imageUrlIcon(fileUrl),
+      // 传值使用
+      iconUrl: fileUrl,
+      iconSize: NO_IMAGE_MARKER_SIZE,
+      iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY] // 设置锚点为底部中心
     })
+    marker.setIcon(myIcon)
+  }
+}
+
+function updateGroupMarker(marker, map) {
+  const mapStore = useMapStore()
+  // 将marker添加到已经渲染的store中
+  const index = mapStore.getVisibleMarkerIdList.findIndex(markerId => markerId === marker.options.id)
+  console.log('marker---', marker)
+  // 判断是否在schema中
+  const isInSchema = judgeHadUploadImage(marker.options.id)
+  if (index === -1 && marker?.options?.divIcon?.options?.iconUrl) {
+    // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
+    return
+  }
+  if (index === -1 && isInSchema) {
+
   }
 }
 
@@ -380,9 +421,9 @@ function noImageUrlIcon(text) {
   locationDiv.className = 'location'
   const div = document.createElement('div')
   div.appendChild(locationDiv)
-  div.className = 'no-image-icon'
+  div.className = 'image-icon'
   div.innerHTML = text
-  div.style.lineHeight = markerTranslateY + 'px'
+  div.style.lineHeight = imageMarkerTranslateY + 'px'
   return div
 }
 
@@ -398,12 +439,37 @@ function imageUrlIcon(imgUrl) {
   div.appendChild(locationDiv)
   const img = document.createElement('img') as HTMLImageElement
   img.width = NO_IMAGE_MARKER_SIZE[0]
-  img.height = markerTranslateY
+  img.height = imageMarkerTranslateY
   img.src = imgUrl
-  div.className = 'no-image-icon'
+  div.className = 'image-icon'
   div.appendChild(img)
   return div
 }
+
+/**
+ * @description: 有多张图片时的icon
+ * @param {string} imgUrls
+ * @return {*}
+ */
+function imageUrlsIcon(imgUrls: string[]) {
+  if (!imgUrls ||imgUrls.length === 0) {
+    return noImageUrlIcon('暂无图片')
+  }
+  const locationDiv = document.createElement('div')
+  locationDiv.className = 'location group-location'
+  const div = document.createElement('div')
+  div.appendChild(locationDiv)
+  for (let i = 0; i < imgUrls.length; i++) {
+    const img = document.createElement('img') as HTMLImageElement
+    img.width = GROUP_MARKER_SIZE[0] / 2
+    img.height = GROUP_MARKER_SIZE[1] / 2
+    img.src = imgUrls[i]
+    div.className = 'image-icon'
+    div.appendChild(img)
+  }
+  return div
+}
+
 
 /**
  * @description: 根据id获取地图中的marker

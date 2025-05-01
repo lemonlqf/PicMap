@@ -4,7 +4,7 @@ $background-color: rgb(0, 0, 0);
 $location-width: 10px;
 $location-border-color: rgba(200, 0, 0, 1);
 
-.no-image-icon {
+.image-icon {
   height: 100%;
   width: 100%;
   text-align: center;
@@ -74,4 +74,9 @@ $location-border-color: rgba(200, 0, 0, 1);
   -moz-transform: rotateZ(45deg);
   -ms-transform: rotateZ(45deg);
   -o-transform: rotateZ(45deg);
+}
+
+.group-location {
+  bottom: -4px;
+  right: 24px;
 }
