@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 12:47:30
+ * @LastEditTime: 2025-05-01 20:44:58
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -202,6 +202,8 @@ export async function addGroupIconToMap(map, groupInfo) {
     id: groupInfo.id
   })
   marker.addTo(map)
+  // 因为涉及到异步请求数据了，所以这里需要手动添加一下鼠标事件
+  markerMouseListener(marker)
   // 添加到store中
   mapStore.addMarkerId(groupInfo.id)
 }
@@ -552,6 +554,16 @@ export function addVisibleMarker(markerId: string, map) {
   const mapStore = useMapStore()
   mapStore.addVisibleMarkerId(markerId)
   const marker = getMarkerById(markerId, map)
+  // 鼠标事件监听
+  markerMouseListener(marker)
+}
+
+/**
+ * @description: 添加鼠标事件监听
+ * @param {*} marker marker实例
+ * @return {*}
+ */
+function markerMouseListener(marker) {
   // 添加点击事件监听，这里的mouseEvent的target中有marker信息
   marker.on('click', event => {
     ElMessage.success('触发Marker点击事件')
