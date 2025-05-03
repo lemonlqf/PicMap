@@ -7,6 +7,7 @@
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
 <template>
+  <!-- 将图片右键和分组右键拆分一下 -->
   <div :class="{ menu: true, 'is-show': isShow }">
     <div class="menu-item" v-for="item in menuList" @click="item.clickEvent">
       <span>{{ item.label }}</span>

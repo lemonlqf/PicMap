@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 13:51:41
+ * @LastEditTime: 2025-05-01 20:54:46
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
@@ -12,7 +12,7 @@
       <img src="@/assets/icon/下载.png" alt="" width="30px" title="下载原图" />
     </div>
     <el-image :key="imageInfo?.url" :alt="imageInfo?.name" :src="imageInfo?.url" :teleported="true"
-      :preview-src-list="[imageInfo?.url]" />
+      :preview-src-list="perview ? [imageInfo?.url] : []" />
   </div>
 </template>
 
@@ -27,6 +27,11 @@ const props = defineProps({
   imageObjFit: {
     type: String,
     default: () => 'scale-down'
+  },
+  // 是否需要预览
+  perview: {
+    type: Boolean,
+    default: () => true
   }
 })
 

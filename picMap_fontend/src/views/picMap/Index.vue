@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 13:36:06
+ * @LastEditTime: 2025-05-02 09:45:44
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -45,7 +45,7 @@ import {
   hiddenImageInfoDrawerMapClick,
   setView
 } from '@/utils/map'
-import { getGroupAndImageList, getAllImageIdInSchema, saveSchema } from '@/utils/schema'
+import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
 import eventBus from '@/utils/eventBus'
 import { useMapStore } from '../../store/map'
 import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
@@ -71,9 +71,10 @@ async function initSchema() {
     // 将schema信息保存到store中
     schemaStore.setSchema(JSON.parse(res.data))
     mapCenter.value = schema.mapInfo?.center
-    const imagesId = getAllImageIdInSchema()
+    const imagesIds = getAllImageIdInSchema()
+    const groupIds = getAllGroupIdInSchema()
     // 将所有的图片id保存到uploadedImageIds中
-    schemaStore.setUploadedImageIds(imagesId)
+    schemaStore.setUploadedImageIds([...imagesIds, ...groupIds])
     initMarker()
   } else {
     console.error('获取schema失败')

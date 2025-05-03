@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 20:44:58
+ * @LastEditTime: 2025-05-02 09:18:36
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -340,22 +340,27 @@ function scaleMarkerByMap(map) {
   const mapStore = useMapStore()
   const markerIdList = mapStore.getVisibleMarkerIdList
   const zoom = map.getZoom()
+  
   if (zoom >= 15) {
     MARKER_SHOW_RADIO = 1.4
     MARKER_HOVER_SHOW_RADIO = 1.6
-  } else if (zoom < 15 && zoom >= 12) {
-    MARKER_SHOW_RADIO = 1.2
-    MARKER_HOVER_SHOW_RADIO = 1.6
-  } else if (zoom < 10 && zoom >= 8) {
-    MARKER_SHOW_RADIO = 0.8
-    MARKER_HOVER_SHOW_RADIO = 1.3
-  } else if (zoom < 8 && zoom >= 6) {
-    MARKER_SHOW_RADIO = 0.6
+  } else if (zoom < 15 && zoom >= 13) {
+    MARKER_SHOW_RADIO = 1
     MARKER_HOVER_SHOW_RADIO = 1.2
-  } else if (zoom < 6) {
+  } else if (zoom < 13 && zoom >= 11) {
+    MARKER_SHOW_RADIO = 0.8
+    MARKER_HOVER_SHOW_RADIO = 1
+  } else if (zoom < 11 && zoom >= 9) {
+    MARKER_SHOW_RADIO = 0.6
+    MARKER_HOVER_SHOW_RADIO = 0.8
+  } else if (zoom < 9 && zoom >= 6) {
     MARKER_SHOW_RADIO = 0.4
-    MARKER_HOVER_SHOW_RADIO = 1.1
+    MARKER_HOVER_SHOW_RADIO = 0.6
+  } else if (zoom < 6) {
+    MARKER_SHOW_RADIO = 0.3
+    MARKER_HOVER_SHOW_RADIO = 0.6
   }
+  console.log('zoom', zoom, MARKER_SHOW_RADIO)
   markerIdList.forEach(markerId => {
     const marker = getMarkerById(markerId, map)
     const markerElement = marker.getElement()

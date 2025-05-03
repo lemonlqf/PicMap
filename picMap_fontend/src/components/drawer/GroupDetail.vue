@@ -2,17 +2,17 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 13:54:31
+ * @LastEditTime: 2025-05-01 20:55:13
  * @FilePath: \Code\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 
 -->
 <template>
   <div class="flex-box">
     <el-scrollbar :max-height="drawerHeight">
-      <!-- <span style="color: white">{{ marker }}</span> -->
+      <!-- 图片展示 -->
       <div class="img-boxs">
         <template v-for="id in marker.groupNumbers" :key="id">
-          <Image class="image" image-obj-fit="contain" :image-info="imageInfo(id)" style="height: 100px; width: 100px"></Image>
+          <Image class="image" :perview="false" image-obj-fit="contain" :image-info="imageInfo(id)" style="height: 100px; width: 100px"></Image>
         </template>
       </div>
     </el-scrollbar>

@@ -97,6 +97,12 @@ export function getAllImageIdInSchema() {
   return res
 }
 
+export function getAllGroupIdInSchema() {
+  const schemaStore = useSchemaStore()
+  const res = schemaStore?.getSchema?.groupInfo?.map(item => item.id)
+  return res
+}
+
 /**
  * @description: 保存schema
  * @return {*}
