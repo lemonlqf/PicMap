@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 12:41:54
+ * @LastEditTime: 2025-05-03 13:48:25
  * @FilePath: \Code\picMap_fontend\src\components\drawer\Index.vue
  * @Description: 
 -->
@@ -57,7 +57,7 @@ function drawerShowChange() {
  */
 function showImageData(event) {
   const schemaInfo = getSchemaInfoById(event.target.options.id)
-  const url = getImageUrl(event.target.options.id)
+  const url = getImageUrl(event.target.options.id) ?? event.target.options.icon.options.iconUrl
   marker.value = { ...schemaInfo, url } as IMarker
   console.log('marker', marker.value)
   if (!isShow.value) {

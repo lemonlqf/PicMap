@@ -11,6 +11,11 @@ import { getMarkerById } from '@/utils/map'
 import API from '@/http/index'
 import imageHttp from '@/http/modules/image'
 import { fileToBase64 } from '@/utils/map'
+import eventBus from '@/utils/eventBus'
+import { ElMessage } from 'element-plus';
+import { saveSchema } from './schema';
+import { deleteMarkerById, MAP_INSTANCE } from '@/utils/map';
+
 
 // 一个地方集中管理图片，因为一个图片可能在多个分组中
 // 保存缩略图的map
@@ -108,4 +113,27 @@ export async function uploadImages(imageInfos, map) {
   })
   const res1 = await API.image.uploadImages({ images: imageInfos })
   return res1
+}
+
+/**
+ * @description: 删除分组，会处理schema，marker中的图片
+ * @param {*} imageId
+ * @return {*}
+ */
+export async function deleteImageById(imageId) {
+  const schemaStore = useSchemaStore()
+  // 删除schema中的分组信息
+  schemaStore.deleteImageInImageInfo(imageId)
+  // TODO:删除分组中的图片
+  // 通知上传组件，删除对应的文件
+  eventBus.emit('delete-image', imageId)
+  saveSchema()
+  return Promise.all([API.image.deleteImages({ deleteImages: [imageId] })]).then(res => {
+    deleteMarkerById(imageId, MAP_INSTANCE)
+    const tipMsg = res.reduce((msg, item) => {
+      return msg + item.data
+    }, '')
+    ElMessage.success(tipMsg)
+    // console.log('promise all ==>', res)
+  })
 }

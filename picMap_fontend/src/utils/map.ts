@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-02 09:18:36
+ * @LastEditTime: 2025-05-03 21:10:42
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -16,17 +16,19 @@ import { ElMessage } from 'element-plus'
 import { IGPSInfo } from '@/type/schema';
 import { getImageUrlById, getImageUrlByIds } from '@/utils/Image'
 import { IHttpResponse } from '@/type/http'
+import { useSchemaStore } from '@/store/schema'
+import { getImageUrl } from './Image'
 
 // 分组的marker封面图片的数量
-const GROUP_COVER_NUMBER = 4
+export const GROUP_COVER_NUMBER = 4
 // 正常图片的marker大小
-const NO_IMAGE_MARKER_SIZE = [40, 40]
+export const NO_IMAGE_MARKER_SIZE = [40, 40]
 // 分组的marker大小
-const GROUP_MARKER_SIZE = [60, 60]
+export const GROUP_MARKER_SIZE = [60, 60]
 // marker向上偏移的量
-const imageMarkerTranslateY = NO_IMAGE_MARKER_SIZE[1]
+export const imageMarkerTranslateY = NO_IMAGE_MARKER_SIZE[1]
 // 分组marker向上偏移的量
-const groupMarkerTranslateY = GROUP_MARKER_SIZE[1]
+export const groupMarkerTranslateY = GROUP_MARKER_SIZE[1]
 
 // 放大比例
 export let MARKER_SHOW_RADIO = 1
@@ -49,8 +51,9 @@ export function addImageIconToMap(map, imageInfo) {
   const mapStore = useMapStore()
 
   let myIcon = null
+  let imageUrl = imageInfo.url ?? getImageUrl(imageInfo.id)
   // 如果没有url直接用文字名称代替
-  if (!imageInfo?.url) {
+  if (!imageUrl) {
     myIcon = L.divIcon({
       html: noImageUrlIcon(imageInfo.name),
       iconSize: NO_IMAGE_MARKER_SIZE,
@@ -59,8 +62,8 @@ export function addImageIconToMap(map, imageInfo) {
   } else {
     myIcon = L.divIcon({
       // 传值使用
-      iconUrl: imageInfo.url,
-      html: imageUrlIcon(imageInfo.url),
+      iconUrl: imageUrl,
+      html: imageUrlIcon(imageUrl),
       iconSize: NO_IMAGE_MARKER_SIZE,
       iconAnchor: [NO_IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY] // 设置锚点为底部中心
     })
@@ -89,6 +92,29 @@ export function addImageIconToMap(map, imageInfo) {
       const marker = getMarkerById(markerId, map)
       marker.setIcon(myIcon)
     }
+  }
+}
+
+/**
+ * @description: 通过图片id添加已有的图片到地图，并修改visibleMarkerIdList
+ * @param {*} map
+ * @param {*} imageId
+ * @return {*}
+ */
+export function addExistImageToMapById(map, imageId) {
+  const schemaStore = useSchemaStore()
+  const mapStore = useMapStore()
+  // 如果本来没有
+  if (!mapStore.visibleMarkerIdList.includes(imageId)) {
+    const imageInfo = schemaStore?.getSchema?.imageInfo?.filter?.(item => item.id === imageId)[0]
+    if (imageInfo) {
+      addImageIconToMap(map, imageInfo)
+    } else {
+      console.error('不存在图片信息')
+      return
+    }
+    // 用这个方法，有些特殊操作
+    addVisibleMarkerById(imageId, MAP_INSTANCE)
   }
 }
 
@@ -261,7 +287,7 @@ export function updateVisibleMarkers(map) {
           // 更新分组的图片
           updateGroupMarker(marker, map)
         }
-        addVisibleMarker(markerId, map)
+        addVisibleMarkerById(markerId, map)
       }
     }
   })
@@ -458,7 +484,7 @@ function imageUrlIcon(imgUrl) {
  * @param {string} imgUrls
  * @return {*}
  */
-function imageUrlsIcon(imgUrls: string[]) {
+export function imageUrlsIcon(imgUrls: string[]) {
   if (!imgUrls ||imgUrls.length === 0) {
     return noImageUrlIcon('暂无图片')
   }
@@ -555,7 +581,7 @@ export function setView(lat: number, lng: number, map, id?: string) {
  * @param {*} map
  * @return {*}
  */
-export function addVisibleMarker(markerId: string, map) {
+export function addVisibleMarkerById(markerId: string, map) {
   const mapStore = useMapStore()
   mapStore.addVisibleMarkerId(markerId)
   const marker = getMarkerById(markerId, map)

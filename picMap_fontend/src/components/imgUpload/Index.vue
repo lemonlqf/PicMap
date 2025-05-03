@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 18:29:21
+ * @LastEditTime: 2025-05-03 12:15:27
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -95,7 +95,7 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarker } from '@/utils/map'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
@@ -335,7 +335,7 @@ function uploadImage(name) {
 
 
 /**
- * @description: 删除在左侧上传列表中的单张照片
+ * @description: 删除在左侧上传列表中的单张照片，只删除schema中的图片信息，不会对本地文件中图片进行操作
  * @param {*} name
  * @return {*}
  */
@@ -465,7 +465,7 @@ async function manualLocateImage() {
   // 加入marker
   mapStore.addMarkerId(marker.options.id)
   // 加入visibleMarker
-  addVisibleMarker(marker.options.id, props.map)
+  addVisibleMarkerById(marker.options.id, props.map)
   updateLocate(marker, fileInfo)
   // TODO:移动后定位，更新坐标
   marker.on('moveend', () => {

@@ -14,7 +14,7 @@ import { isGroupIdExist, createNewGroupName } from '@/utils/group'
 export const useSchemaStore = defineStore('schema', {
   state: () => ({
     schema: {} as ISchema,
-    // 暂时还没有上传的图片，在保存schema时需要剔除掉这部分图片
+    // 已经上传的图片
     uploadedImageIds: [] as string[]
   }),
   getters: {
@@ -50,9 +50,18 @@ export const useSchemaStore = defineStore('schema', {
       this.schema.imageInfo = this.schema.imageInfo.filter(item => {
         return item.id !== imageId
       })
-      // 删除已经上传的
+      // 删除已经上传的图片
       this.uploadedImageIds = this.uploadedImageIds.filter(item => {
         return item !== imageId
+      })
+    },
+    deleteGroupInGroupInfo(groupId) {
+      this.schema.groupInfo = this.schema.groupInfo.filter(item => {
+        return item.id !== groupId
+      })
+      // 删除已经上传的分组
+      this.uploadedImageIds = this.uploadedImageIds.filter(item => {
+        return item !== groupId
       })
     },
     setVersion(value) {

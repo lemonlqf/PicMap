@@ -2,14 +2,20 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 13:55:30
+ * @LastEditTime: 2025-05-03 13:31:57
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
 import { useSchemaStore } from '@/store/schema'
-import { IGPSInfo } from '@/type/schema';
+import { saveSchema } from './schema';
+import { addImageIconToMap, deleteMarkerById, MAP_INSTANCE, getMarkerById, GROUP_COVER_NUMBER, GROUP_MARKER_SIZE, groupMarkerTranslateY } from '@/utils/map';
+import { IGPSInfo, IGroupInfo } from '@/type/schema';
 import { ElMessage } from 'element-plus';
-import { getGPSInfoById } from '@/utils/map';
+import { getGPSInfoById, addExistImageToMapById, imageUrlsIcon } from '@/utils/map';
+import eventBus from '@/utils/eventBus'
+import API from '@/http/index'
+import L from 'leaflet'
+import { getImageUrlByIds } from '@/utils/Image'
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -171,4 +177,68 @@ function getAvarageGPSInfo(imageIds: string[]): IGPSInfo {
     GPSLongitude: avarageGPSLongitude,
     GPSAltitude: avarageGPSAltitude
   }
+}
+
+/**
+ * @description: 解散分组
+ * @param {*} groupId
+ * @return {*}
+ */
+export async function dissolveGroupById(groupId) {
+  const schemaStore = useSchemaStore()
+  // 将分组内的图片重新添加到地图中
+  const { groupNumbers } = schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
+  groupNumbers.forEach(imageId => {
+    addExistImageToMapById(MAP_INSTANCE, imageId)
+  });
+  // 删除分组信息
+  await deleteGroupById(groupId)
+}
+
+/**
+ * @description: 删除分组
+ * @param {*} groupId
+ * @return {*}
+ */
+export async function deleteGroupById(groupId) {
+  const schemaStore = useSchemaStore()
+  // 删除schema中的分组信息
+  schemaStore.deleteGroupInGroupInfo(groupId)
+  // 通知上传组件，删除对应的文件
+  eventBus.emit('delete-image', groupId)
+  saveSchema()
+  return Promise.all([API.image.deleteImages({ deleteImages: [groupId] })]).then(res => {
+    deleteMarkerById(groupId, MAP_INSTANCE)
+    const tipMsg = res.reduce((msg, item) => {
+      return msg + item.data
+    }, '')
+    ElMessage.success(tipMsg)
+    // console.log('promise all ==>', res)
+  })
+}
+
+export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
+  // 
+  if (!isGroupIdExist(groupInfo.id)) {
+    console.error('分组不存在')
+    return
+  }
+  const groupMark = getMarkerById(groupInfo.id, MAP_INSTANCE)
+  // 先只获取前4张图片
+  const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_COVER_NUMBER))
+  if (!resImageUrls || resImageUrls.length === 0) {
+    ElMessage.error('获取图片失败')
+    return
+  }
+  const imageUrls = resImageUrls.map(item => {
+    return item
+  })
+  const myIcon = L.divIcon({
+    // 传值使用
+    imageUrls,
+    html: imageUrlsIcon(imageUrls),
+    iconSize: GROUP_MARKER_SIZE,
+    iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
+  })
+  groupMark.setIcon(myIcon)
 }

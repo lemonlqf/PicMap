@@ -70,7 +70,7 @@ import { IGroupInfo, ISchema } from '@/type/schema'
 import { createGroupId } from '@/utils/group'
 import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
-import { getAutoGroupGPSInfo } from '@/utils/group'
+import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
 import { addGroupIconToMap, MAP_INSTANCE, hiddenMarkerById } from '@/utils/map'
 
 const props = defineProps({
@@ -153,6 +153,7 @@ function showGroupDialog(imageId) {
 function resetGroupForm() {
   singleImageGroupInfoFormData.value.groupIds = []
   singleImageGroupInfoFormData.value.imageIds = []
+  singleImageGroupInfoFormData.value.needAddNewGroup = false
   singleImageGroupInfoFormData.value.isCover = false
 }
 
@@ -206,10 +207,13 @@ function updateGroupInfoInSchema(formData: ISingleImageGroupInfoFormData): IGrou
   if (groupIds.length) {
     // 如果有分组id，则需要将图片添加到分组中
     groupIds.forEach((groupId) => {
+      // 获取已有的分组信息
       const group = groupInfo.find((item) => item.id === groupId)
       if (group) {
         // 如果分组存在，则将图片添加到分组中
         group.groupNumbers = [...new Set([...group.groupNumbers, ...formData.imageIds])]
+        // 并将图片添加到分组所在的marker中
+        updateGroupMarkerImage(group)
       } else { // 如果分组不存在，则新建一个分组
         // 如果是自动定位，则需要获取当前的经纬度
         if (formData.newGroupInfo.needSetGPSInfo === 'auto') {
@@ -270,6 +274,10 @@ const groupEditRules = reactive({
     validator: function (rule, value, callback) {
       const newGroupName = singleImageGroupInfoFormData.value?.newGroupInfo?.newGroupName
       if (singleImageGroupInfoFormData.value.needAddNewGroup === true && newGroupName?.length > 0) {
+        // 如果分组名称已经存在了校验则不通过
+        if (groupIdAndNameLists.value.some(item => item.name === newGroupName)) {
+          callback(new Error("分组名称已存在！"));
+        }
         //校验通过
         callback();
       } else {
