@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-02 09:45:44
+ * @LastEditTime: 2025-05-04 19:50:05
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -97,7 +97,7 @@ function initMap() {
   map.value = L.map('map', {
     zoom: 15, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
     minZoom: 3,
-    maxZoom: 18,
+    maxZoom: 18, // 目前小于18不显示了
     zoomControl: true, //缩放组件
     attributionControl: false //去掉右下角logol
   })

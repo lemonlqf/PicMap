@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-03 12:09:40
+ * @LastEditTime: 2025-05-04 18:43:37
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -37,6 +37,13 @@ const postionInfo = ref({
 })
 const menuList = ref([
   {
+    label: '编辑信息',
+    clickEvent: async () => {
+      const groupId = props.groupId
+      // TODO:待实现编辑分组信息
+    }
+  },
+  {
     label: '解散分组',
     clickEvent: async () => {
       const groupId = props.groupId
@@ -69,6 +76,8 @@ function menuHidden() {
 
 <style lang="scss" scoped>
 .image-menu {
+  position: relative;
+  z-index: 99999;
   display: inline-block;
   background-color: rgba(255, 255, 255, 1);
 
@@ -76,7 +85,7 @@ function menuHidden() {
     border-color: rgb(104, 104, 228);
     padding: 2px 13px 5px 13px;
     cursor: pointer;
-    pointer-events: none;
+    // pointer-events: none;
 
     span {
       font-size: 14px;

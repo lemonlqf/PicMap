@@ -454,7 +454,6 @@ const locateRules = reactive({
 async function manualLocateImage() {
   const mapStore = useMapStore()
   locateDialogShow.value = false
-  // TODO:添加一个可以移动的图片，移动后更新坐标
   const fileInfo = hasUrlFileList.value.find(item => {
     return item.id === needLocateImageIdFormData.value.id
   })
@@ -467,7 +466,6 @@ async function manualLocateImage() {
   // 加入visibleMarker
   addVisibleMarkerById(marker.options.id, props.map)
   updateLocate(marker, fileInfo)
-  // TODO:移动后定位，更新坐标
   marker.on('moveend', () => {
     updateLocate(marker, fileInfo)
   })
@@ -476,7 +474,6 @@ async function manualLocateImage() {
 function updateLocate(marker, fileInfo) {
   const { lat, lng } = marker.getLatLng()
   if (lat && lng) {
-    // TODO:更新位置
     fileInfo.GPSInfo.GPSLatitude = lat
     fileInfo.GPSInfo.GPSLongitude = lng
   }

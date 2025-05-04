@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 12:15:17
+ * @LastEditTime: 2025-05-04 19:05:05
  * @FilePath: \Code\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -43,7 +43,6 @@ async function getSmallImageFileById(id) {
     return null
   } else {
     try {
-      // TODO:大图报错？？
       const data = await sharp(filesPath[0])
         .resize(800)
         .rotate() // 调整图片宽度，保持纵横比

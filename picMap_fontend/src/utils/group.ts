@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 12:15:37
+ * @LastEditTime: 2025-05-04 19:03:42
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -233,7 +233,6 @@ export async function deleteGroupById(groupId) {
 }
 
 export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
-  // 
   if (!isGroupIdExist(groupInfo.id)) {
     console.error('分组不存在')
     return
@@ -256,4 +255,12 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
   })
   groupMark.setIcon(myIcon)
+}
+
+/**
+ * @description: 编辑分组
+ * @return {*}
+ */
+export function editGroupById() {
+  // TODO:编辑分组信息逻辑
 }

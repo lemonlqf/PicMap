@@ -17,7 +17,7 @@ export const useMapStore = defineStore('map', {
     markerIdList: [],
     // 已经可见的marker，即已经请求过图片数据了
     visibleMarkerIdList: [],
-    // TODO:选中的marker，后续用于分组使用？
+    // 选中的marker，后续用于分组使用？
     selectedMarkerIdList: []
   }),
   getters: {
