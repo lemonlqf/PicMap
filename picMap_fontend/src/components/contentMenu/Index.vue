@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-03 12:12:57
+ * @LastEditTime: 2025-05-04 12:33:22
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -17,9 +17,9 @@
 <script lang="ts" setup>
 import { onMounted, onUnmounted, ref } from 'vue'
 import eventBus from '@/utils/eventBus'
-import { judgeHadUploadImage, saveSchema } from '@/utils/schema'
 import ImageContentMenu from './component/ImageContentMenu.vue'
 import GroupContentMenu from './component/GroupContentMenu.vue'
+import { isTemplateMarker } from '@/utils/schema'
 
 const isShow = ref(false)
 const marker = ref({})
@@ -38,12 +38,12 @@ function getPxValue(value) {
 }
 
 function menuShow(event) {
-  // 如果marker不在schema中，则说明是临时添加的，不需要出现右键的菜单
-  if (!judgeHadUploadImage(event.target.options.id)) {
-    return
-  }
   // 根据不同的节点类型展示不同的右键菜单内容
   markerType.value = event.target.options.type
+  // 如果marker不在schema中，则说明是临时添加的，不需要出现右键的菜单
+  if (isTemplateMarker(event.target.options.id, markerType.value)) {
+    return
+  }
   console.log(event)
   const { x, y } = event.originalEvent
   marker.value = event.target

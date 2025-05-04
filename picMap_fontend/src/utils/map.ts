@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-03 21:10:42
+ * @LastEditTime: 2025-05-04 12:52:57
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -550,28 +550,38 @@ function getGPSInfoByMarkerInstance(marker):IGPSInfo {
  * @description: 定位到当前marker
  * @param {number} lat 维度
  * @param {number} lng 精度
- * @param {*} map 地图实例
- * @param {*} id markerId
  * @return {*}
  */
-export function setView(lat: number, lng: number, map, id?: string) {
-  if (map) {
-    if (lat && lng) {
-      map.setView([lat, lng], map.getZoom() ?? 10, {
-        animate: true,
-        duration: 0.5 // 动画持续时间，单位为秒
-      })
+export function setViewByLatLng(lat: number, lng: number) {
+  const map = MAP_INSTANCE
+  if (lat && lng) {
+    map.setView([lat, lng], map.getZoom() ?? 10, {
+      animate: true,
+      duration: 0.5 // 动画持续时间，单位为秒
+    })
+    return
+  }
+}
+
+/**
+ * @description: 根据
+ * @param {string} markerId
+ * @return {*}
+ */
+export function setViewById(markerId: string) {
+  const map = MAP_INSTANCE
+  if (markerId) {
+    const marker = getMarkerById(markerId, map)
+    if (!marker) {
+      console.error('节点不存在')
       return
     }
-    if (id) {
-      const marker = getMarkerById(id, map)
-      const { lat, lng } = marker?.getLatLng?.()
-      map.setView([lat, lng], map.getZoom() ?? 10, {
-        animate: true,
-        duration: 0.5 // 动画持续时间，单位为秒
-      })
-      return
-    }
+    const { lat, lng } = marker?.getLatLng?.()
+    map.setView([lat, lng], map.getZoom() ?? 10, {
+      animate: true,
+      duration: 0.5 // 动画持续时间，单位为秒
+    })
+    return
   }
 }
 

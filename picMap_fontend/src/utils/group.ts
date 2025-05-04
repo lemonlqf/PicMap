@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-03 13:31:57
+ * @LastEditTime: 2025-05-04 12:15:37
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -196,18 +196,33 @@ export async function dissolveGroupById(groupId) {
 }
 
 /**
+ * @description: 通过分组id获取分组信息
+ * @param {string} groupId
+ * @return {*}
+ */
+export function getGroupInfoByGroupId(groupId: string) {
+  const schemaStore = useSchemaStore()
+  return schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
+}
+
+/**
  * @description: 删除分组
  * @param {*} groupId
  * @return {*}
  */
 export async function deleteGroupById(groupId) {
   const schemaStore = useSchemaStore()
+  const groupInfo = getGroupInfoByGroupId(groupId)
+  // 删除schema分组对应的图片数据
+  const groupNumbers = groupInfo.groupNumbers
+  groupNumbers.forEach(imageId => {
+    schemaStore.deleteImageInImageInfo(imageId)
+  })
   // 删除schema中的分组信息
   schemaStore.deleteGroupInGroupInfo(groupId)
-  // 通知上传组件，删除对应的文件
-  eventBus.emit('delete-image', groupId)
+  // eventBus.emit('delete-image', groupId)
   saveSchema()
-  return Promise.all([API.image.deleteImages({ deleteImages: [groupId] })]).then(res => {
+  return Promise.all([API.image.deleteImages({ deleteImages: [groupNumbers] })]).then(res => {
     deleteMarkerById(groupId, MAP_INSTANCE)
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data

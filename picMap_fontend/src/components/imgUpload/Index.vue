@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-03 12:15:27
+ * @LastEditTime: 2025-05-04 12:50:19
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -22,7 +22,7 @@
         <h3>已上传图片：</h3>
         <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
           <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
-            @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map, item.name)" />
+            @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
           <!-- <h1>照片名:{{ item.name }}</h1>
         <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
         <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1> -->
@@ -33,7 +33,7 @@
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
             <img :src="item.url" alt="" :title="item.name" height="50px"
-              @click="setView(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude, props.map, item.name)" />
+              @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
             <h1>照片名:{{ item.name }}</h1>
             <h1>纬度:{{ !item?.GPSInfo?.GPSLatitude ? '无数据' : item?.GPSInfo?.GPSLatitude }}</h1>
             <h1>经度:{{ !item?.GPSInfo?.GPSLongitude ? '无数据' : item?.GPSInfo?.GPSLongitude }}</h1>
@@ -95,7 +95,7 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setView, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById } from '@/utils/map'
+import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'

@@ -2,15 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 19:29:29
+ * @LastEditTime: 2025-05-04 12:35:10
  * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep } from 'lodash-es'
 import API from '@/http/index'
-import type { ISchema, IGroupInfo, IImageInfo } from '@/type/schema'
-
+import type { ISchema, IGroupInfo, IImageInfo, IShowType } from '@/type/schema'
 type IGroupList = IGroupInfo & {
   showType: 'group'
 }
@@ -121,4 +120,19 @@ export async function saveSchema() {
   })
   const res = await API.schema.setSchema({ schema: JSON.stringify(schema) })
   return res
+}
+
+/**
+ * @description: 判断是否是为临时点位
+ * @param {*} markerId
+ * @param {*} markerShowType
+ * @return {*}
+ */
+export function isTemplateMarker(markerId, markerShowType: IShowType = 'image') {
+  // 如果是图片marker需要判断一下是不是在已经上传的列表中，不然可能是临时接电
+  if (!judgeHadUploadImage(markerId) && markerShowType === 'image') {
+    return true
+  }
+  // 其他情况（例如分组）都直接返回true
+  return false
 }

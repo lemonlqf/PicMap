@@ -2,17 +2,17 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 21:35:02
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-02 09:25:50
+ * @LastEditTime: 2025-05-04 12:45:14
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\Index.vue
  * @Description: 分组信息组件，位于页面右侧
   -->
 -->
 <template>
-  <div class="group-box">
+  <div class="group-fix-box">
     分组信息
-    <div>
+    <div class="group-items">
       <template v-for="item in groupInfo">
-        <span>{{ item.name }}</span>
+        <GroupItem :group-info="item"></GroupItem>
       </template>
     </div>
   </div>
@@ -22,6 +22,7 @@
 import { onBeforeMount, onMounted, ref, watch, nextTick } from 'vue'
 import { useSchemaStore } from '../../store/schema';
 import { ElMessage } from 'element-plus';
+import GroupItem from './component/GroupItem.vue';
 
 const props = defineProps({
   map: Object
@@ -35,9 +36,14 @@ watch(() => schemaStore.getGroupInfo, (newVal) => {
 </script>
 
 <style lang="scss" scoped>
-.group-box {
+.group-fix-box {
   background-color: rgba(255, 255, 255, 0.95);
     border-radius: 10px;
     padding: 10px 0 10px 10px;
+}
+
+.group-items{
+  display: flex;
+  flex-direction: column;
 }
 </style>

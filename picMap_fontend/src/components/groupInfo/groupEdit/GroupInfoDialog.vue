@@ -161,6 +161,7 @@ function pushImageToGroupInfo() {
   groupFormRef.value.validate((valid, fields) => {
     if (valid) {
       console.log(singleImageGroupInfoFormData.value)
+      // 将新分组信息添加到schema中
       handleNewGroupInfo(singleImageGroupInfoFormData.value)
       closeGroupEdit()
     } else {

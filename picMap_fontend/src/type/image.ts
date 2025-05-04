@@ -33,5 +33,7 @@ export type IMarker = {
   authorInfo: IAuthorDetailInfo | null
   GPSInfo: IGPSInfo | null
   url: string,
-  showType: 'image' | 'group'
+  showType: IShowType
 } & IGroupInfo & IImageInfo
+
+export type IShowType = 'image' | 'group'

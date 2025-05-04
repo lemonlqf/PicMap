@@ -43,7 +43,7 @@ import {
   observeMapChangeToUpgradeMarker,
   updateVisibleMarkers,
   hiddenImageInfoDrawerMapClick,
-  setView
+  setViewByLatLng
 } from '@/utils/map'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
 import eventBus from '@/utils/eventBus'
@@ -84,7 +84,7 @@ async function initSchema() {
 // 设置坐标
 watch(() => mapCenter.value, (newVal) => {
   if (map.value && newVal) {
-    setView(newVal[0], newVal[1], map.value)
+    setViewByLatLng(newVal[0], newVal[1])
   }
 })
 
