@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 12:50:19
+ * @LastEditTime: 2025-05-06 20:59:13
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -64,7 +64,7 @@
     <el-button v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">全部清空</el-button>
   </div>
   <!-- 定位弹框 -->
-  <el-dialog z-index="99999" v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
+  <el-dialog :z-index="9999" v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
     <el-form ref="locateFromRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto"
       :rules="locateRules">
       <el-form-item label="经度" prop="GPSLongitude">
@@ -460,18 +460,18 @@ async function manualLocateImage() {
   const markerLatLng = props.map.getCenter()
   needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
-  const marker = addManualLocateImageToMap(props.map, fileInfo, markerLatLng.lat, markerLatLng.lng)
+  const marker = addManualLocateImageToMap(fileInfo, markerLatLng.lat, markerLatLng.lng)
   // 加入marker
   mapStore.addMarkerId(marker.options.id)
   // 加入visibleMarker
   addVisibleMarkerById(marker.options.id, props.map)
-  updateLocate(marker, fileInfo)
+  updateFromLocateInfo(marker, fileInfo)
   marker.on('moveend', () => {
-    updateLocate(marker, fileInfo)
+    updateFromLocateInfo(marker, fileInfo)
   })
 }
 
-function updateLocate(marker, fileInfo) {
+function updateFromLocateInfo(marker, fileInfo) {
   const { lat, lng } = marker.getLatLng()
   if (lat && lng) {
     fileInfo.GPSInfo.GPSLatitude = lat

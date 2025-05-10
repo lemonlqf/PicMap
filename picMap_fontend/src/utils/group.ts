@@ -1,8 +1,9 @@
+import { createApp } from 'vue';
 /*
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 19:03:42
+ * @LastEditTime: 2025-05-10 22:59:51
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -16,6 +17,9 @@ import eventBus from '@/utils/eventBus'
 import API from '@/http/index'
 import L from 'leaflet'
 import { getImageUrlByIds } from '@/utils/Image'
+import { cloneDeep } from 'lodash-es';
+import type { ICreateGroupInfoData } from '@/type/group'
+import type { INewGroupFormData } from '@/type/schema'
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -215,7 +219,8 @@ export async function deleteGroupById(groupId) {
   const groupInfo = getGroupInfoByGroupId(groupId)
   // 删除schema分组对应的图片数据
   const groupNumbers = groupInfo.groupNumbers
-  groupNumbers.forEach(imageId => {
+  // 如果存在再删除
+  groupNumbers && groupNumbers.forEach(imageId => {
     schemaStore.deleteImageInImageInfo(imageId)
   })
   // 删除schema中的分组信息
@@ -232,6 +237,11 @@ export async function deleteGroupById(groupId) {
   })
 }
 
+/**
+ * @description: 分组marker进入视图时的更新
+ * @param {IGroupInfo} groupInfo
+ * @return {*}
+ */
 export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
   if (!isGroupIdExist(groupInfo.id)) {
     console.error('分组不存在')
@@ -264,3 +274,25 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
 export function editGroupById() {
   // TODO:编辑分组信息逻辑
 }
+
+/**
+ * @description: 创建新分组，更新
+ * @return {*}
+ */
+export async function createNewGroupToSchema(newGroupFromInfo: ICreateGroupInfoData, groupNumbers?: string[]): Promise<INewGroupFormData> {
+  const schemaStore = useSchemaStore()
+  const groupInfo = cloneDeep(schemaStore.getGroupInfo)
+  const newId = createGroupId()
+  const GPSInfo = newGroupFromInfo.newGroupInfo.newGroupGPSInfo
+  const newGroupInfo = {
+    name: newGroupFromInfo.newGroupInfo.newGroupName,
+    id: newId,
+    GPSInfo,
+    groupNumbers,
+  }
+  groupInfo.push(newGroupInfo)
+  schemaStore.setSchemaAttr('groupInfo', groupInfo)
+  await saveSchema()
+  return newGroupInfo
+}
+

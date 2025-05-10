@@ -1,5 +1,5 @@
 <template>
-  <el-dialog z-index="99999" v-model="show" title="设置分组信息" style="width: 440px;">
+  <el-dialog :z-index="9999" v-model="show" title="设置分组信息" style="width: 440px;">
     <el-form ref="groupFormRef" :model="singleImageGroupInfoFormData" style="width: 400px" label-width="auto"
       :rules="groupEditRules">
       <el-form-item label="目标分组" label-width="90px" prop="groupIds">
@@ -49,7 +49,7 @@
       <div class="dialog-footer">
         <el-button @click=""
           v-if="singleImageGroupInfoFormData.needAddNewGroup && singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'"
-          class="locate-button" type="primary">手动定位</el-button>
+          class="locate-button" type="primary" >手动定位</el-button>
         <el-button @click="closeGroupEdit">取消</el-button>
         <el-button type="primary" @click="pushImageToGroupInfo">
           确认
@@ -79,8 +79,6 @@ const props = defineProps({
     default: () => []
   }
 })
-
-
 
 const schemaStore = useSchemaStore()
 
@@ -251,7 +249,7 @@ function updateVisibleMarkersByFormData(newGroupInfo: IGroupInfo, hiddenMarkerId
   })
   if (newGroupInfo) {
     // 添加新的分组点位
-    addGroupIconToMap(map, newGroupInfo)
+    addGroupIconToMap(newGroupInfo)
   }
 }
 

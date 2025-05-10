@@ -2,22 +2,22 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 12:52:57
+ * @LastEditTime: 2025-05-10 22:54:48
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
+import { nextTick } from 'vue'
 import L from 'leaflet'
-import { useMapStore } from '@/store/map'
+import { ElMessage } from 'element-plus'
+import { getImageUrl } from './Image'
 import imageHttp from '@/http/modules/image'
+import { useMapStore } from '@/store/map'
+import { useSchemaStore } from '@/store/schema'
 import eventBus from '@/utils/eventBus'
 import { judgeHadUploadImage } from '@/utils/schema'
-import { nextTick } from 'vue'
-import { ElMessage } from 'element-plus'
-import { IGPSInfo } from '@/type/schema';
 import { getImageUrlById, getImageUrlByIds } from '@/utils/Image'
-import { IHttpResponse } from '@/type/http'
-import { useSchemaStore } from '@/store/schema'
-import { getImageUrl } from './Image'
+import type { IHttpResponse } from '@/type/http'
+import type { INewimageFormData, IGPSInfo, IImageInfo, INewGroupFormData, IGroupInfo } from '@/type/schema'
 
 // 分组的marker封面图片的数量
 export const GROUP_COVER_NUMBER = 4
@@ -119,12 +119,12 @@ export function addExistImageToMapById(map, imageId) {
 }
 
 /**
- * @description: 添加可移动的图标
- * @param {*} map
+ * @description: 添加可移动的图片marker
  * @param {*} imageInfo
  * @return {*}
  */
-export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
+export function addManualLocateImageToMap(imageInfo: INewimageFormData, lat: number, Lng: number) {
+  const map = MAP_INSTANCE
   let myIcon = null
   // 如果没有url直接用文字名称代替
   if (!imageInfo?.url) {
@@ -154,6 +154,10 @@ export function addManualLocateImageToMap(map, imageInfo, lat, Lng) {
   })
   marker.addTo(map)
   return marker
+}
+
+export function addManualLocateGroupToMap(groupInfo: INewGroupFormData, lat: number, Lng: number ) {
+  const map = MAP_INSTANCE
 }
 
 /**
@@ -199,28 +203,45 @@ export function hiddenMarkerById(markerId, map) {
  * @param {*} groupInfo
  * @return {*}
  */
-export async function addGroupIconToMap(map, groupInfo) {
-  const mapStore = useMapStore()
-  // 请求前几张图片，并保存到
-  console.log('groupInfo---', groupInfo)
-  // 先只获取前4张图片
-  const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_COVER_NUMBER))
-  if (!resImageUrls || resImageUrls.length === 0) {
-    ElMessage.error('获取图片失败')
+export async function addGroupIconToMap(groupInfo: IGroupInfo) {
+  const GPSInfo = groupInfo.GPSInfo
+  // 定位无效，直接不加
+  if (!GPSInfoLegality(GPSInfo)) {
     return
   }
-  const imageUrls = resImageUrls.map(item => {
-    return item
-  })
-  const myIcon = L.divIcon({
-    // 传值使用
-    imageUrls,
-    html: imageUrlsIcon(imageUrls),
-    iconSize: GROUP_MARKER_SIZE,
-    iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
-  })
+  const map = MAP_INSTANCE
+  const mapStore = useMapStore()
+  const groupNumbers = groupInfo.groupNumbers
+  let myIcon;
+  // 有图的话
+  if (groupNumbers && groupNumbers.length > 0) {
+    // 请求前几张图片，并保存到
+    console.log('groupInfo---', groupInfo)
+    // 先只获取前4张图片
+    const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_COVER_NUMBER))
+    if (!resImageUrls || resImageUrls.length === 0) {
+      ElMessage.error('获取图片失败')
+      return
+    }
+    const imageUrls = resImageUrls.map(item => {
+      return item
+    })
+    myIcon = L.divIcon({
+      // 传值使用
+      imageUrls,
+      html: imageUrlsIcon(imageUrls),
+      iconSize: GROUP_MARKER_SIZE,
+      iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
+    })
+  } else {
+    myIcon = L.divIcon({
+      html: noImageUrlIcon(groupInfo.name),
+      iconSize: GROUP_MARKER_SIZE,
+      iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
+    })
+  }
   // 先纬度再经度
-  const marker = L.marker([groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude], {
+  const marker = L.marker([GPSInfo.GPSLatitude, GPSInfo.GPSLongitude], {
     icon: myIcon,
     title: groupInfo.name,
     type: 'group',
@@ -303,6 +324,9 @@ function isMarkerInView(markerLatLng, map) {
   // 获取地图的可视范围
   const bounds = map.getBounds()
   // marker.getLatLng()获取marker的经纬度
+  if (!markerLatLng) {
+    return false
+  }
   return bounds.contains(markerLatLng)
 }
 
@@ -625,4 +649,19 @@ function markerMouseListener(marker) {
   marker.on('mouseout', () => {
     resetMarker(marker)
   })
+}
+
+/**
+ * @description: 判断GPSInfo值是否有效
+ * @return {*}
+ */
+export function GPSInfoLegality(GPSInfo: any) {
+  const { GPSLatitude, GPSLongitude, GPSAltitude } = GPSInfo
+  if (typeof GPSLatitude !== 'number' || typeof GPSLongitude !== 'number') {
+    return false
+  }
+  if (GPSAltitude && typeof GPSAltitude !== 'number') {
+    return false
+  }
+  return true
 }

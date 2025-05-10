@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 19:50:05
+ * @LastEditTime: 2025-05-10 22:21:26
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -142,7 +142,7 @@ function initMarker() {
   if (groupAndImageList?.length) {
     groupAndImageList.forEach(item => {
       if (item.showType === 'group') {
-        addGroupIconToMap(map.value, item)
+        addGroupIconToMap(item)
       } else if (item.showType === 'image') {
         addImageIconToMap(map.value, item)
       }

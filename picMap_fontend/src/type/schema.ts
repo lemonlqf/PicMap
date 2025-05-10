@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 09:38:07
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 12:50:12
+ * @LastEditTime: 2025-05-10 22:30:56
  * @FilePath: \Code\picMap_fontend\src\type\schema.ts
  * @Description: 
  */
@@ -20,8 +20,8 @@ export type ISchema = {
 export type IGroupInfo = {
   name: string,
   id: string,
-  groupNumbers: string[],
   GPSInfo: IGPSInfo,
+  groupNumbers?: string[],
 }
 
 export type IGPSInfo = {
@@ -33,10 +33,25 @@ export type IGPSInfo = {
 export type IImageInfo = {
   id: string,
   GPSInfo: IGPSInfo,
-  lastModified: number
+  lastModified?: number
   name: string,
-  size: number,
+  size?: number,
   type: string,
-  describe: string, // 图片描述信息
+  describe?: string, // 图片描述信息
   [key: string]: any // 其他信息
+}
+
+export type INewimageFormData = {
+  id: string,
+  GPSInfo: IGPSInfo,
+  name: string,
+  url?: string,
+  [key: string]: any // 其他信息
+}
+
+// 创建新分组时需要的数据
+export type INewGroupFormData = {
+  name: string,
+  id: string,
+  GPSInfo?: IGPSInfo,
 }

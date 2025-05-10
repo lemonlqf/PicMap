@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-02 09:27:09
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 18:56:09
+ * @LastEditTime: 2025-05-10 22:57:50
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\groupItem.vue
  * @Description: 
 -->
@@ -10,8 +10,8 @@
   <div class="flex-box" @click="setViewById(groupInfo.id)">
     <div>
       <img src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
-      <el-tooltip :content="groupInfo.name" placement="left">
-        <span class="group-name">{{ groupInfo.name }}</span>
+      <el-tooltip :content="groupInfo.name" placement="top">
+        <span class="group-name">{{ GPSInfoLegality(groupInfo.GPSInfo) ? groupInfo.name : `(未定位)${groupInfo.name}` }}</span>
       </el-tooltip>
     </div>
     <div class="right-box">
@@ -30,7 +30,7 @@
 import { IGroupInfo } from '@/type/schema';
 import type { PropType } from 'vue';
 import { computed } from 'vue';
-import { setViewById } from '@/utils/map';
+import { GPSInfoLegality, setViewById } from '@/utils/map';
 import GroupContentMenu from '@/components/contentMenu/component/GroupContentMenu.vue'
 
 const props = defineProps({
@@ -41,7 +41,7 @@ const props = defineProps({
 })
 
 const groupNumbersNumber = computed(() => {
-  return props.groupInfo.groupNumbers.length ?? 0
+  return props.groupInfo?.groupNumbers?.length ?? 0
 })
 
 

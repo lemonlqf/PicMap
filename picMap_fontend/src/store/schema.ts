@@ -99,6 +99,6 @@ export const useSchemaStore = defineStore('schema', {
           groupNumbers: [imageId]
         })
       }
-    }
+    },
   }
 })
