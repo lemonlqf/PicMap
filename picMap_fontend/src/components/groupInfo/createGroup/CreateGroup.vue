@@ -2,7 +2,7 @@
   <el-dialog :z-index="9999" v-model="show" title="创建新分组" style="width: 440px;">
     <el-form ref="groupFormRef" :model="createGroupInfoFormData" style="width: 400px" label-width="auto"
       :rules="groupEditRules">
-      <el-form-item label="新分组名称" label-width="90px" prop="newGroupName">
+      <el-form-item label="分组名称" label-width="90px" prop="newGroupName">
         <el-input v-model="createGroupInfoFormData.newGroupInfo.newGroupName"></el-input>
         {{ createGroupInfoFormData.newGroupInfo.newGroupName }}
       </el-form-item>
@@ -44,7 +44,7 @@ import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import type { ICreateGroupInfoData } from '@/type/group'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage, createNewGroupToSchema } from '@/utils/group'
-import { addGroupIconToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap } from '@/utils/map'
+import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap } from '@/utils/map'
 const show = defineModel({ default: false })
 
 
@@ -143,8 +143,9 @@ function createNewGroup() {
       const GPSInfo = newGroupInfo.GPSInfo
       if (GPSInfo) {
         // 往地图上添加groupMarker
-        addGroupIconToMap(newGroupInfo as IGroupInfo)
+        addGroupMarkerToMap(newGroupInfo as IGroupInfo)
       }
+      closeGroupEdit()
     } else {
       console.log('error submit!', fields)
     }

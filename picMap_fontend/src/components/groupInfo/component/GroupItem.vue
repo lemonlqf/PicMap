@@ -2,33 +2,37 @@
  * @Author: Do not edit
  * @Date: 2025-05-02 09:27:09
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-10 22:57:50
+ * @LastEditTime: 2025-05-17 21:25:45
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\groupItem.vue
  * @Description: 
 -->
 <template>
-  <div class="flex-box" @click="setViewById(groupInfo.id)">
+  <div ref="itemRef" class="flex-box" @click="setViewById(groupInfo.id)">
     <div>
       <img src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
       <el-tooltip :content="groupInfo.name" placement="top">
-        <span class="group-name">{{ GPSInfoLegality(groupInfo.GPSInfo) ? groupInfo.name : `(未定位)${groupInfo.name}` }}</span>
+        <span class="group-name">{{ GPSInfoLegality(groupInfo.GPSInfo) ? groupInfo.name : `(未定位)${groupInfo.name}`
+          }}
+        </span>
       </el-tooltip>
     </div>
-    <div class="right-box">
-      <span class="number">{{ groupNumbersNumber }}</span>
-      <el-popover width="fit-content">
-        <GroupContentMenu :group-id="groupInfo.id"></GroupContentMenu>
-        <template #reference>
-          <img class="edit-image" src="@/assets/icon/三点.png" width="15px" height="15pxx" alt="">
-        </template>
-      </el-popover>
-    </div>
+    <el-popover width="fit-content">
+      <GroupContentMenu :group-id="groupInfo.id">
+      </GroupContentMenu>
+      <template #reference>
+        <div class="right-box">
+          <span v-if="!showEdit" class="number">{{ groupNumbersNumber }}</span>
+          <img v-else class="edit-image" src="@/assets/icon/三点.png" width="15px" height="15pxx" alt="">
+        </div>
+      </template>
+    </el-popover>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { IGroupInfo } from '@/type/schema';
 import type { PropType } from 'vue';
+import { onMounted, ref } from 'vue'
 import { computed } from 'vue';
 import { GPSInfoLegality, setViewById } from '@/utils/map';
 import GroupContentMenu from '@/components/contentMenu/component/GroupContentMenu.vue'
@@ -44,6 +48,19 @@ const groupNumbersNumber = computed(() => {
   return props.groupInfo?.groupNumbers?.length ?? 0
 })
 
+const showEdit = ref(false)
+const itemRef = ref()
+
+onMounted(() => {
+  itemRef.value.addEventListener('mouseover', () => {
+    showEdit.value = true
+  })
+  itemRef.value.addEventListener('mouseleave', () => {
+    showEdit.value = false
+  })
+})
+
+
 
 </script>
 
@@ -56,16 +73,18 @@ const groupNumbersNumber = computed(() => {
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
+
   &:hover {
     background-color: rgba(236, 237, 238, 1);
-    .right-box {
-      .number {
-        display: none;
-      }
-      .edit-image {
-        display: block;
-      }
-    }
+
+    // .right-box {
+    //   .number {
+    //     display: none;
+    //   }
+
+    //   .edit-image {
+    //     display: inline-block;
+    //   }
   }
 
   img {
@@ -91,9 +110,7 @@ const groupNumbersNumber = computed(() => {
 }
 
 .edit-image {
-  display: none;
+  // display: none;
   transform: translateX(9px);
 }
-
-
 </style>

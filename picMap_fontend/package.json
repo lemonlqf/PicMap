@@ -16,6 +16,7 @@
     "exifreader": "^4.25.0",
     "express": "^4.21.2",
     "leaflet": "^1.9.4",
+    "leaflet.markercluster": "^1.5.3",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",
     "pinia": "^2.3.0",

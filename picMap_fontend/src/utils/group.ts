@@ -3,13 +3,13 @@ import { createApp } from 'vue';
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-10 22:59:51
+ * @LastEditTime: 2025-05-11 12:53:35
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
 import { useSchemaStore } from '@/store/schema'
 import { saveSchema } from './schema';
-import { addImageIconToMap, deleteMarkerById, MAP_INSTANCE, getMarkerById, GROUP_COVER_NUMBER, GROUP_MARKER_SIZE, groupMarkerTranslateY } from '@/utils/map';
+import { addImageMarkerToMap, deleteMarkerById, MAP_INSTANCE, getMarkerById, GROUP_COVER_NUMBER, GROUP_MARKER_SIZE, groupMarkerTranslateY } from '@/utils/map';
 import { IGPSInfo, IGroupInfo } from '@/type/schema';
 import { ElMessage } from 'element-plus';
 import { getGPSInfoById, addExistImageToMapById, imageUrlsIcon } from '@/utils/map';
@@ -204,7 +204,7 @@ export async function dissolveGroupById(groupId) {
  * @param {string} groupId
  * @return {*}
  */
-export function getGroupInfoByGroupId(groupId: string) {
+export function getGroupInfoByGroupId(groupId: string): IGroupInfo {
   const schemaStore = useSchemaStore()
   return schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
 }
@@ -288,11 +288,33 @@ export async function createNewGroupToSchema(newGroupFromInfo: ICreateGroupInfoD
     name: newGroupFromInfo.newGroupInfo.newGroupName,
     id: newId,
     GPSInfo,
-    groupNumbers,
+    groupNumbers: groupNumbers ?? [],
   }
-  groupInfo.push(newGroupInfo)
+  groupInfo.unshift(newGroupInfo)
   schemaStore.setSchemaAttr('groupInfo', groupInfo)
   await saveSchema()
   return newGroupInfo
+}
+
+/**
+ * @description: 更新schema中的group信息
+ * @param {string} groupId
+ * @param {IGroupInfo} groupInfo
+ * @return {*}
+ */
+export async function updateGroupInfoToSchema(groupId: string, groupInfo: IGroupInfo) {
+  const schemaStore = useSchemaStore()
+  let groupInfos = cloneDeep(schemaStore.getSchema.groupInfo)
+  // 修改groupInfo
+  groupInfos = groupInfos.map(item => {
+    if (item.id === groupId) {
+      return groupInfo
+    } else {
+      return item
+    }
+  })
+  schemaStore.setSchemaAttr('groupInfo', groupInfos)
+  await saveSchema()
+  return groupInfo
 }
 

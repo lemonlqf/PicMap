@@ -54,4 +54,5 @@ export type INewGroupFormData = {
   name: string,
   id: string,
   GPSInfo?: IGPSInfo,
+  groupNumbers?: string[]
 }

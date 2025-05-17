@@ -95,7 +95,7 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
-import { addImageIconToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById } from '@/utils/map'
+import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
@@ -166,7 +166,7 @@ watch(
           }
           // 如果有坐标内容的话，在地图上添加对应的marker
           if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
-            addImageIconToMap(props.map, hasUrlFileList.value[i])
+            addImageMarkerToMap(hasUrlFileList.value[i])
           }
         }
       }

@@ -2,13 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 16:53:17
- * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\ImageContentMenu.vue
+ * @LastEditTime: 2025-05-17 21:22:24
+ * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\TemporaryMarkerContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
 <template>
   <div class="image-menu">
-    <div class="menu-item" v-for="item in menuList" @click="item.clickEvent()">
+    <div class="menu-item" v-for="item in menuList" @click="item.clickEvent">
       <span>{{ item.label }}</span>
     </div>
   </div>
@@ -21,15 +21,14 @@ import API from '@/http/index'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
-import { judgeHadUploadImage, saveSchema } from '@/utils/schema'
-import { deleteMarkerInMap, MAP_INSTANCE } from '@/utils/map'
-import { canDragMenu } from './markerOperate'
+import { editSchemaAndSave, saveSchema } from '@/utils/schema'
+import { deleteMarkerInMap, MAP_INSTANCE, getMarkerById, getPermanentType, getGPSInfoByMarkerInstance } from '@/utils/map'
 
 const props = defineProps({
-  imageId: {
+  markerId: {
     type: String,
     default: () => ''
-  }
+  },
 })
 const schemaStore = useSchemaStore()
 const marker = ref({})
@@ -39,26 +38,30 @@ const postionInfo = ref({
 })
 const menuList = ref([
   {
-    label: '删除图片',
+    label: '确定位置',
     clickEvent: async () => {
-      // 删除图片
-      deleteImageById(props.imageId)
-      // 删除后隐藏右键菜单
-      menuHidden()
+      // 让marker变为不可以移动
+      temporaryMarkerToPermanent(props.markerId)
     }
-  },
-  {
-    label: '设置分组',
-    clickEvent: async () => {
-      // 编辑分组信息
-      eventBus.emit('edit-group', props.imageId)
-      ElMessage.success('设置分组')
-      // 删除后隐藏右键菜单
-      menuHidden()
-    }
-  },
-  canDragMenu(props.imageId)
+  }
 ])
+
+/**
+ * @description: 
+ * @param {*} markerId
+ * @return {*}
+ */
+function temporaryMarkerToPermanent(markerId: string) {
+  const marker = getMarkerById(markerId)
+  const markerType = marker.options.type
+  // 改变marker类型
+  marker.options.type = getPermanentType(markerType)
+  // 变为不可拖拽
+  marker.dragging.disable();
+  const GPSInfo = getGPSInfoByMarkerInstance(marker)
+  // 更新schema中的GPSInfo数据
+  editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
+}
 
 
 function menuHidden() {

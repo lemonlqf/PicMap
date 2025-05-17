@@ -38,12 +38,15 @@ import appMapTile from './appMapTile'
 import schemaHttp from '@/http/modules/schema'
 import { useSchemaStore } from '@/store/schema'
 import {
-  addImageIconToMap,
-  addGroupIconToMap,
+  addImageMarkerToMap,
+  addGroupMarkerToMap,
   observeMapChangeToUpgradeMarker,
   updateVisibleMarkers,
   hiddenImageInfoDrawerMapClick,
-  setViewByLatLng
+  setViewByLatLng,
+  MAX_ZOOM,
+  MIN_ZOOM,
+  observeClisterClick
 } from '@/utils/map'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
 import eventBus from '@/utils/eventBus'
@@ -96,8 +99,8 @@ function initMap() {
   const mapStore = useMapStore()
   map.value = L.map('map', {
     zoom: 15, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
-    minZoom: 3,
-    maxZoom: 18, // 目前小于18不显示了
+    minZoom: MIN_ZOOM,
+    maxZoom: MAX_ZOOM, // 目前小于18不显示了
     zoomControl: true, //缩放组件
     attributionControl: false //去掉右下角logol
   })
@@ -142,9 +145,9 @@ function initMarker() {
   if (groupAndImageList?.length) {
     groupAndImageList.forEach(item => {
       if (item.showType === 'group') {
-        addGroupIconToMap(item)
+        addGroupMarkerToMap(item)
       } else if (item.showType === 'image') {
-        addImageIconToMap(map.value, item)
+        addImageMarkerToMap(item)
       }
     })
   }
@@ -158,8 +161,10 @@ onMounted(() => {
   initMap()
   initTile()
   initMarker()
-  observeMapChangeToUpgradeMarker(map.value)
-  hiddenImageInfoDrawerMapClick(map.value)
+  observeMapChangeToUpgradeMarker()
+  hiddenImageInfoDrawerMapClick()
+  // 监听簇点击
+  observeClisterClick()
 })
 </script>
 

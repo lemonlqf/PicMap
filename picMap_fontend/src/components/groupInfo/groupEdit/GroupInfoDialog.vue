@@ -71,7 +71,7 @@ import { createGroupId } from '@/utils/group'
 import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
-import { addGroupIconToMap, MAP_INSTANCE, hiddenMarkerById } from '@/utils/map'
+import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById } from '@/utils/map'
 
 const props = defineProps({
   imageIds: {
@@ -249,7 +249,7 @@ function updateVisibleMarkersByFormData(newGroupInfo: IGroupInfo, hiddenMarkerId
   })
   if (newGroupInfo) {
     // 添加新的分组点位
-    addGroupIconToMap(newGroupInfo)
+    addGroupMarkerToMap(newGroupInfo)
   }
 }
 

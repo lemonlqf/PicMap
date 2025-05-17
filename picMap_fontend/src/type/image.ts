@@ -1,3 +1,11 @@
+/*
+ * @Author: Do not edit
+ * @Date: 2025-04-30 18:15:56
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-05-17 16:27:17
+ * @FilePath: \Code\picMap_fontend\src\type\image.ts
+ * @Description: 
+ */
 import { IGroupInfo, IImageInfo, IGPSInfo } from './schema'
 export type IImageDetailInfo = {
   Resolution?: any
@@ -28,6 +36,7 @@ export type IAuthorDetailInfo = {
 export type IMarker = {
   id: string
   name: string
+  type: IShowType
   imageInfo: IImageDetailInfo | null
   cameraInfo: ICameraDetailInfo | null
   authorInfo: IAuthorDetailInfo | null
@@ -36,4 +45,4 @@ export type IMarker = {
   showType: IShowType
 } & IGroupInfo & IImageInfo
 
-export type IShowType = 'image' | 'group'
+export type IShowType = "image" | "group" | "temporary-image" | "temporary-group"

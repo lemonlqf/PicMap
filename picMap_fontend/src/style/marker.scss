@@ -56,6 +56,10 @@ $location-border-color: rgba(200, 0, 0, 1);
   -o-transition: all 0.15s ease;
 }
 
+.leaflet-marker-icon.leaflet-marker-draggable {
+  // 没有过度动画，避免拖拽延迟
+}
+
 // 定位的小尖尖
 // 不知道为什么伪元素很卡，所以单独再添加一个元素
 // .leaflet-marker-icon::after {

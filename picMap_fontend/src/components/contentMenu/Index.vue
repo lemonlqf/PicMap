@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 12:33:22
+ * @LastEditTime: 2025-05-17 16:22:52
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -10,7 +10,9 @@
   <!-- 将图片右键和分组右键拆分一下 -->
   <div :class="{ menu: true, 'is-show': isShow }">
     <ImageContentMenu v-if="markerType === 'image'" :imageId="marker.options.id"></ImageContentMenu>
-    <GroupContentMenu v-if="markerType === 'group'" :groupId="marker.options.id"></GroupContentMenu>
+    <GroupContentMenu v-else-if="markerType === 'group'" :groupId="marker.options.id"></GroupContentMenu>
+    <!-- 其他情况都是临时节点 -->
+    <TemporaryMarkerContentMenu v-else-if="markerType?.includes('temporary')" :markerId="marker.options.id"></TemporaryMarkerContentMenu>
   </div>
 </template>
 
@@ -19,11 +21,12 @@ import { onMounted, onUnmounted, ref } from 'vue'
 import eventBus from '@/utils/eventBus'
 import ImageContentMenu from './component/ImageContentMenu.vue'
 import GroupContentMenu from './component/GroupContentMenu.vue'
-import { isTemplateMarker } from '@/utils/schema'
+import TemporaryMarkerContentMenu from './component/TemporaryMarkerContentMenu.vue'
+import { IShowType } from '@/type/image.ts'
 
 const isShow = ref(false)
 const marker = ref({})
-const markerType = ref<"image" | "group">()
+const markerType = ref<IShowType>()
 const postionInfo = ref({
   left: '10px',
   top: '0px'
@@ -40,10 +43,6 @@ function getPxValue(value) {
 function menuShow(event) {
   // 根据不同的节点类型展示不同的右键菜单内容
   markerType.value = event.target.options.type
-  // 如果marker不在schema中，则说明是临时添加的，不需要出现右键的菜单
-  if (isTemplateMarker(event.target.options.id, markerType.value)) {
-    return
-  }
   console.log(event)
   const { x, y } = event.originalEvent
   marker.value = event.target

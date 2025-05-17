@@ -2,14 +2,15 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 12:35:10
+ * @LastEditTime: 2025-05-17 16:02:43
  * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
-import { cloneDeep } from 'lodash-es'
+import { cloneDeep, set } from 'lodash-es'
 import API from '@/http/index'
 import type { ISchema, IGroupInfo, IImageInfo, IShowType } from '@/type/schema'
+
 type IGroupList = IGroupInfo & {
   showType: 'group'
 }
@@ -123,16 +124,19 @@ export async function saveSchema() {
 }
 
 /**
- * @description: 判断是否是为临时点位
- * @param {*} markerId
- * @param {*} markerShowType
+ * @description: 
+ * @param {string} id
+ * @param {string} attr
+ * @param {any} value
  * @return {*}
  */
-export function isTemplateMarker(markerId, markerShowType: IShowType = 'image') {
-  // 如果是图片marker需要判断一下是不是在已经上传的列表中，不然可能是临时接电
-  if (!judgeHadUploadImage(markerId) && markerShowType === 'image') {
-    return true
-  }
-  // 其他情况（例如分组）都直接返回true
-  return false
+export async function editSchemaAndSave(id: string, attr: string, value: any) {
+  const schemaStore = useSchemaStore()
+  const groupInfos = schemaStore.getSchema.groupInfo
+  const imageInfos = schemaStore.getSchema.imageInfo
+  const groupOrImageInfo = [...groupInfos, ...imageInfos].find(item => {
+    return item.id === id
+  })
+  set(groupOrImageInfo, attr, value)
+  await saveSchema()
 }
