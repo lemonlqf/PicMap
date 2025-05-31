@@ -11,7 +11,7 @@
     <div>
       <img src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
       <el-tooltip :content="groupInfo.name" placement="top">
-        <span class="group-name">{{ GPSInfoLegality(groupInfo.GPSInfo) ? groupInfo.name : `(未定位)${groupInfo.name}`
+        <span class="group-name">{{ GPSInfoLegality(groupInfo?.GPSInfo) ? groupInfo.name : `(未定位)${groupInfo.name}`
           }}
         </span>
       </el-tooltip>
@@ -30,7 +30,7 @@
 </template>
 
 <script lang="ts" setup>
-import { IGroupInfo } from '@/type/schema';
+import type { IGroupInfo } from '@/type/schema';
 import type { PropType } from 'vue';
 import { onMounted, ref } from 'vue'
 import { computed } from 'vue';

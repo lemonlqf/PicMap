@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 20:16:14
+ * @LastEditTime: 2025-05-31 11:46:32
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -69,7 +69,7 @@ const menuList = ref([
 
 const GPSInfoExist = computed(() => {
   const groupInfo = getGroupInfoByGroupId(props.groupId)
-  return GPSInfoLegality(groupInfo.GPSInfo)
+  return GPSInfoLegality(groupInfo?.GPSInfo)
 })
 
 function menuHidden() {

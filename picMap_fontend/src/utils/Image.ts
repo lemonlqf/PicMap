@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 10:29:21
+ * @LastEditTime: 2025-05-31 10:27:24
  * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
@@ -15,6 +15,8 @@ import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus';
 import { saveSchema } from './schema';
 import { deleteMarkerById, MAP_INSTANCE } from '@/utils/map';
+import type { IImageDetailInfo } from '@/type/image'
+import type { IHttpResponse } from '@/type/http'
 
 
 // 一个地方集中管理图片，因为一个图片可能在多个分组中
@@ -90,7 +92,7 @@ export async function getImageUrlByIds(imageIds: string[]) {
 }
 
 // 计算MB大小
-export function calcMBSize(size) {
+export function calcMBSize(size: number) {
   return size ? (size / (1024 * 1000)).toFixed(2) + 'MB' : ''
 }
 
@@ -99,20 +101,46 @@ export function calcMBSize(size) {
  * @param {*} imageInfos
  * @return {*}
  */
-export async function uploadImages(imageInfos, map) {
+export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHttpResponse[]> {
+  const res = []
   const schemaStore = useSchemaStore()
-  imageInfos.forEach(imageInfo => {
+  for(let i = 0; i < imageInfos.length; i ++) {
+    const imageInfo = imageInfos[i]
+    // 如果不符合上传条件的，先不上传
+    if (!canUpload(imageInfo)) {
+      continue
+    }
+    // 请求后端接口上传图片，保存本地文件目录下
+    const res1 = await API.image.uploadImages({ images: [imageInfo] })
+    // 保存返回的接口结果
+    res.push(res1)
+    if (res1.code !== 200) {
+      ElMessage.warning(`${imageInfo.name} 上传失败！`)
+      continue
+    }
     // 将图片保存到已经上传的地方
     schemaStore.pushImageToUploadedImageIds(imageInfo.id)
     // marker中可以移动的图片重新设置为不可移动
-    const marker = getMarkerById(imageInfo.id, map)
+    const marker = getMarkerById(imageInfo.id, MAP_INSTANCE)
     if (marker) {
       // 将 marker 设置为不可移动
       marker?.dragging?.disable?.()
     }
-  })
-  const res1 = await API.image.uploadImages({ images: imageInfos })
-  return res1
+  }
+  return res
+}
+
+/**
+ * @description: 判断是否允许上传
+ * @param {IImageDetailInfo} imageInfo
+ * @return {*}
+ */
+function canUpload(imageInfo: IImageDetailInfo): boolean {
+  const res = (
+    imageInfo.url &&
+    imageInfo.GPSInfo
+  )
+  return res ? true : false
 }
 
 /**

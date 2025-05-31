@@ -2,17 +2,17 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 20:55:13
+ * @LastEditTime: 2025-05-31 13:50:12
  * @FilePath: \Code\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 
 -->
 <template>
   <div class="flex-box">
-    <el-scrollbar :max-height="drawerHeight">
+    <el-scrollbar :max-height="height">
       <!-- 图片展示 -->
       <div class="img-boxs">
-        <template v-for="id in marker.groupNumbers" :key="id">
-          <Image class="image" :perview="false" image-obj-fit="contain" :image-info="imageInfo(id)" style="height: 100px; width: 100px"></Image>
+        <template v-for="id in groupNumbers" :key="id">
+          <Image class="image" :perview="false" :image-id="id" style="height: 120px; width: 170px"></Image>
         </template>
       </div>
     </el-scrollbar>
@@ -20,44 +20,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from 'vue';
+import { computed, reactive, watch } from 'vue';
 import Image from './components/Image.vue';
-import { IMarker } from '@/type/image';
+import type { IMarker } from '@/type/image';
 import { getSchemaInfoById } from '@/utils/schema';
-import { getImageUrl } from '@/utils/Image';
+import { getImageUrlById } from '@/utils/Image';
+import { DRAWER_HEIGHT } from '@/utils/constant'
+import { getGroupInfoByGroupId } from '@/utils/group';
 
 const props = defineProps({
-  marker: {
-    type: Object,
+  groupId: {
+    type: String,
     default: () => ({})
+  },
+  height: {
+    type: Number,
+    default: () => DRAWER_HEIGHT
   }
 })
 
-const drawerHeight = '300px'
-
-/**
- * @description: 通过imageId获取图片信息
- * @param {*} imageId
- * @return {*}
- */
-function imageInfo(imageId) {
-  let res: IMarker;
-  const schemaInfo = getSchemaInfoById(imageId)
-  const url = getImageUrl(imageId)
-  res = { ...schemaInfo, url } as IMarker
-  return res
-}
+const height = props.height + 'px'
 
 
-watch(() => props.marker, (newVal) => {
-  console.log('marker changed:', newVal);
-}, { immediate: true });
+// 动态更新
+const groupNumbers = computed(() => {
+  const markerId = props.groupId
+  const groupNumbers = getGroupInfoByGroupId(markerId).groupNumbers ?? []
+  return groupNumbers
+})
 </script>
 
 <style scoped lang="scss">
 .flex-box {
   width: 100%;
-  height: 300px;
+  height: v-bind('height');
   display: flex;
   flex-wrap: wrap;
   flex-direction: row;
@@ -70,8 +66,10 @@ watch(() => props.marker, (newVal) => {
   flex-wrap: wrap;
   flex-direction: row;
   .image {
-    margin-top: 5px;
-    margin-left: 5px;
+    border-radius: 3px;
+    overflow: hidden;
+    margin-top: 10px;
+    margin-left: 10px;
   }
 }
 </style>

@@ -32,21 +32,21 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, watch, Ref } from 'vue'
+import { ref, reactive, watch, type Ref } from 'vue'
 import { isNumber } from '@/utils/regex'
 import { getGroupIdAndNameLists } from '@/utils/group'
 import { useSchemaStore } from '@/store/schema'
 import Switch from '@/components/switch/Index.vue'
 import { cloneDeep } from 'lodash-es'
-import { IGroupInfo, ISchema } from '@/type/schema'
 import { createGroupId } from '@/utils/group'
 import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import type { ICreateGroupInfoData } from '@/type/group'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage, createNewGroupToSchema } from '@/utils/group'
 import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap } from '@/utils/map'
-const show = defineModel({ default: false })
+import type { IGroupInfo, ISchema } from '@/type/schema'
 
+const show = defineModel({ default: false })
 
 const groupFormRef = ref()
 

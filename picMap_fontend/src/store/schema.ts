@@ -2,14 +2,14 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:41:27
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 09:44:04
- * @FilePath: \Code\picMap_fontend\src\store\schema
+ * @LastEditTime: 2025-05-18 14:41:01
+ * @FilePath: \Code\picMap_fontend\src\store\schema.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { defineStore } from 'pinia'
 import { judgeHadUploadImage } from '../utils/schema'
-import type { IGroupInfo, ISchema } from '@/type/schema'
 import { isGroupIdExist, createNewGroupName } from '@/utils/group'
+import type { IGroupInfo, ISchema } from '@/type/schema'
 
 export const useSchemaStore = defineStore('schema', {
   state: () => ({
@@ -30,7 +30,7 @@ export const useSchemaStore = defineStore('schema', {
       this.schema[key] = value
     },
     setMapAttr(key, value) {
-      if (!this.schema.map) {
+      if (!this.schema.mapInfo) {
         this.schema.mapInfo = {}
       }
       this.schema.mapInfo[key] = value

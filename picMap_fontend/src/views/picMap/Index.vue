@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-10 22:21:26
+ * @LastEditTime: 2025-05-31 08:19:17
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -14,10 +14,13 @@
     </template>
     <el-button @click="setMapCenter">初始中心</el-button>
   </div>
+  <!-- 上传按钮 -->
   <div class="fix-group upload-group">
     <ImageUpolad :map="map"></ImageUpolad>
   </div>
+  <!-- 图片详情抽屉 -->
   <Drawer></Drawer>
+  <!-- 鼠标右键菜单 -->
   <contentMenu :map="map"></contentMenu>
   <div class="fix-group group-info-group">
     <GroupInfo :map="map"></GroupInfo>
@@ -55,8 +58,9 @@ import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
 
 const schemaStore = useSchemaStore()
 const currentMapTile = ref(appMapTile[0])
-const map = ref(null)
+let map = null
 const mapCenter = ref([30.2489634, 120.2052342])
+const mapZoom = ref(10)
 
 function changeMapTile(item) {
   currentMapTile.value = item
@@ -73,45 +77,41 @@ async function initSchema() {
     const schema = JSON.parse(res.data)
     // 将schema信息保存到store中
     schemaStore.setSchema(JSON.parse(res.data))
-    mapCenter.value = schema.mapInfo?.center
+    mapCenter.value = schema.mapInfo?.center ?? [30.2489634, 120.2052342]
+    mapZoom.value = schema.mapInfo?.zoom ?? 10
     const imagesIds = getAllImageIdInSchema()
     const groupIds = getAllGroupIdInSchema()
     // 将所有的图片id保存到uploadedImageIds中
     schemaStore.setUploadedImageIds([...imagesIds, ...groupIds])
-    initMarker()
   } else {
     console.error('获取schema失败')
   }
 }
 
-// 设置坐标
-watch(() => mapCenter.value, (newVal) => {
-  if (map.value && newVal) {
-    setViewByLatLng(newVal[0], newVal[1])
-  }
-})
-
 /**
  * @description: 初始化地图
  * @return {*}
  */
-function initMap() {
+async function initMap() {
   const mapStore = useMapStore()
-  map.value = L.map('map', {
-    zoom: 15, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
-    minZoom: MIN_ZOOM,
-    maxZoom: MAX_ZOOM, // 目前小于18不显示了
+  map = L.map('map', {
+    zoom: mapZoom.value, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+    minZoom: 3,
+    maxZoom: 18, // 目前小于18不显示了
+    center: mapCenter.value,
     zoomControl: true, //缩放组件
     attributionControl: false //去掉右下角logol
   })
   // 把地图实例保存一下，其他地方可以用
-  setMapInstance(map.value)
+  setMapInstance(map)
 }
 
 async function setMapCenter() {
-  const { lat, lng } = map.value.getCenter()
+  const { lat, lng } = map.getCenter()
+  const zoom = map.getZoom()
   if (lat && lng) {
     schemaStore.setMapAttr('center', [lat, lng])
+    schemaStore.setMapAttr('zoom', zoom)
   }
   const res = await saveSchema()
   if (res.code === 200) {
@@ -129,11 +129,11 @@ const currentTileLayer = ref()
 function initTile() {
   // 移除旧的图层
   if (currentTileLayer.value) {
-    map.value.removeLayer(currentTileLayer.value)
+    map.removeLayer(currentTileLayer.value)
   }
   currentTileLayer.value = L.tileLayer(`${currentMapTile.value.url}`, {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
-  }).addTo(map.value)
+  }).addTo(map)
 }
 
 /**
@@ -154,10 +154,10 @@ function initMarker() {
 }
 
 onBeforeMount(() => {
-  initSchema()
 })
 
-onMounted(() => {
+onMounted(async () => {
+  await initSchema()
   initMap()
   initTile()
   initMarker()

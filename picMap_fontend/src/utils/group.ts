@@ -3,14 +3,13 @@ import { createApp } from 'vue';
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-11 12:53:35
+ * @LastEditTime: 2025-05-31 12:05:40
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
 import { useSchemaStore } from '@/store/schema'
 import { saveSchema } from './schema';
 import { addImageMarkerToMap, deleteMarkerById, MAP_INSTANCE, getMarkerById, GROUP_COVER_NUMBER, GROUP_MARKER_SIZE, groupMarkerTranslateY } from '@/utils/map';
-import { IGPSInfo, IGroupInfo } from '@/type/schema';
 import { ElMessage } from 'element-plus';
 import { getGPSInfoById, addExistImageToMapById, imageUrlsIcon } from '@/utils/map';
 import eventBus from '@/utils/eventBus'
@@ -18,6 +17,7 @@ import API from '@/http/index'
 import L from 'leaflet'
 import { getImageUrlByIds } from '@/utils/Image'
 import { cloneDeep } from 'lodash-es';
+import type { IGPSInfo, IGroupInfo } from '@/type/schema';
 import type { ICreateGroupInfoData } from '@/type/group'
 import type { INewGroupFormData } from '@/type/schema'
 
@@ -193,10 +193,10 @@ export async function dissolveGroupById(groupId) {
   // 将分组内的图片重新添加到地图中
   const { groupNumbers } = schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
   groupNumbers.forEach(imageId => {
-    addExistImageToMapById(MAP_INSTANCE, imageId)
+    addExistImageToMapById(imageId)
   });
   // 删除分组信息
-  await deleteGroupById(groupId)
+  await deleteGroupById(groupId, false)
 }
 
 /**
@@ -212,13 +212,17 @@ export function getGroupInfoByGroupId(groupId: string): IGroupInfo {
 /**
  * @description: 删除分组
  * @param {*} groupId
+ * @param {*} needDeleteImages 是否要删除分组内照片的schema信息
  * @return {*}
  */
-export async function deleteGroupById(groupId) {
+export async function deleteGroupById(groupId: string, needDeleteImages = true) {
   const schemaStore = useSchemaStore()
   const groupInfo = getGroupInfoByGroupId(groupId)
   // 删除schema分组对应的图片数据
-  const groupNumbers = groupInfo.groupNumbers
+  let groupNumbers = groupInfo.groupNumbers
+  if (!needDeleteImages) {
+    groupNumbers = []
+  }
   // 如果存在再删除
   groupNumbers && groupNumbers.forEach(imageId => {
     schemaStore.deleteImageInImageInfo(imageId)
@@ -228,7 +232,7 @@ export async function deleteGroupById(groupId) {
   // eventBus.emit('delete-image', groupId)
   saveSchema()
   return Promise.all([API.image.deleteImages({ deleteImages: [groupNumbers] })]).then(res => {
-    deleteMarkerById(groupId, MAP_INSTANCE)
+    deleteMarkerById(groupId)
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data
     }, '')

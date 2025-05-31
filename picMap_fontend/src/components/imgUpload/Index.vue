@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-06 20:59:13
+ * @LastEditTime: 2025-05-31 10:04:22
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -59,7 +59,7 @@
       </div>
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
-    <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos, props.map)"
+    <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
       type="primary">批量上传</el-button>
     <el-button v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">全部清空</el-button>
   </div>
@@ -95,16 +95,17 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
-import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById } from '@/utils/map'
+import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
-import { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
-import { IGPSInfo } from '@/type/schema'
+import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
+import type { IGPSInfo } from '@/type/schema'
+
 const schemaStore = useSchemaStore()
 const props = defineProps({
   map: {
@@ -112,13 +113,13 @@ const props = defineProps({
   }
 })
 
-const imageUrls = ref({})
+const imageUrls = ref<any>({})
 // 图片gps信息，通过el-upload获取的fileList没有这个数据，用这个额变量暂时存一下，后续在formData中添加对应数据
 const moreInfo = ref({})
 // 上传组件获取到的文件
 const elUploadFileList = ref([])
 // 最完整的，在el-upload获取到文件的基础上，解析到了GPS和base64Url等信息
-const hasUrlFileList = ref([])
+const hasUrlFileList = ref<IImageDetailInfo[]>([])
 // 设置定位的弹框
 const locateDialogShow = ref(false)
 // 分组设置的弹框
@@ -183,7 +184,7 @@ const needUploadImageInfos = computed(() => {
   })
   // 如果有数据的话，走完更新一波可见的markers
   if (res.length) {
-    updateVisibleMarkers(props.map)
+    updateVisibleMarkers()
   }
   return res
 })
@@ -351,12 +352,12 @@ function deleteImage(name) {
     return item.name !== name
   })
   // 获取对应的marker，name和id是一样的
-  const marker = getMarkerById(name, props.map)
+  const marker = getMarkerById(name)
   // 删除掉marker
-  deleteMarkerInMap(marker, props.map)
+  deleteMarkerInMap(marker)
 }
 
-async function readFileAsDataURL(file) {
+async function readFileAsDataURL(file): Promise<string> {
   return new Promise((resolve, reject) => {
     const fr = new FileReader();
     fr.onload = () => resolve(fr.result);
@@ -366,15 +367,20 @@ async function readFileAsDataURL(file) {
 }
 
 // 添加图片
-async function uploadImages(imagInfos) {
+async function uploadImages(imagInfos: IImageDetailInfo[]) {
   // subimtData.append('data', 123)
   // 上传图片一定要用UploadImages因为有特殊操作，而且要先上传图片再保存schema
-  const res1 = await UploadImages(imagInfos, props.map)
+  const res1 = await UploadImages(imagInfos)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
-  if (res1.code === 200 && res2.code === 200) {
-    ElMessage.success('图片上传成功!')
+  const allSuccess = res1.every(res => {
+    return res.code === 200
+  })
+  if (allSuccess && res2.code === 200) {
+    ElMessage.success('所有图片上传成功!')
     // 上传完成后，点击右键可以出现操作菜单
+  } else if (!allSuccess && res2.code === 200) {
+    ElMessage.success('部分图片上传成功!')
   }
 }
 
@@ -457,14 +463,14 @@ async function manualLocateImage() {
   const fileInfo = hasUrlFileList.value.find(item => {
     return item.id === needLocateImageIdFormData.value.id
   })
-  const markerLatLng = props.map.getCenter()
+  const markerLatLng = MAP_INSTANCE.getCenter()
   needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
   const marker = addManualLocateImageToMap(fileInfo, markerLatLng.lat, markerLatLng.lng)
   // 加入marker
   mapStore.addMarkerId(marker.options.id)
   // 加入visibleMarker
-  addVisibleMarkerById(marker.options.id, props.map)
+  addVisibleMarkerById(marker.options.id)
   updateFromLocateInfo(marker, fileInfo)
   marker.on('moveend', () => {
     updateFromLocateInfo(marker, fileInfo)

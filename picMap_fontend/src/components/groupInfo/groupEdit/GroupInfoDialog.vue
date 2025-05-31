@@ -60,17 +60,17 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, reactive, watch, Ref } from 'vue'
+import { ref, reactive, watch, type Ref } from 'vue'
 import { isNumber } from '@/utils/regex'
 import { getGroupIdAndNameLists } from '@/utils/group'
 import { useSchemaStore } from '@/store/schema'
 import Switch from '@/components/switch/Index.vue'
 import { cloneDeep } from 'lodash-es'
-import { IGroupInfo, ISchema } from '@/type/schema'
 import { createGroupId } from '@/utils/group'
 import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
+import type { IGroupInfo, ISchema } from '@/type/schema'
 import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById } from '@/utils/map'
 
 const props = defineProps({
@@ -242,10 +242,9 @@ function updateGroupInfoInSchema(formData: ISingleImageGroupInfoFormData): IGrou
  * @return {*}
  */
 function updateVisibleMarkersByFormData(newGroupInfo: IGroupInfo, hiddenMarkerIds: string[]) {
-  const map = MAP_INSTANCE
   // 将分配到组件中的图片隐藏
   hiddenMarkerIds.forEach((imageId) => {
-    hiddenMarkerById(imageId, map)
+    hiddenMarkerById(imageId)
   })
   if (newGroupInfo) {
     // 添加新的分组点位

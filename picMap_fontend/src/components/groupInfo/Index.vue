@@ -32,7 +32,7 @@ import GroupItem from './component/GroupItem.vue';
 import Draggable from 'vuedraggable';
 import { saveSchema } from '@/utils/schema';
 import { Plus } from '@element-plus/icons-vue'
-import { IGroupInfo } from '@/type/schema';
+import type { IGroupInfo } from '@/type/schema';
 import CreateGroup from './createGroup/CreateGroup.vue';
 
 const props = defineProps({

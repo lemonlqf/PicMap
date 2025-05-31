@@ -2,15 +2,19 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:15:56
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 16:27:17
+ * @LastEditTime: 2025-05-31 08:57:36
  * @FilePath: \Code\picMap_fontend\src\type\image.ts
  * @Description: 
  */
-import { IGroupInfo, IImageInfo, IGPSInfo } from './schema'
+import type { IGroupInfo, IImageInfo, IGPSInfo } from './schema'
 export type IImageDetailInfo = {
+  id: string;
+  name: string;
+  url: string;
   Resolution?: any
   BrightnessValue?: any
   size?: any,
+  GPSInfo: IGPSInfo,
   [key: string]: any // 其他信息
 }
 

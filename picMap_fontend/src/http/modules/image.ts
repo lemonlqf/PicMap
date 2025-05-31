@@ -7,9 +7,10 @@
  * @Description: 对图片库的操作，CRUD相关
  */
 import http from '../axios'
+import type { IImageDetailInfo } from '@/type/image'
 
 export default {
-  uploadImages: data => {
+  uploadImages: (data: IImageDetailInfo[]) => {
     return http({
       url: 'image/uploadImages',
       method: 'post',

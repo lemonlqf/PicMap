@@ -2,20 +2,20 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-03 13:48:25
+ * @LastEditTime: 2025-05-31 14:18:47
  * @FilePath: \Code\picMap_fontend\src\components\drawer\Index.vue
  * @Description: 
 -->
 <template>
   <div :class="{ drawer: true, 'is-show': isShow }">
-    <el-scrollbar :max-height="drawerHeight">
+    <el-scrollbar :max-height="DRAWER_HEIGHT">
       <div class="flex-box">
         <div class="hidden-button" @click="drawerHidden">
           <img src="@/assets/icon/关闭.png" alt="" />
         </div>
         <!-- 图片详情 -->
-        <ImageDetail v-if="marker.showType === 'image'" :marker="marker" />
-        <GroupDetail v-if="marker.showType === 'group'" :marker="marker" />
+        <ImageDetail v-if="marker.showType === 'image'" :height="DRAWER_HEIGHT" :image-id="marker.id" />
+        <GroupDetail v-if="marker.showType === 'group'" :height="DRAWER_HEIGHT" :group-id="marker.id" />
       </div>
     </el-scrollbar>
   </div>
@@ -25,14 +25,16 @@
 import eventBus from '@/utils/eventBus'
 import { onMounted, onUnmounted, ref } from 'vue'
 import { getSchemaInfoById } from '@/utils/schema'
-import { IMarker } from '@/type/image'
+import type { IMarker } from '@/type/image'
 import ImageDetail from './ImageDetail.vue'
 import GroupDetail from './GroupDetail.vue'
 import { getImageUrl } from '@/utils/Image'
+import { DRAWER_HEIGHT } from '@/utils/constant'
 
 const isShow = ref(false)
 const marker = ref<IMarker>({} as IMarker)
-const drawerHeight = '300px'
+
+const height = DRAWER_HEIGHT - 10 + 'px'
 
 function drawerShow(event) {
   // 如果marker不在schema中，则说明是临时添加的，需要出现抽屉
@@ -57,14 +59,14 @@ function drawerShowChange() {
  */
 function showImageData(event) {
   const schemaInfo = getSchemaInfoById(event.target.options.id)
-  const url = getImageUrl(event.target.options.id) ?? event.target.options.icon.options.iconUrl
-  marker.value = { ...schemaInfo, url } as IMarker
+  marker.value = { ...schemaInfo } as IMarker
   console.log('marker', marker.value)
   if (!isShow.value) {
     drawerShow(event)
   }
   // TODO:更新图片信息的逻辑
 }
+
 
 onMounted(() => {
   eventBus.on('drawer-show', drawerShow)
@@ -85,7 +87,10 @@ onUnmounted(() => {
   top: 100%;
   width: 100%;
   height: 100%;
-  transition: all 0.3s ease-in-out;
+  // transition: all 0.3s ease-in-out;
+  transition:
+      top 0.5s cubic-bezier(0.22, 1.2, 0.36, 1), // 弹性曲线
+      opacity 0.3s;
   opacity: 0;
   z-index: 9999;
   box-shadow: 0 20px 30px 30px rgba(0, 0, 0, 0.5);
@@ -99,7 +104,7 @@ onUnmounted(() => {
 }
 
 .is-show {
-  top: calc(100% - 300px);
+  top: calc(100% - v-bind('height'));
   opacity: 1;
 }
 
@@ -113,6 +118,7 @@ onUnmounted(() => {
   pointer-events: all;
   border-radius: 4px;
   cursor: pointer;
+  z-index: 9999;
 
   img {
     width: 100%;

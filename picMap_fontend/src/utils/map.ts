@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 22:34:05
+ * @LastEditTime: 2025-05-31 11:59:24
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -18,7 +18,7 @@ import { judgeHadUploadImage } from '@/utils/schema'
 import { getImageUrlById, getImageUrlByIds } from '@/utils/Image'
 import type { IHttpResponse } from '@/type/http'
 import type { INewimageFormData, IGPSInfo, IImageInfo, INewGroupFormData, IGroupInfo } from '@/type/schema'
-import { IMarker } from '@/type/image'
+import type { IMarker } from '@/type/image'
 
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
@@ -31,12 +31,18 @@ export const MAX_ZOOM = 18
 export const MIN_ZOOM = 3
 
 // 创建聚合组
-const markerClusters = L.markerClusterGroup({
+export const markerClusters = L.markerClusterGroup({
   // spiderfyOnMaxZoom: false,
   maxClusterRadius: 20,
   // 缩放比例为MAX_ZOOM时不在成簇
-  disableClusteringAtZoom: MAX_ZOOM
+  disableClusteringAtZoom: MAX_ZOOM,
+  // 样式
+  // iconCreateFunction: function (cluster: any) {
+  //   return L.divIcon({ html: '<b>' + cluster.getChildCount() + '</b>' });
+  // }
 });
+
+
 
 // 分组的marker封面图片的数量
 export const GROUP_COVER_NUMBER = 4
@@ -54,9 +60,9 @@ export let MARKER_SHOW_RADIO = 1
 // 鼠标悬停时的放大比例
 export let MARKER_HOVER_SHOW_RADIO = 1.3
 // 地图实例
-export let MAP_INSTANCE
+export let MAP_INSTANCE: any
 
-export function setMapInstance(map) {
+export function setMapInstance(map: any) {
   MAP_INSTANCE = map
 }
 
@@ -125,7 +131,7 @@ export function addImageMarkerToMap(imageInfo) {
         return markerId === imageInfo.id
       })
       const marker = getMarkerById(markerId, map)
-      marker.setIcon(myIcon)
+      marker?.setIcon(myIcon)
     }
   }
 }
@@ -166,7 +172,7 @@ export async function addGroupMarkerToMap(groupInfo: IGroupInfo) {
  * @param {*} imageId
  * @return {*}
  */
-export function addExistImageToMapById(map, imageId) {
+export function addExistImageToMapById(imageId: string) {
   const schemaStore = useSchemaStore()
   const mapStore = useMapStore()
   // 如果本来没有
@@ -179,7 +185,9 @@ export function addExistImageToMapById(map, imageId) {
       return
     }
     // 用这个方法，有些特殊操作
-    addVisibleMarkerById(imageId, MAP_INSTANCE)
+    addVisibleMarkerById(imageId)
+  } else {
+    showMarkerById(imageId)
   }
 }
 
@@ -312,7 +320,8 @@ export async function createGroupMarkerIcon(groupInfo: INewGroupFormData): L.Ico
  * @param {*} marker
  * @return {*}
  */
-export function deleteMarkerInMap(marker, map) {
+export function deleteMarkerInMap(marker) {
+  const map = MAP_INSTANCE
   const mapStore = useMapStore()
   if (map && marker) {
     map.removeLayer(marker)
@@ -326,7 +335,8 @@ export function deleteMarkerInMap(marker, map) {
  * @param {*} map
  * @return {*}
  */
-export function deleteMarkerById(markerId, map) {
+export function deleteMarkerById(markerId) {
+  const map = MAP_INSTANCE
   const marker = getMarkerById(markerId, map)
   deleteMarkerInMap(marker, map)
 }
@@ -337,10 +347,22 @@ export function deleteMarkerById(markerId, map) {
  * @param {*} map
  * @return {*}
  */
-export function hiddenMarkerById(markerId, map) {
-  const marker = getMarkerById(markerId, map)
+export function hiddenMarkerById(markerId: string) {
+  const marker = getMarkerById(markerId)
   if (marker) {
     marker.setOpacity(0)
+  }
+}
+
+/**
+ * @description: 显示marker
+ * @param {string} markerId
+ * @return {*}
+ */
+export function showMarkerById(markerId: string) {
+  const marker = getMarkerById(markerId)
+  if (marker) {
+    marker.setOpacity(1)
   }
 }
 
@@ -657,11 +679,9 @@ export function noImagesGroupIcon(text) {
  * @param {*} map 地图实例
  * @return {*}
  */
-export function getMarkerById(markerId: string, map?): L.Marker {
+export function getMarkerById(markerId: string): L.Marker {
   let foundMarker;
-  if (!map) {
-    map = MAP_INSTANCE
-  }
+  const map = MAP_INSTANCE
   map.eachLayer?.(layer => {
     if (layer instanceof L.Marker && layer.options.id === markerId) {
       foundMarker = layer;
@@ -676,10 +696,8 @@ export function getMarkerById(markerId: string, map?): L.Marker {
  * @param {*} map
  * @return {*}
  */
-export function getGPSInfoById(markerId: string, map?) {
-  if (!map) {
-    map = MAP_INSTANCE
-  }
+export function getGPSInfoById(markerId: string) {
+  const map = MAP_INSTANCE
   return getGPSInfoByMarkerInstance(getMarkerById(markerId, map))
 }
 
@@ -728,10 +746,10 @@ export function setViewById(markerId: string) {
  * @param {*} map
  * @return {*}
  */
-export function addVisibleMarkerById(markerId: string, map) {
+export function addVisibleMarkerById(markerId: string) {
   const mapStore = useMapStore()
   mapStore.addVisibleMarkerId(markerId)
-  const marker = getMarkerById(markerId, map)
+  const marker = getMarkerById(markerId)
   // 鼠标事件监听
   markerMouseListener(marker)
 }
@@ -769,6 +787,9 @@ function markerMouseListener(marker) {
  * @return {*}
  */
 export function GPSInfoLegality(GPSInfo: any) {
+  if (!GPSInfo) {
+    return false
+  }
   const { GPSLatitude, GPSLongitude, GPSAltitude } = GPSInfo
   if (typeof GPSLatitude !== 'number' || typeof GPSLongitude !== 'number') {
     return false

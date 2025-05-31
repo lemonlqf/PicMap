@@ -2,50 +2,78 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-01 20:54:46
+ * @LastEditTime: 2025-05-31 14:22:55
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
 <template>
-  <div class="img-box" style="width: 300px;height: 300px;">
+  <div class="img-box">
     <div class="download-button" @click="downloadImage">
       <img src="@/assets/icon/下载.png" alt="" width="30px" title="下载原图" />
     </div>
-    <el-image :key="imageInfo?.url" :alt="imageInfo?.name" :src="imageInfo?.url" :teleported="true"
-      :preview-src-list="perview ? [imageInfo?.url] : []" />
+    <el-image :key="imageId" alt="图片加载失败" :src="url" :teleported="true"
+      :preview-src-list="perview ? [url] : []" />
   </div>
 </template>
 
 <script setup lang="ts">
+import { ref, watch } from 'vue'
 import API from '@/http/index'
 import { fileToBase64 } from '@/utils/map'
+import { DRAWER_HEIGHT } from '@/utils/constant'
+import { getImageUrlById } from '@/utils/Image';
+import { getSchemaInfoById } from '@/utils/schema'
+
+
 const props = defineProps({
-  imageInfo: {
-    type: Object,
-    default: () => ({})
-  },
   imageObjFit: {
-    type: String,
+    type: String as () => 'contain' | 'scale-down',
     default: () => 'scale-down'
   },
   // 是否需要预览
   perview: {
     type: Boolean,
     default: () => true
+  },
+  imageId: {
+    type: String,
+    default: ''
   }
 })
+
+const height = DRAWER_HEIGHT + 'px'
+const url = ref('')
+
+/**
+ * @description: 通过imageId获取图片信息
+ * @param {*} imageId
+ * @return {*}
+ */
+async function setImageUrl(imageId: string) {
+  // 取值
+  const res = await getImageUrlById(imageId)
+  url.value = res
+}
+
+watch(() => props.imageId, () => {
+  setImageUrl(props.imageId)
+}, {
+  immediate: true
+})
+
 
 /**
  * @description: 下载原图
  * @return {*}
  */
 async function downloadImage() {
-  const imageId = props.imageInfo.id
+  const imageId = props.imageId
+  const schemaInfo = getSchemaInfoById(imageId)
   if (imageId) {
     const res = await API.image.downloadImage({ imageId })
     const code = res.code
     if (code === 200) {
-      const fileName = props.imageInfo.name ?? 'image.jpg'
+      const fileName = schemaInfo?.name ?? 'image.jpg'
       const fileUrl = fileToBase64(res.data.file)
       let a = document.createElement('a');
       a.download = fileName;
@@ -58,6 +86,7 @@ async function downloadImage() {
 
 <style scoped>
 .img-box {
+  height: v-bind('height');
   max-width: 900px;
   position: relative;
   background-color: rgba(53, 53, 53, 0.95);
