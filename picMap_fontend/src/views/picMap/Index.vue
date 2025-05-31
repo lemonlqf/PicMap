@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 08:19:17
+ * @LastEditTime: 2025-05-31 14:55:46
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -57,13 +57,13 @@ import { useMapStore } from '../../store/map'
 import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
 
 const schemaStore = useSchemaStore()
-const currentMapTile = ref(appMapTile[0])
+let currentMapTile = appMapTile[0]
 let map = null
 const mapCenter = ref([30.2489634, 120.2052342])
 const mapZoom = ref(10)
 
 function changeMapTile(item) {
-  currentMapTile.value = item
+  currentMapTile = item
   initTile()
 }
 
@@ -120,7 +120,7 @@ async function setMapCenter() {
   }
 }
 
-const currentTileLayer = ref()
+let currentTileLayer: any = null
 
 /**
  * @description: 初始化地图瓦片
@@ -128,10 +128,10 @@ const currentTileLayer = ref()
  */
 function initTile() {
   // 移除旧的图层
-  if (currentTileLayer.value) {
-    map.removeLayer(currentTileLayer.value)
+  if (currentTileLayer) {
+    map.removeLayer(currentTileLayer)
   }
-  currentTileLayer.value = L.tileLayer(`${currentMapTile.value.url}`, {
+  currentTileLayer = L.tileLayer(`${currentMapTile.url}`, {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
   }).addTo(map)
 }

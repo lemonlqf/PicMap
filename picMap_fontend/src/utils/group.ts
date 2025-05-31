@@ -3,7 +3,7 @@ import { createApp } from 'vue';
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 12:05:40
+ * @LastEditTime: 2025-05-31 14:38:26
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -251,7 +251,7 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     console.error('分组不存在')
     return
   }
-  const groupMark = getMarkerById(groupInfo.id, MAP_INSTANCE)
+  const groupMark = getMarkerById(groupInfo.id)
   // 先只获取前4张图片
   const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_COVER_NUMBER))
   if (!resImageUrls || resImageUrls.length === 0) {
@@ -268,7 +268,7 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     iconSize: GROUP_MARKER_SIZE,
     iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
   })
-  groupMark.setIcon(myIcon)
+  groupMark?.setIcon?.(myIcon)
 }
 
 /**

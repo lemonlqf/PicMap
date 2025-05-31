@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 13:50:12
+ * @LastEditTime: 2025-05-31 14:36:59
  * @FilePath: \Code\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 
 -->
@@ -27,6 +27,8 @@ import { getSchemaInfoById } from '@/utils/schema';
 import { getImageUrlById } from '@/utils/Image';
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getGroupInfoByGroupId } from '@/utils/group';
+import eventBus from '@/utils/eventBus'
+
 
 const props = defineProps({
   groupId: {
@@ -45,7 +47,10 @@ const height = props.height + 'px'
 // 动态更新
 const groupNumbers = computed(() => {
   const markerId = props.groupId
-  const groupNumbers = getGroupInfoByGroupId(markerId).groupNumbers ?? []
+  const groupNumbers = getGroupInfoByGroupId(markerId)?.groupNumbers ?? []
+  if (groupNumbers.length === 0) {
+    eventBus.emit('drawer-hidden')
+  }
   return groupNumbers
 })
 </script>
