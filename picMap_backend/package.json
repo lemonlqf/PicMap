@@ -2,8 +2,10 @@
   "name": "picmap-backend",
   "version": "0.0.0",
   "private": true,
+  "bin": "./bin/www",
   "scripts": {
-    "start": "nodemon --inspect ./bin/www"
+    "start": "nodemon --inspect ./bin/www",
+    "build": "webpack"
   },
   "dependencies": {
     "cookie-parser": "~1.4.4",
@@ -16,8 +18,12 @@
     "jade": "~1.11.0",
     "lodash": "^4.17.21",
     "morgan": "~1.9.1",
-    "mysql2": "^3.12.0",
     "nodemon": "^3.1.9",
-    "sharp": "^0.33.5"
+    "sharp": "^0.34.2"
+  },
+  "devDependencies": {
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-node-externals": "^3.0.0"
   }
 }

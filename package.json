@@ -2,14 +2,52 @@
   "name": "picture-map",
   "private": true,
   "main": "main.js",
-  "version": "1.0.0",
   "type": "module",
+  "version": "1.0.0",
   "license": "ISC",
   "scripts": {
-    "start": "nodemon --exec electron ."
+    "start": "nodemon --exec electron .",
+    "build": "electron-builder"
+  },
+  "build": {
+    "asar": false,
+    "appId": "picture-map",
+    "productName": "picture-map",
+    "files": [
+      "main.js",
+      "preload.js",
+      "picMap_backend/dist/*",
+      "picMap_backend/**/*",
+      "picMap_fontend/dist/**/*",
+      "node_modules/**/*",
+      "package.json"
+    ],
+    "nsis": {
+      "oneClick": false,
+      "allowElevation": true,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "安装快捷方式的名称"
+    },
+    "directories": {
+      "buildResources": "build"
+    },
+    "win": {
+      "icon": "./ico/logo.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   },
   "devDependencies": {
     "electron": "^36.4.0",
+    "electron-builder": "^26.0.12",
     "nodemon": "^3.1.10"
   }
 }
