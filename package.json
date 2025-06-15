@@ -16,10 +16,10 @@
     "files": [
       "main.js",
       "preload.js",
-      "picMap_backend/dist/*",
-      "picMap_backend/**/*",
-      "picMap_fontend/dist/**/*",
-      "node_modules/**/*",
+      "picMap_backend/dist/**",
+      "picMap_backend/node_modules/**",
+      "picMap_backend/package.json",
+      "picMap_fontend/dist/**",
       "package.json"
     ],
     "nsis": {
