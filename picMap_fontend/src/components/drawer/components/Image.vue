@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 14:22:55
+ * @LastEditTime: 2025-06-16 21:51:26
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
@@ -13,6 +13,9 @@
     </div>
     <el-image :key="imageId" alt="图片加载失败" :src="url" :teleported="true"
       :preview-src-list="perview ? [url] : []" />
+    <div class="image-name" v-if="showName" :title="name">
+      {{ name }}
+    </div>
   </div>
 </template>
 
@@ -38,11 +41,16 @@ const props = defineProps({
   imageId: {
     type: String,
     default: ''
+  },
+  showName: {
+    type: Boolean,
+    default: false
   }
 })
 
 const height = DRAWER_HEIGHT + 'px'
 const url = ref('')
+const name = ref('')
 
 /**
  * @description: 通过imageId获取图片信息
@@ -52,7 +60,9 @@ const url = ref('')
 async function setImageUrl(imageId: string) {
   // 取值
   const res = await getImageUrlById(imageId)
+  const imageInfo = getSchemaInfoById(imageId) as any
   url.value = res
+  name.value = imageInfo.name
 }
 
 watch(() => props.imageId, () => {
@@ -128,5 +138,19 @@ async function downloadImage() {
   .el-image__error {
     background-color: rgba(53, 53, 53, 0.95);
   }
+}
+
+.image-name {
+  cursor: pointer;
+  position: absolute;
+  bottom: 0px;
+  left: 0px;
+  background-color: rgba(240, 248, 255, 0.836);
+  border-top-right-radius: 5px;
+  font-size: 12px;
+  width: 50%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  padding: 2px 3px;
 }
 </style>

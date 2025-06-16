@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 14:36:59
+ * @LastEditTime: 2025-06-16 21:40:54
  * @FilePath: \Code\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 
 -->
@@ -12,7 +12,7 @@
       <!-- 图片展示 -->
       <div class="img-boxs">
         <template v-for="id in groupNumbers" :key="id">
-          <Image class="image" :perview="false" :image-id="id" style="height: 120px; width: 170px"></Image>
+          <Image :show-name="true" class="image" :perview="false" :image-id="id" style="height: 120px; width: 170px"></Image>
         </template>
       </div>
     </el-scrollbar>
