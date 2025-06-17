@@ -2,15 +2,17 @@
  * @Author: Do not edit
  * @Date: 2025-02-06 11:53:37
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 13:42:05
+ * @LastEditTime: 2025-06-17 19:49:41
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
  * @Description: 
 -->
 <template>
-  <h1>{{ props.title }}</h1>
-  <div v-for="key in keys">
-    <span v-if="needShow(key)">{{ labels[key] }}:</span>
-    <span v-if="needShow(key)" style="max-width: 200px">{{ getValue(props.info[key]) ?? '无数据' }}</span>
+  <div class="image-info-item">
+    <h1>{{ props.title }}</h1>
+    <div v-for="key in keys" class="key-value">
+      <span class="key" v-if="needShow(key)">{{ labels[key] }}:</span>
+      <span class="value" v-if="needShow(key)" style="max-width: 200px">{{ getValue(props.info[key]) ?? '无数据' }}</span>
+    </div>
   </div>
 </template>
 
@@ -66,16 +68,39 @@ h1 {
   line-height: 18px;
 }
 
-div {
-  width: 250px;
-  display: flex;
-  justify-content: space-between;
+.image-info-item {
+  background-color: rgba(228, 227, 227, 0.80);
+  border-radius: 5px;
+  padding: 5px 15px;
+  max-height: 205px;
+  .key-value {
+    width: 100px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-wrap: wrap;
+    // justify-content: space-between;
 
-  span:first-child {
-    width: 90px;
+    span:first-child {
+      width: 90px;
+    }
+
+    margin-bottom: 5px;
+    margin-right: 30px;
+
+    .key {
+      color: rgb(100, 93, 93);
+      font-size: 13px;
+    }
+
+    .value {
+      width: 100%;
+      font-size: 15px;
+      color: rgba(0,0,0,.8);
+      word-break: normal;
+      font-weight: 500;
+    }
   }
-
-  margin-bottom: 5px;
-  margin-right: 30px;
 }
 </style>

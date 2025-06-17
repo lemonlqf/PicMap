@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:35:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 12:35:45
+ * @LastEditTime: 2025-06-17 19:21:58
  * @FilePath: \Code\picMap_fontend\src\components\drawer\ImageDetail.vue
  * @Description: 
 -->
@@ -10,18 +10,16 @@
   <div class="flex-box">
     <Image style="flex: 1" :image-id="imageId"></Image>
     <div style="flex: 1" class="img-info-box">
-      <keyValue v-if="imageInfo?.imageInfo" title="图片信息" :info="imageInfo?.imageInfo"></keyValue>
-      <keyValue v-if="imageInfo?.cameraInfo" title="相机信息" :info="imageInfo?.cameraInfo"></keyValue>
-      <keyValue v-if="imageInfo?.authorInfo" title="作者信息" :info="imageInfo?.authorInfo"></keyValue>
-      <keyValue v-if="imageInfo?.GPSInfo" title="GPS信息" :info="imageInfo?.GPSInfo"></keyValue>
+      <ImageInfoComponent :image-info="imageInfo">
+      </ImageInfoComponent>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import keyValue from './components/keyValue.vue'
 import Image from './components/Image.vue'
+import ImageInfoComponent from './components/ImageInfo.vue'
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getSchemaInfoById } from '@/utils/schema'
 const props = defineProps({
@@ -52,19 +50,44 @@ const imageInfo = computed(() => {
 }
 
 .img-info-box {
+  background-color: rgba(255, 255, 255, 0.95);
   padding: 15px 15px;
-  max-height: v-bind('height');
+  max-height: 400px;
+
+  /* 或 v-bind('height')，但纯 CSS 不支持 v-bind */
+  .grid-box {
+    width: fit-content;
+    display: grid;
+    grid-template-areas:
+      "info gps camera camera"
+      "info gps camera camera"
+      "author other other other";
+    grid-gap: 12px;
+    grid-template-rows: 120px 80px 120px;
+    grid-template-columns: 130px 130px 130px 300px;
+  }
+}
+
+.author-info {
+  grid-area: author;
+}
+
+.image-info {
+  grid-area: info;
+}
+
+.GPS-info {
+  grid-area: gps;
+}
+
+.camera-info {
+  grid-area: camera;
   display: flex;
   flex-direction: column;
   flex-wrap: wrap;
-  background-color: rgba(255, 255, 255, 00.95);
 }
 
-@media screen and (max-width: 600px) {
-  .img-info-box {
-    display: flex;
-    max-height: unset;
-    flex-direction: column;
-  }
+.other {
+  grid-area: other;
 }
 </style>
