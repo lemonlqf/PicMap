@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-16 21:51:26
+ * @LastEditTime: 2025-06-17 19:59:16
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
@@ -62,7 +62,7 @@ async function setImageUrl(imageId: string) {
   const res = await getImageUrlById(imageId)
   const imageInfo = getSchemaInfoById(imageId) as any
   url.value = res
-  name.value = imageInfo.name
+  name.value = imageInfo?.name
 }
 
 watch(() => props.imageId, () => {

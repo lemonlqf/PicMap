@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:35:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-16 22:59:48
+ * @LastEditTime: 2025-06-17 19:21:58
  * @FilePath: \Code\picMap_fontend\src\components\drawer\ImageDetail.vue
  * @Description: 
 -->
@@ -10,21 +10,16 @@
   <div class="flex-box">
     <Image style="flex: 1" :image-id="imageId"></Image>
     <div style="flex: 1" class="img-info-box">
-      <div class="grid-box">
-        <keyValue class="image-info" v-if="imageInfo?.imageInfo" title="图片信息" :info="imageInfo?.imageInfo" />
-        <keyValue class="author-info" v-if="imageInfo?.authorInfo" title="作者信息" :info="imageInfo?.authorInfo" />
-        <keyValue class="GPS-info" v-if="imageInfo?.GPSInfo" title="GPS信息" :info="imageInfo?.GPSInfo" />
-        <keyValue class="camera-info" v-if="imageInfo?.cameraInfo" title="相机信息" :info="imageInfo?.cameraInfo" />
-        <div class="other">12313</div>
-      </div>
+      <ImageInfoComponent :image-info="imageInfo">
+      </ImageInfoComponent>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import keyValue from './components/keyValue.vue'
 import Image from './components/Image.vue'
+import ImageInfoComponent from './components/ImageInfo.vue'
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getSchemaInfoById } from '@/utils/schema'
 const props = defineProps({

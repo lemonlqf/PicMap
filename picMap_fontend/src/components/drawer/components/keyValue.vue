@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-06 11:53:37
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-16 22:54:22
+ * @LastEditTime: 2025-06-17 19:49:41
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
  * @Description: 
 -->
@@ -90,14 +90,16 @@ h1 {
     margin-right: 30px;
 
     .key {
-      color: rgba(169, 168, 170, 1);
-      font-size: 14px;
+      color: rgb(100, 93, 93);
+      font-size: 13px;
     }
 
     .value {
       width: 100%;
+      font-size: 15px;
       color: rgba(0,0,0,.8);
       word-break: normal;
+      font-weight: 500;
     }
   }
 }
