@@ -13,7 +13,8 @@ import Home from '@/views/home/Index.vue'
 import NotFind from '@/views/404/Index.vue'
 
 const routes = [
-  { path: '/', component: Home },
+  { path: '/', redirect: '/picMap', },
+  { path: '/home', component: Home, },
   {
     path: '/picMap',
     component: PicMap
