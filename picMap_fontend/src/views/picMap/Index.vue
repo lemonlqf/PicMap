@@ -2,16 +2,17 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 14:55:46
+ * @LastEditTime: 2025-06-22 21:36:34
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
 <template>
   <div id="map"></div>
   <div class="fix-group switch-group">
-    <template v-for="item in appMapTile" :key="item.name">
+    <!-- <template v-for="item in appMapTile" :key="item.name">
       <el-button @click="changeMapTile(item)">{{ item.name }}</el-button>
-    </template>
+    </template> -->
+    <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
     <el-button @click="setMapCenter">初始中心</el-button>
   </div>
   <!-- 上传按钮 -->
@@ -28,7 +29,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onBeforeMount, onMounted, ref, watch, nextTick } from 'vue'
+import { onBeforeMount, onMounted, ref, watch, nextTick, reactive } from 'vue'
 import { ElMessage } from 'element-plus'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
@@ -36,7 +37,7 @@ import ImageUpolad from '@/components/imgUpload/Index.vue'
 import Drawer from '@/components/drawer/Index.vue'
 import contentMenu from '@/components/contentMenu/Index.vue'
 import GroupInfo from '@/components/groupInfo/Index.vue'
-import appMapTile from './appMapTile'
+import MapSelector from '@/components/mapSelector/Index.vue'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import schemaHttp from '@/http/modules/schema'
 import { useSchemaStore } from '@/store/schema'
@@ -57,13 +58,12 @@ import { useMapStore } from '../../store/map'
 import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
 
 const schemaStore = useSchemaStore()
-let currentMapTile = appMapTile[0]
-let map = null
+let currentMapTile = null
+let map: L.map = null
 const mapCenter = ref([30.2489634, 120.2052342])
 const mapZoom = ref(10)
 
-function changeMapTile(item) {
-  currentMapTile = item
+function changeMapTile() {
   initTile()
 }
 
@@ -190,7 +190,7 @@ onMounted(async () => {
 }
 
 .group-info-group {
-  top: 100px;
+  top: 120px;
   right: 15px;
 }
 </style>
