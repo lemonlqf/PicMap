@@ -130,12 +130,15 @@ async function setImageInfo(imageId: string) {
 }
 
 .flex-box {
+  max-width: 100%;
   display: flex;
+  flex-wrap: wrap;
 
   .image {
     border-radius: 3px;
     overflow: hidden;
     margin-right: 10px;
+    margin-bottom: 10px;
     height: 120px;
     width: 170px;
   }
