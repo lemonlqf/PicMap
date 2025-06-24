@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 10:04:22
+ * @LastEditTime: 2025-06-24 20:22:03
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -96,7 +96,7 @@ import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE } from '@/utils/map'
-import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
+import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
@@ -250,8 +250,8 @@ function getGPSInfo(info) {
 function getAuthorInfo(info) {
   const exif = info.exif
   return {
-    // 拍摄时间
-    DateTime: exif?.DateTime?.value,
+    // 拍摄时间，转化为时间戳
+    DateTime: exifDateToTimestamp(exif?.DateTime?.value[0]),
     // 图像作者
     Artis: exif?.Artis?.value,
     // 图像软件

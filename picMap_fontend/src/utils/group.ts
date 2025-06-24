@@ -1,9 +1,8 @@
-import { createApp } from 'vue';
 /*
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 14:38:26
+ * @LastEditTime: 2025-06-24 21:20:25
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -322,3 +321,75 @@ export async function updateGroupInfoToSchema(groupId: string, groupInfo: IGroup
   return groupInfo
 }
 
+// 排序的时间精度
+export enum TimeType {
+  YEAR = "year",
+  MONTH = "month",
+  DAY = "day",
+}
+
+// 排序方式
+export enum SortType {
+  ASC = 'ascending',
+  DES = 'desending'
+}
+
+/**
+ * @description: 格式化时间
+ * @param {*}
+ * @return {*}
+ */
+function normalizeTimestamp(timestampMs: number, precision: TimeType): string {
+  // 如果传入的时间戳非法，则使用当前时间
+  if (typeof timestampMs !== "number" || Number.isNaN(timestampMs)) {
+    timestampMs = new Date().getTime()
+  }
+  const date = new Date(timestampMs);
+  switch (precision) {
+    case TimeType.YEAR:
+      return `${date.getFullYear()}`;
+    case TimeType.MONTH:
+      return date.getFullYear() + "-" + padZero(date.getMonth() + 1);
+    case TimeType.DAY:
+      return (
+        date.getFullYear() + "-" + padZero(date.getMonth() + 1) + "-" + padZero(date.getDate())
+      );
+  }
+}
+
+/**
+ * @description: 十位补零
+ * @param {*}
+ * @return {*}
+ */
+function padZero(num: number): string {
+  return num.toString().padStart(2, '0');
+}
+
+/**
+ * @description: 分组并生成一个map
+ * @param {*}
+ * @return {*}
+ */
+export function groupSorting(data: any, precision: TimeType, sort: SortType = SortType.ASC): Map<string, any[]> {
+  // 排序
+  data.sort((a: any, b: any) => {
+    return sort === SortType.ASC ? a.time - b.time : b.time - a.time
+  });
+  // 时间精度处理
+  data.forEach((item: any) => {
+    item.formatTime = normalizeTimestamp(item.time, precision);
+  })
+  // 分组
+  const groupMap: Map<string, any[]> = new Map();
+  data.forEach((item: any) => {
+    const key = item.formatTime;
+    let timeArr = groupMap.get(key);
+    if (timeArr) {
+      timeArr.push({ ...item });
+    } else {
+      groupMap.set(key, [{ ...item }]);
+    }
+  })
+  return groupMap
+}

@@ -2,36 +2,25 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-17 20:10:21
+ * @LastEditTime: 2025-06-24 21:00:03
  * @FilePath: \Code\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 
 -->
 <template>
   <div class="flex-box">
-    <el-scrollbar :max-height="height">
+    <el-scrollbar style="width: 100%" :max-height="height">
       <!-- 图片展示 -->
       <!-- TODO:按照日期分类展示 -->
       <div class="img-boxs">
-        <template v-for="id in groupNumbers" :key="id">
-          <Image @click="(e) => showImageInfo(e, id)" :show-name="true" class="image" :perview="false" :image-id="id"
-            style="height: 120px; width: 170px"></Image>
-        </template>
+        <GroupLayout :group-numbers="groupNumbers"></GroupLayout>
       </div>
     </el-scrollbar>
   </div>
-  <!-- 图片信息弹框 -->
-  <el-dialog class="image-info-dialog" width="760px" :show-close="false" v-model="imageInfoDialogShow">
-    <div class="image-info-box">
-      <Image class="image" :image-id="imageId" :key="imageId"></Image>
-      <ImageInfoComponent :imageInfo="imageInfo"></ImageInfoComponent>
-    </div>
-  </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, reactive, watch, ref } from 'vue';
-import Image from './components/Image.vue';
-import ImageInfoComponent from './components/ImageInfo.vue'
+import GroupLayout from './components/GroupLayout.vue';
 import type { IMarker } from '@/type/image';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getImageUrlById } from '@/utils/Image';
@@ -102,6 +91,7 @@ async function setImageInfo(imageId: string) {
 }
 
 .img-boxs {
+  width: 100%;
   flex: 1;
   display: flex;
   flex-wrap: wrap;
@@ -112,25 +102,6 @@ async function setImageInfo(imageId: string) {
     overflow: hidden;
     margin-top: 10px;
     margin-left: 10px;
-  }
-}
-
-.image-info-box {
-
-  .image {
-    margin-bottom: 15px;
-    border-radius: 8px;
-
-  }
-}
-</style>
-<style>
-.image-info-dialog {
-  margin-top: 80px !important;
-  background-color: rgba(160, 160, 160, 0.938) !important;
-
-  .el-dialog__header {
-    display: none !important;
   }
 }
 </style>

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-17 19:59:16
+ * @LastEditTime: 2025-06-24 21:09:15
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
@@ -26,7 +26,6 @@ import { fileToBase64 } from '@/utils/map'
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getImageUrlById } from '@/utils/Image';
 import { getSchemaInfoById } from '@/utils/schema'
-
 
 const props = defineProps({
   imageObjFit: {
@@ -71,7 +70,6 @@ watch(() => props.imageId, () => {
   immediate: true
 })
 
-
 /**
  * @description: 下载原图
  * @return {*}
@@ -102,6 +100,7 @@ async function downloadImage() {
   background-color: rgba(53, 53, 53, 0.95);
   display: flex;
   justify-content: center;
+  cursor: pointer;
 
   .download-button {
     transition: all 0.2s;

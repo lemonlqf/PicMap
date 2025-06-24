@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 16:02:43
+ * @LastEditTime: 2025-06-24 20:25:25
  * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
@@ -139,4 +139,17 @@ export async function editSchemaAndSave(id: string, attr: string, value: any) {
   })
   set(groupOrImageInfo, attr, value)
   await saveSchema()
+}
+
+/**
+ * @description: 将图片的"2024:06:09 16:15:43"格式的日期转化为时间戳
+ * @param {string} str
+ * @return {*}
+ */
+export function exifDateToTimestamp(str: string) {
+  // str: "2024:06:09 16:15:43"
+  if (!str) return null;
+  // 替换冒号为横杠，只替换前两个
+  const norm = str.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+  return new Date(norm).getTime();
 }
