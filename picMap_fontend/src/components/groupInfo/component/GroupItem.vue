@@ -2,16 +2,17 @@
  * @Author: Do not edit
  * @Date: 2025-05-02 09:27:09
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 21:25:45
- * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\groupItem.vue
+ * @LastEditTime: 2025-06-26 22:23:21
+ * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\GroupItem.vue
  * @Description: 
 -->
 <template>
-  <div ref="itemRef" class="flex-box" @click="setViewById(groupInfo.id)">
+  <div ref="itemRef" :class="['flex-box', { 'flex-box-fold-up': !expand }]" @click="setViewById(groupInfo.id)">
     <div>
-      <img src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
+      <img v-show="expand" src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
       <el-tooltip :content="groupInfo.name" placement="top">
-        <span class="group-name">{{ GPSInfoLegality(groupInfo?.GPSInfo) ? groupInfo.name : `(未定位)${groupInfo.name}`
+        <span :class="['group-name', { 'group-name-fold-up': !expand }]">{{ GPSInfoLegality(groupInfo?.GPSInfo) ?
+          groupInfo.name : expand ? `(未定位)${groupInfo.name}` : groupInfo.name
           }}
         </span>
       </el-tooltip>
@@ -20,7 +21,7 @@
       <GroupContentMenu :group-id="groupInfo.id">
       </GroupContentMenu>
       <template #reference>
-        <div class="right-box">
+        <div v-show="expand" class="right-box">
           <span v-if="!showEdit" class="number">{{ groupNumbersNumber }}</span>
           <img v-else class="edit-image" src="@/assets/icon/三点.png" width="15px" height="15pxx" alt="">
         </div>
@@ -41,6 +42,10 @@ const props = defineProps({
   groupInfo: {
     type: Object as PropType<IGroupInfo>,
     default: () => { }
+  },
+  expand: {
+    type: Boolean,
+    default: true
   }
 })
 
@@ -67,7 +72,7 @@ onMounted(() => {
 <style lang="scss" scoped>
 .flex-box {
   width: 200px;
-  padding: 5px 5px;
+  padding: 5px 10px 5px 5px;
   border-radius: 5px;
   display: flex;
   cursor: pointer;

@@ -2,28 +2,34 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-22 21:36:34
+ * @LastEditTime: 2025-06-26 22:13:07
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
 <template>
   <div id="map"></div>
-  <div class="fix-group switch-group">
-    <!-- <template v-for="item in appMapTile" :key="item.name">
-      <el-button @click="changeMapTile(item)">{{ item.name }}</el-button>
-    </template> -->
+  <div v-show="!pureMode" class="fix-group switch-group">
     <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
-    <el-button @click="setMapCenter">初始中心</el-button>
   </div>
+  <div class="buttons">
+    <el-button :icon="Reading" @click="switcPureMode" title="纯净模式" circle></el-button>
+    <el-button v-show="!pureMode" class="button" :icon="MapLocation" @click="setMapCenter" title="初始化中心" circle></el-button>
+    <el-button-group v-show="!pureMode" class="button">
+      <el-button type="" title="放大地图" @click="zoomUp" :icon="Plus" round />
+      <el-button type="" title="缩小地图" @click="zoomDown" :icon="Minus" round />
+    </el-button-group>
+  </div>
+
   <!-- 上传按钮 -->
-  <div class="fix-group upload-group">
+  <div v-show="!pureMode" class="fix-group upload-group">
     <ImageUpolad :map="map"></ImageUpolad>
   </div>
   <!-- 图片详情抽屉 -->
   <Drawer></Drawer>
   <!-- 鼠标右键菜单 -->
   <contentMenu :map="map"></contentMenu>
-  <div class="fix-group group-info-group">
+  <!-- 分组信息 -->
+  <div v-show="!pureMode" class="fix-group group-info-group">
     <GroupInfo :map="map"></GroupInfo>
   </div>
 </template>
@@ -56,6 +62,7 @@ import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdI
 import eventBus from '@/utils/eventBus'
 import { useMapStore } from '../../store/map'
 import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
+import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 
 const schemaStore = useSchemaStore()
 let currentMapTile = null
@@ -66,6 +73,8 @@ const mapZoom = ref(10)
 function changeMapTile() {
   initTile()
 }
+
+const pureMode = ref(false)
 
 /**
  * @description: 获取地图的schema
@@ -99,7 +108,7 @@ async function initMap() {
     minZoom: 3,
     maxZoom: 18, // 目前小于18不显示了
     center: mapCenter.value,
-    zoomControl: true, //缩放组件
+    zoomControl: false, //缩放组件
     attributionControl: false //去掉右下角logol
   })
   // 把地图实例保存一下，其他地方可以用
@@ -118,6 +127,20 @@ async function setMapCenter() {
     ElMessage.success('设置成功！')
     // 上传完成后，点击右键可以出现操作菜单
   }
+}
+
+function zoomUp() {
+  const zoom = map.getZoom()
+  map.setZoom(zoom + 1)
+}
+
+function zoomDown() {
+  const zoom = map.getZoom()
+  map.setZoom(zoom - 1)
+}
+
+function switcPureMode() {
+  pureMode.value = !pureMode.value
 }
 
 let currentTileLayer: any = null
@@ -174,6 +197,13 @@ onMounted(async () => {
   width: 100vw;
 }
 
+.buttons {
+  position: absolute;
+  left: 20px;
+  top: 20px;
+  z-index: 1000;
+}
+
 .fix-group {
   position: fixed;
   z-index: 1000;
@@ -181,16 +211,20 @@ onMounted(async () => {
 
 .switch-group {
   top: 10px;
-  right: 10px;
+  right: 15px;
 }
 
 .upload-group {
-  top: 100px;
+  top: 70px;
   left: 10px;
 }
 
 .group-info-group {
-  top: 120px;
+  top: 125px;
   right: 15px;
+}
+
+.button {
+  margin-right: 10px;
 }
 </style>

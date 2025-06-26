@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-24 20:22:03
+ * @LastEditTime: 2025-06-26 21:32:18
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -10,7 +10,7 @@
   <div class="img-upload">
     <el-upload v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-      <el-button style="margin-right: 10px; width: 180px;" type="primary">Click to upload</el-button>
+      <el-button style="margin-right: 10px; width: 180px;" type="primary">点击上传图片</el-button>
       <template #tip>
         <div class="el-upload__tip">请上传图片</div>
       </template>
