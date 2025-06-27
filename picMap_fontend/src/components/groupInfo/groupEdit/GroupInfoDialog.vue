@@ -8,39 +8,31 @@
           <el-option v-for="item in groupIdAndNameLists" :key="item.id" :label="item.name" :value="item.id">
           </el-option>
         </el-select>
-        {{ singleImageGroupInfoFormData.groupIds }}
-        {{ '图片id' + singleImageGroupInfoFormData.imageIds }}
       </el-form-item>
-      <el-form-item label="是否添加到新分组中？" label-width="90px">
+      <el-form-item label="加入新分组" label-width="90px">
         <Switch :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
           v-model="singleImageGroupInfoFormData.needAddNewGroup">
         </Switch>
-        <span>{{ singleImageGroupInfoFormData.needAddNewGroup }}</span>
       </el-form-item>
       <!-- 新分组相关 -->
       <template v-if="singleImageGroupInfoFormData.needAddNewGroup">
         <el-form-item label="新分组名称" label-width="90px" prop="newGroupName">
           <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupName"></el-input>
-          {{ singleImageGroupInfoFormData.newGroupInfo.newGroupName }}
         </el-form-item>
         <el-form-item label="新分组位置" label-width="90px">
           <Switch :options="[{ value: 'auto', label: '自动定位' }, { value: 'manual', label: '手动定位' }]"
             v-model="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo">
           </Switch>
-          {{ singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo }}
         </el-form-item>
         <template v-if="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'">
           <el-form-item label="新分组经度" label-width="90px" prop="GPSLongitude">
             <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLongitude"></el-input>
-            {{ singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLongitude }}
           </el-form-item>
           <el-form-item label="新分组纬度" label-width="90px" prop="GPSLatitude">
             <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLatitude"></el-input>
-            {{ singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLatitude }}
           </el-form-item>
           <el-form-item label="新分组海拔" label-width="90px" prop="GPSAltitude">
             <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSAltitude" placeholder="0"></el-input>
-            {{ singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSAltitude }}
           </el-form-item>
         </template>
       </template>

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-02 09:27:09
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-26 22:23:21
+ * @LastEditTime: 2025-06-27 18:39:05
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\GroupItem.vue
  * @Description: 
 -->
@@ -71,7 +71,7 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .flex-box {
-  width: 200px;
+  width: 180px;
   padding: 5px 10px 5px 5px;
   border-radius: 5px;
   display: flex;
@@ -107,7 +107,7 @@ onMounted(() => {
 .group-name {
   font-size: 14px;
   display: inline-block;
-  max-width: 150px;
+  max-width: 130px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

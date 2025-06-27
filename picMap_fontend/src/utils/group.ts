@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-24 21:20:25
+ * @LastEditTime: 2025-06-27 19:30:32
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -235,7 +235,6 @@ export async function deleteGroupById(groupId: string, needDeleteImages = true) 
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data
     }, '')
-    ElMessage.success(tipMsg)
     // console.log('promise all ==>', res)
   })
 }

@@ -4,7 +4,6 @@
       :rules="groupEditRules">
       <el-form-item label="分组名称" label-width="90px" prop="newGroupName">
         <el-input v-model="createGroupInfoFormData.newGroupInfo.newGroupName"></el-input>
-        {{ createGroupInfoFormData.newGroupInfo.newGroupName }}
       </el-form-item>
       <!-- <el-form-item label="新分组经度" label-width="90px" prop="GPSLongitude">
         <el-input v-model="createGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLongitude"></el-input>

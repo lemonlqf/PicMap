@@ -1,8 +1,16 @@
 <!--
  * @Author: Do not edit
+ * @Date: 2025-06-17 20:16:54
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-06-27 18:57:36
+ * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
+ * @Description: 
+-->
+<!--
+ * @Author: Do not edit
  * @Date: 2025-02-06 11:53:37
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-17 19:49:41
+ * @LastEditTime: 2025-06-27 18:55:57
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
  * @Description: 
 -->
@@ -11,14 +19,24 @@
     <h1>{{ props.title }}</h1>
     <div v-for="key in keys" class="key-value">
       <span class="key" v-if="needShow(key)">{{ labels[key] }}:</span>
-      <span class="value" v-if="needShow(key)" style="max-width: 200px">{{ getValue(props.info[key]) ?? '无数据' }}</span>
+      <template v-if="key === 'DateTime'">
+        <span class="value" v-if="needShow(key)" style="max-width: 200px">
+          {{ formatDate(props.info[key], 'YYYY-MM-DD hh:mm:ss') }}
+        </span>
+      </template>
+      <template v-else>
+        <span class="value" v-if="needShow(key)" style="max-width: 200px">
+          {{ getValue(props.info[key]) ?? '无数据' }}
+        </span>
+      </template>
     </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { labels, showIndicators } from '../imageInfo'
+import { labels, showIndicators } from '../imageInfo';
+import { formatDate } from '@/utils/date';
 const props = defineProps({
   info: {
     default: {}
@@ -60,6 +78,7 @@ function maxLength(value) {
   }
   return value
 }
+
 </script>
 
 <style lang="scss" scoped>
@@ -73,6 +92,7 @@ h1 {
   border-radius: 5px;
   padding: 5px 15px;
   max-height: 205px;
+
   .key-value {
     width: 100px;
     display: flex;
@@ -97,7 +117,7 @@ h1 {
     .value {
       width: 100%;
       font-size: 15px;
-      color: rgba(0,0,0,.8);
+      color: rgba(0, 0, 0, .8);
       word-break: normal;
       font-weight: 500;
     }

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 21:35:02
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-26 22:32:53
+ * @LastEditTime: 2025-06-27 19:21:10
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\Index.vue
  * @Description: 分组信息组件，位于页面右侧
   -->
@@ -20,7 +20,7 @@
       <el-button v-show="isExpand" title="添加分组" type="primary" :icon="Plus"
         @click="showCreateDialog"></el-button>
     </div>
-    <el-scrollbar height="520px">
+    <el-scrollbar max-height="308px">
       <Draggable v-model="groupInfo" class="group-items" @start="dragStart" @end="dragEnd">
         <template #item="{ element }">
           <GroupItem :expand="isExpand" :group-info="element"></GroupItem>
@@ -87,7 +87,7 @@ function changeIsExpand() {
 <style lang="scss" scoped>
 .group-fix-box {
   transition: all 0.3s ease-in-out;
-  width: 215px;
+  width: 200px;
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
   padding: 10px 10px 10px 10px;

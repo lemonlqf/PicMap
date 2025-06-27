@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 14:34:35
+ * @LastEditTime: 2025-06-27 19:23:45
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -762,13 +762,13 @@ export function addVisibleMarkerById(markerId: string) {
 function markerMouseListener(marker) {
   // 添加点击事件监听，这里的mouseEvent的target中有marker信息
   marker.on('click', event => {
-    ElMessage.success('触发Marker点击事件')
+    // ElMessage.success('触发Marker点击事件')
     // 点击节点后弹出图片详情框
     eventBus.emit('show-image-data', event)
   })
   // 添加右击时间监听
   marker.on('contextmenu', event => {
-    ElMessage.success('触发Marker右键事件')
+    // ElMessage.success('触发Marker右键事件')
     // 出现右键菜单
     eventBus.emit('show-content-menu', event)
   })

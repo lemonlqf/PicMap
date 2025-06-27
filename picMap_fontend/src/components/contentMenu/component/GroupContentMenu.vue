@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 11:46:32
+ * @LastEditTime: 2025-06-27 20:01:13
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -12,10 +12,22 @@
     <div class="menu-item" v-if="!GPSInfoExist" @click="addManualLocateGroup">
       <span>定位分组</span>
     </div>
-    <div class="menu-item" v-for="item in menuList" @click="item.clickEvent">
+    <div class="menu-item" v-for="item in menuList" @click="editorGroup(item)">
       <span>{{ item.label }}</span>
     </div>
   </div>
+  <el-dialog :append-to-body="true" width="410" v-model="groupEditDialog" :z-index="9999" :title="item.title"
+    @closed="initItem">
+    <span>{{ item?.description }}</span>
+    <template #footer>
+      <div class="dialog-footer">
+        <el-button @click="hidden">取消</el-button>
+        <el-button type="danger" @click="item.clickEvent" :loading="loading">
+          确认
+        </el-button>
+      </div>
+    </template>
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -24,6 +36,7 @@ import eventBus from '@/utils/eventBus'
 import { deleteGroupById, dissolveGroupById, getGroupInfoByGroupId, updateGroupInfoToSchema } from '@/utils/group'
 import { addManualLocateGroupToMap, getGPSInfoByMarkerInstance, GPSInfoLegality } from '@/utils/map'
 import { canDragMenu } from './markerOperate'
+import { ElMessage } from 'element-plus'
 
 const props = defineProps({
   groupId: {
@@ -36,30 +49,58 @@ const postionInfo = ref({
   left: '10px',
   top: '0px'
 })
+const loading = ref(false)
+const item = ref<any>({})
+const groupEditDialog = ref(false)
+function editorGroup(editItem: any) {
+  groupEditDialog.value = true
+  item.value = editItem
+}
+
+function hidden() {
+  groupEditDialog.value = false
+}
+
+function initItem() {
+  item.value = {}
+}
+
 const menuList = ref([
-  {
-    label: '编辑分组',
-    clickEvent: async () => {
-      const groupId = props.groupId
-      // TODO:待实现编辑分组信息
-    }
-  },
+  // {
+  //   label: '编辑分组',
+  //   clickEvent: async () => {
+  //     const groupId = props.groupId
+  //     // TODO:待实现编辑分组信息
+  //   }
+  // },
   {
     label: '解散分组',
+    title: '解散分组',
+    description: '确定要解散分组吗？该分组将会被解散，组内图片任然保留！',
     clickEvent: async () => {
+      loading.value = true
       const groupId = props.groupId
       // 删除schema中的分组信息
       await dissolveGroupById(groupId)
+      ElMessage.success('解散成功！')
+      loading.value = false
+      hidden()
       // 隐藏右键菜单
       menuHidden()
     }
   },
   {
     label: '删除分组',
+    title: '删除分组',
+    description: '确定要删除分组吗？该分组以及分组内的图片将被删除！',
     clickEvent: async () => {
+      loading.value = true
       const groupId = props.groupId
       // 删除schema中的分组信息
       await deleteGroupById(groupId)
+      ElMessage.success('删除成功！')
+      loading.value = false
+      hidden()
       // 隐藏右键菜单
       menuHidden()
     }
