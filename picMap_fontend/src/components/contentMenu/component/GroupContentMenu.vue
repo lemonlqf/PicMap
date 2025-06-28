@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-27 20:01:13
+ * @LastEditTime: 2025-06-28 20:10:15
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -53,6 +53,11 @@ const loading = ref(false)
 const item = ref<any>({})
 const groupEditDialog = ref(false)
 function editorGroup(editItem: any) {
+  // 如果是重新定位，不需要弹框二次确认
+  if (editItem.label === '重新定位') {
+    editItem.clickEvent()
+    return
+  }
   groupEditDialog.value = true
   item.value = editItem
 }
