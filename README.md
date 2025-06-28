@@ -4,7 +4,7 @@ PicMap 是一个基于 Vue3 前端和 Express 后端的图片地图应用。你�
 
 # 主要功能
 - 图片位置展示（Leaflet）
-![alt text](./doc/gif/地图.gif)
+![alt text](doc/image/image.png)
 - 分组管理
 
 - 图片详情展示
