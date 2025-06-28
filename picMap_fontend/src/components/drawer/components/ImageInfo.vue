@@ -2,22 +2,23 @@
  * @Author: Do not edit
  * @Date: 2025-06-17 19:12:19
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-17 19:23:12
+ * @LastEditTime: 2025-06-28 19:17:22
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\imageInfo.vue
  * @Description: 
 -->
 <template>
   <div class="grid-box">
     <KeyValue class="image-info" v-if="imageInfo?.imageInfo" title="图片信息" :info="imageInfo?.imageInfo" />
-    <KeyValue class="author-info" v-if="imageInfo?.authorInfo" title="作者信息" :info="imageInfo?.authorInfo" />
+    <KeyValue class="author-info" v-if="imageInfo?.authorInfo" title="时间信息" :info="imageInfo?.authorInfo" />
     <KeyValue class="GPS-info" v-if="imageInfo?.GPSInfo" title="GPS信息" :info="imageInfo?.GPSInfo" />
     <KeyValue class="camera-info" v-if="imageInfo?.cameraInfo" title="相机信息" :info="imageInfo?.cameraInfo" />
-    <div class="other">12313</div>
+    <Description class="other" :description="imageInfo.description" :id="imageInfo.id"></Description>
   </div>
 </template>
 
 <script setup>
 import KeyValue from './keyValue.vue'
+import Description from '@/components/description/Description.vue'
 const props = defineProps({
   imageInfo: {
     type: Object,
@@ -51,6 +52,10 @@ const props = defineProps({
 
 .GPS-info {
   grid-area: gps;
+}
+
+.other {
+  grid-area: other;
 }
 
 .camera-info {

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-06-17 20:16:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-27 18:57:36
+ * @LastEditTime: 2025-06-28 20:00:42
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
  * @Description: 
 -->
@@ -21,7 +21,7 @@
       <span class="key" v-if="needShow(key)">{{ labels[key] }}:</span>
       <template v-if="key === 'DateTime'">
         <span class="value" v-if="needShow(key)" style="max-width: 200px">
-          {{ formatDate(props.info[key], 'YYYY-MM-DD hh:mm:ss') }}
+          {{ formatDate(props.info[key], 'YYYY-MM-DD HH:mm:ss') }}
         </span>
       </template>
       <template v-else>

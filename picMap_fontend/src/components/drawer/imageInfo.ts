@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-02-06 11:44:34
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-16 12:23:58
- * @FilePath: \Code\picMap_fontend\src\components\drawer\imageInfo
+ * @LastEditTime: 2025-06-28 18:52:45
+ * @FilePath: \Code\picMap_fontend\src\components\drawer\imageInfo.ts
  * @Description:
  */
 export const labels = {
@@ -32,7 +32,7 @@ export const showIndicators = [
   'GPSAltitude',
   'DateTime',
   'Arits',
-  'SoftWare',
+  // 'SoftWare',
   'Make',
   'Model',
   'FNumber',
