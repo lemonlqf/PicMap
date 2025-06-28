@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-27 19:10:22
+ * @LastEditTime: 2025-06-28 18:49:11
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -97,7 +97,7 @@ import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
@@ -160,6 +160,8 @@ watch(
           if (!imageUrls.value[imageName]) {
             const url = await readFileAsDataURL(file);
             imageUrls.value[imageName] = url
+            // 保存到imageUrlsMap中，后续图片详情展示使用
+            addImageUrl(imageName, url)
             hasUrlFileList.value[i] = { ...res1, ...res2, url }
           } else {
             // 如果已经有了，直接拿过来用
@@ -377,7 +379,7 @@ async function uploadImages(imagInfos: IImageDetailInfo[]) {
     return res.code === 200
   })
   if (allSuccess && res2.code === 200) {
-    ElMessage.success('所有图片上传成功!')
+    ElMessage.success('图片上传成功!')
     // 上传完成后，点击右键可以出现操作菜单
   } else if (!allSuccess && res2.code === 200) {
     ElMessage.success('部分图片上传成功!')
