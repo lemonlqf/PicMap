@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-26 22:13:07
+ * @LastEditTime: 2025-06-29 20:27:34
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -13,12 +13,14 @@
   </div>
   <div class="buttons">
     <el-button :icon="Reading" @click="switcPureMode" title="纯净模式" circle></el-button>
-    <el-button v-show="!pureMode" class="button" :icon="MapLocation" @click="setMapCenter" title="初始化中心" circle></el-button>
+    <el-button v-show="!pureMode" class="button" :icon="MapLocation" @click="setMapCenter" title="初始化中心"
+      circle></el-button>
     <el-button-group v-show="!pureMode" class="button">
       <el-button type="" title="放大地图" @click="zoomUp" :icon="Plus" round />
       <el-button type="" title="缩小地图" @click="zoomDown" :icon="Minus" round />
     </el-button-group>
   </div>
+  <User v-show="!pureMode" class="user"></User>
 
   <!-- 上传按钮 -->
   <div v-show="!pureMode" class="fix-group upload-group">
@@ -44,6 +46,7 @@ import Drawer from '@/components/drawer/Index.vue'
 import contentMenu from '@/components/contentMenu/Index.vue'
 import GroupInfo from '@/components/groupInfo/Index.vue'
 import MapSelector from '@/components/mapSelector/Index.vue'
+import User from '@/components/user/User.vue'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import schemaHttp from '@/http/modules/schema'
 import { useSchemaStore } from '@/store/schema'
@@ -225,6 +228,12 @@ onMounted(async () => {
 }
 
 .button {
-  margin-right: 10px;
+  margin-right: 15px;
+}
+.user {
+  position: absolute;
+  top: 17px;
+  left: 225px;
+  z-index: 1000;
 }
 </style>

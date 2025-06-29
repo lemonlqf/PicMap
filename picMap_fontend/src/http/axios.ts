@@ -2,7 +2,7 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:07:10
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 17:08:25
+ * @LastEditTime: 2025-06-29 17:32:19
  * @FilePath: \Code\picMap_fontend\src\http\axios.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -24,7 +24,7 @@ http.interceptors.request.use(
 
     const appStore = useAppStore()
     // 请求添加上userId
-    const userId = appStore.getCurrentUserInfo.userId; // 这里可以从 store、cookie、localStorage 获取
+    const userId = 'user2'|| appStore.getCurrentUserInfo.userId; // 这里可以从 store、cookie、localStorage 获取
     // GET 请求
     if (config.method === 'get') {
       config.params = config.params || {};
