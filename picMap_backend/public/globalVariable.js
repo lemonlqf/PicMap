@@ -2,10 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-01-25 20:00:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 13:59:41
+ * @LastEditTime: 2025-06-29 16:59:40
  * @FilePath: \Code\picMap_backend\public\globalVariable.js
  * @Description:
  */
+
+const { get } = require("lodash")
+
 // 应用相关的全局变量
 const archiveDirectory = 'D:/PicMap' // 存档路径
 const appInfoFileName = 'appInfo.json' // 应用信息文件名称
@@ -70,11 +73,28 @@ const defaultSchema = JSON.stringify({
   imageInfo: []
 })
 
+function getSchemaDirPath(userId) {
+  return `${archiveDirectory}/${userId}/${schemaReactivePath}`
+}
+
+// 实际路径，需要根据userId来动态生成
+function getSchemaJSONPath(userId) {
+  return `${archiveDirectory}/${userId}/${schemaReactivePath}/${schemaFileName}`
+}
+
+function getImageFilePath(userId) {
+  return `${archiveDirectory}/${userId}/${imageReactivePath}`
+}
+
+
 module.exports = {
   archiveDirectory,
   globalVariables,
   defaultSchema,
   appInfoPath,
   defaultAppInfo,
-  setUserName
+  setUserName,
+  getSchemaDirPath,
+  getSchemaJSONPath,
+  getImageFilePath,
 }

@@ -2,12 +2,13 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:07:10
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-29 21:28:02
- * @FilePath: \Code\picMap_fontend\src\http\axios
+ * @LastEditTime: 2025-06-29 17:08:25
+ * @FilePath: \Code\picMap_fontend\src\http\axios.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
+import { useAppStore } from '@/store/appInfo'
 
 const ip = 'http://localhost'
 const port = '5001'
@@ -20,8 +21,33 @@ const http = axios.create({
 // 添加请求拦截器
 http.interceptors.request.use(
   function (config) {
-    // 在发送请求之前做些什么
-    return config
+
+    const appStore = useAppStore()
+    // 请求添加上userId
+    const userId = appStore.getCurrentUserInfo.userId; // 这里可以从 store、cookie、localStorage 获取
+    // GET 请求
+    if (config.method === 'get') {
+      config.params = config.params || {};
+      config.params.userId = userId;
+    }
+    // POST/PUT/PATCH 请求
+    else if (
+      config.method === 'post' ||
+      config.method === 'put' ||
+      config.method === 'patch'
+    ) {
+      if (config.headers && config.headers['Content-Type'] === 'application/x-www-form-urlencoded') {
+        // 如果是表单，需特殊处理
+        const params = new URLSearchParams(config.data || '');
+        params.set('userId', userId);
+        config.data = params.toString();
+      } else {
+        // 普通 JSON
+        config.data = config.data || {};
+        config.data.userId = userId;
+      }
+    }
+    return config;
   },
   function (error) {
     // 对请求错误做些什么

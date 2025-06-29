@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 14:02:48
+ * @LastEditTime: 2025-06-29 17:07:52
  * @FilePath: \Code\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -11,7 +11,7 @@ const glob = require('glob')
 const fs = require('node:fs')
 const { Blob } = require('buffer')
 const sharp = require('sharp')
-const globalVariables = require('../../public/globalVariable').globalVariables
+const { getImageFilePath } = require('../../public/globalVariable')
 // 图片id前缀
 const IMAGE_ID_PREFIX = 'PM'
 
@@ -37,8 +37,8 @@ function getImageId(id) {
  * @param {*} id
  * @return {*}
  */
-async function getSmallImageFileById(id) {
-  const filesPath = glob.sync(`${globalVariables.imageFilePath}/${getImageId(id)}*`)
+async function getSmallImageFileById(id, userId) {
+  const filesPath = glob.sync(`${getImageFilePath(userId)}/${getImageId(id)}*`)
   if (filesPath.length === 0) {
     return null
   } else {
@@ -64,8 +64,8 @@ async function getSmallImageFileById(id) {
  * @param {*} id
  * @return {*}
  */
-function getImageFileById(id) {
-  const filesPath = glob.sync(`${globalVariables.imageFilePath}${getImageId(id)}*`)
+function getImageFileById(id, userId) {
+  const filesPath = glob.sync(`${getImageFilePath(userId)}/${getImageId(id)}*`)
   if (filesPath.length === 0) {
     return null
   } else {

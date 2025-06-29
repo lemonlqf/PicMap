@@ -1,12 +1,30 @@
+<!--
+ * @Author: Do not edit
+ * @Date: 2025-04-29 18:33:43
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-06-29 16:26:58
+ * @FilePath: \Code\picMap_fontend\src\App.vue
+ * @Description: 
+-->
 <template>
-  <router-view></router-view>
+  <div v-if="loading" class="loading">加载中...</div>
+  <router-view v-else></router-view>
 </template>
 
 <script lang="ts" setup>
+import { ref, onMounted } from 'vue'
 import eventBus from './utils/eventBus'
+import { getUserInfos } from '@/utils/appInfo'
+
+
+const loading = ref(true)
+
+onMounted(async () => {
+  await getUserInfos()
+  loading.value = false
+})
 
 document.addEventListener('mouseup', () => {
-  // 隐藏所有右击出现的弹框
   eventBus.emit('hidden-content-menu')
 })
 </script>

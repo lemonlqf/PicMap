@@ -1,3 +1,11 @@
+/*
+ * @Author: Do not edit
+ * @Date: 2025-04-29 18:33:43
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-06-29 16:22:21
+ * @FilePath: \Code\picMap_fontend\src\http\index.ts
+ * @Description: 
+ */
 const modules = (import.meta as any).glob('./modules/*')
 const api = {}
 for (const path in modules) {

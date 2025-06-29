@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 19:37:46
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-29 21:41:21
+ * @LastEditTime: 2025-06-29 17:05:39
  * @FilePath: \Code\picMap_backend\utils\file\writeFile.js
  * @Description:
  */
@@ -31,9 +31,9 @@ function writeBase64File(baseUrl, imageName = 'image.png', id, path = globalVari
   !fs.existsSync(path) && fs.mkdirSync(path, { recursive: true })
   let filePath = ''
   if (id) {
-    filePath = `${path}${getImageId(id)}`
+    filePath = `${path}/${getImageId(id)}`
   } else {
-    filePath = `${path}${getNewImageId()}`
+    filePath = `${path}/${getNewImageId()}`
   }
   // 写入文件，w为覆盖，a为累加
   fs.writeFile(filePath, dataBuffer, { flag: 'w' }, function (err) {

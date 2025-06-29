@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:30:32
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 10:29:08
+ * @LastEditTime: 2025-06-29 16:44:48
  * @FilePath: \Code\picMap_backend\routes\schema.js
  * @Description:
  */
@@ -10,30 +10,32 @@ var express = require('express')
 var router = express.Router()
 var defaultSchema = require('../public/globalVariable').defaultSchema
 const fs = require('node:fs')
-const globalVariables = require('../public/globalVariable').globalVariables
+const { getSchemaDirPath, getSchemaJSONPath, getImageFilePath, } = require('../public/globalVariable')
 const Result = require('./resultCode/result.js')
 
 /* GET schema. */
 router.get('/getSchema', function (req, res, next) {
+  const { userId } = req.query
   let schema = null
   // 判断文件是否存在
-  const fileExists = fs.existsSync(globalVariables.schemaPath)
+  const fileExists = fs.existsSync(getSchemaJSONPath(userId))
   if (!fileExists) {
     // 创建schema保存的目录
-    fs.mkdirSync(globalVariables.schemaDirPath, { recursive: true })
+    fs.mkdirSync(getSchemaDirPath(userId), { recursive: true })
     // 在schema保存目录下创建一个初始化的 schema.json 文件
-    fs.writeFileSync(globalVariables.schemaPath, defaultSchema, { encoding: 'utf-8' })
+    fs.writeFileSync(getSchemaJSONPath(userId), defaultSchema, { encoding: 'utf-8' })
     schema = defaultSchema
   } else {
-    schema = fs.readFileSync(globalVariables.schemaPath, { encoding: 'utf-8' })
+    schema = fs.readFileSync(getSchemaJSONPath(userId), { encoding: 'utf-8' })
   }
 
   res.send(Result.success(schema))
 })
 
 router.post('/setSchema', function (req, res, next) {
+  const { userId } = req.body
   const schema = req.body.schema
-  fs.writeFileSync(globalVariables.schemaPath, schema)
+  fs.writeFileSync(getSchemaJSONPath(userId), schema)
   res.send(Result.success('schema数据更新成功！'))
 })
 
