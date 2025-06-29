@@ -65,14 +65,14 @@ const dataList = ref([
     key: '图片',
     value: () => {
       const schemaStore = useSchemaStore()
-      return schemaStore.getSchema.imageInfo.length
+      return schemaStore?.getSchema?.imageInfo?.length ?? 0
     }
   },
   {
     key: '分组',
     value: () => {
       const schemaStore = useSchemaStore()
-      return schemaStore.getSchema.groupInfo.length
+      return schemaStore?.getSchema?.groupInfo?.length ?? 0
     }
   },
 ])
