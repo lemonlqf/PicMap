@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-04 19:05:05
+ * @LastEditTime: 2025-06-29 14:02:48
  * @FilePath: \Code\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -38,7 +38,7 @@ function getImageId(id) {
  * @return {*}
  */
 async function getSmallImageFileById(id) {
-  const filesPath = glob.sync(`${globalVariables.imageFilePath}${getImageId(id)}*`)
+  const filesPath = glob.sync(`${globalVariables.imageFilePath}/${getImageId(id)}*`)
   if (filesPath.length === 0) {
     return null
   } else {

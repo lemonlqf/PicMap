@@ -21,7 +21,7 @@ router.get('/getSchema', function (req, res, next) {
   if (!fileExists) {
     // 创建schema保存的目录
     fs.mkdirSync(globalVariables.schemaDirPath, { recursive: true })
-    // 在schema保存目录下创建一个空的 schema.json 文件
+    // 在schema保存目录下创建一个初始化的 schema.json 文件
     fs.writeFileSync(globalVariables.schemaPath, defaultSchema, { encoding: 'utf-8' })
     schema = defaultSchema
   } else {
