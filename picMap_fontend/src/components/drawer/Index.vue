@@ -79,6 +79,10 @@ onUnmounted(() => {
   eventBus.off('drawer-hidden', drawerHidden)
   eventBus.off('show-image-data', showImageData)
 })
+
+defineExpose({
+  drawerHidden
+})
 </script>
 
 <style lang="scss" scoped>

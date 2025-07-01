@@ -1,11 +1,12 @@
 /*
- * @Author: Do not edit
- * @Date: 2025-06-29 15:35:12
+* @Author: Do not edit
+* @Date: 2025-06-29 15:35:12
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 16:31:12
+ * @LastEditTime: 2025-07-01 20:05:05
  * @FilePath: \Code\picMap_fontend\src\utils\appInfo.ts
- * @Description: 
- */
+* @Description: 
+*/
+import type { IUserInfo } from '@/type/appInfo';
 import AppInfoHttp from '@/http/modules/appInfo'
 import { useAppStore } from '@/store/appInfo'
 
@@ -20,6 +21,10 @@ export async function getUserInfos() {
   const res = await AppInfoHttp.getUserInfos()
   if (res.code === 200) {
     appStore.setUserInfos(res.data)
-    appStore.setCurrentUserInfo(res.data[0])
+    const userId = localStorage.getItem('currentUserId')
+    const currentUserInfo = res.data.find((item: IUserInfo) => {
+      return userId === item.userId
+    })
+    appStore.setCurrentUserInfo(currentUserInfo ?? res.data[0])
   }
 }

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 20:27:34
+ * @LastEditTime: 2025-07-01 20:15:33
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -20,14 +20,14 @@
       <el-button type="" title="缩小地图" @click="zoomDown" :icon="Minus" round />
     </el-button-group>
   </div>
-  <User v-show="!pureMode" class="user"></User>
+  <User @changeUser="init" v-show="!pureMode" class="user"></User>
 
   <!-- 上传按钮 -->
   <div v-show="!pureMode" class="fix-group upload-group">
-    <ImageUpolad :map="map"></ImageUpolad>
+    <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
   </div>
   <!-- 图片详情抽屉 -->
-  <Drawer></Drawer>
+  <Drawer ref="drawerRef"></Drawer>
   <!-- 鼠标右键菜单 -->
   <contentMenu :map="map"></contentMenu>
   <!-- 分组信息 -->
@@ -66,6 +66,7 @@ import eventBus from '@/utils/eventBus'
 import { useMapStore } from '../../store/map'
 import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
+import { markerClusters } from '@/utils/map' // 确保引入的是同一个实例
 
 const schemaStore = useSchemaStore()
 let currentMapTile = null
@@ -105,17 +106,21 @@ async function initSchema() {
  * @return {*}
  */
 async function initMap() {
-  const mapStore = useMapStore()
-  map = L.map('map', {
-    zoom: mapZoom.value, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
-    minZoom: 3,
-    maxZoom: 18, // 目前小于18不显示了
-    center: mapCenter.value,
-    zoomControl: false, //缩放组件
-    attributionControl: false //去掉右下角logol
-  })
-  // 把地图实例保存一下，其他地方可以用
-  setMapInstance(map)
+  if (!map) {
+    map = L.map('map', {
+      zoom: mapZoom.value, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+      minZoom: 3,
+      maxZoom: 18, // 目前小于18不显示了
+      center: mapCenter.value,
+      zoomControl: false, //缩放组件
+      attributionControl: false //去掉右下角logol
+    })
+    // 把地图实例保存一下，其他地方可以用
+    setMapInstance(map)
+  } else {
+    // 已经有值的话直接设置一下初始位置
+    map.setView(mapCenter.value, mapZoom.value)
+  }
 }
 
 async function setMapCenter() {
@@ -163,10 +168,27 @@ function initTile() {
 }
 
 /**
+ * @description: 移除所有marker
+ * @return {*}
+ */
+function removeAllMarkers() {
+  const mapStore = useMapStore()
+  markerClusters && markerClusters.clearLayers()
+  map.eachLayer((layer: L.layer) => {
+    if (layer instanceof L.Marker) {
+      map.removeLayer(layer);
+    }
+  });
+  // 清理store中的值
+  mapStore.init()
+}
+
+/**
  * @description: 初始化标记
  * @return {*}
  */
-function initMarker() {
+async function initMarker() {
+  removeAllMarkers()
   const groupAndImageList = getGroupAndImageList()
   if (groupAndImageList?.length) {
     groupAndImageList.forEach(item => {
@@ -182,7 +204,10 @@ function initMarker() {
 onBeforeMount(() => {
 })
 
-onMounted(async () => {
+const drawerRef = ref()
+const imageUploadRef = ref()
+
+async function init() {
   await initSchema()
   initMap()
   initTile()
@@ -191,6 +216,14 @@ onMounted(async () => {
   hiddenImageInfoDrawerMapClick()
   // 监听簇点击
   observeClisterClick()
+  // 隐藏抽屉
+  drawerRef?.value?.drawerHidden()
+  // 清空上传组件中的图片
+  imageUploadRef.value.deleteAll()
+}
+
+onMounted(() => {
+  init()
 })
 </script>
 
@@ -230,6 +263,7 @@ onMounted(async () => {
 .button {
   margin-right: 15px;
 }
+
 .user {
   position: absolute;
   top: 17px;

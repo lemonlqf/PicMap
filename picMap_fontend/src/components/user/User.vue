@@ -16,23 +16,38 @@
         </template>
       </div>
       <el-button-group class="button-group">
-        <el-button class="button" type="" title="放大地图" @click="" :icon="User" round>
-          账号管理
+        <el-button class="button" type="" @click="userDialog = true" :icon="User" round>
+          切换用户
         </el-button>
-        <el-button class="button" type="" title="缩小地图" @click="" :icon="Operation" round>
+        <el-button class="button" type="" @click="" :icon="Operation" round>
           设置
         </el-button>
       </el-button-group>
     </div>
+    <el-dialog class="el-dialog-change" width="fit-content" top="300px" :append-to-body="true" v-model="userDialog">
+      <div class="user-dialog">
+        <template v-for="item in userInfos">
+          <div @click="changeUser(item.userId)"
+            :class="['users-item', { 'active': item.userId === currentUserInfo.userId }]">
+            <div class="user-img">
+              <img width="60" :src="getAvatarUrl(item.userAvatar as string)" alt="">
+            </div>
+            <span>{{ item.userName }}</span>
+          </div>
+        </template>
+      </div>
+    </el-dialog>
   </div>
+
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import { useAppStore } from '@/store/appInfo'
 import { useSchemaStore } from '@/store/schema'
 import type { IUserInfo } from '@/type/appInfo'
 import { User, Operation } from '@element-plus/icons-vue'
+import { getUserInfos } from '@/utils/appInfo'
 import img1 from '@/assets/avatar/三明治.png'
 import img2 from '@/assets/avatar/冰淇淋.png'
 import img3 from '@/assets/avatar/咖啡.png'
@@ -46,8 +61,10 @@ const props = defineProps({
   avatar: {
     type: String,
     default: 'default_1'
-  }
+  },
 })
+const emits = defineEmits(['changeUser'])
+const userDialog = ref(false)
 
 const DEFAULT_AVATAR: any = {
   "default_1": img1,
@@ -77,21 +94,40 @@ const dataList = ref([
   },
 ])
 
-function getAvatarUrl(avatar: string) {
+function getAvatarUrl(avatar: string): string {
   let url = DEFAULT_AVATAR[avatar]
   if (!url) {
     // 请求实际的图片
   }
-  return url
+  return url ?? DEFAULT_AVATAR['default_1']
 }
 const currentUserInfo = ref<IUserInfo>({} as IUserInfo)
 
-function initUserInfo() {
-  const appStore = useAppStore()
-  currentUserInfo.value = appStore.getCurrentUserInfo
+const userInfos = ref<IUserInfo[]>([] as IUserInfo[])
+
+function changeUser(userId: string) {
+  if (userId !== currentUserInfo.value.userId) {
+    const appStore = useAppStore()
+    const currentUserInfo = userInfos.value.find(userInfo => {
+      return userInfo.userId === userId
+    })
+    currentUserInfo && appStore.setCurrentUserInfo(currentUserInfo)
+  }
+  localStorage.setItem('currentUserId', userId)
+  emits('changeUser', userId)
 }
 
-initUserInfo()
+const appStore = useAppStore()
+
+watch(() => appStore.getCurrentUserInfo, (newValue) => {
+  currentUserInfo.value = newValue
+}, { immediate: true })
+
+watch(() => appStore.getUserInfos, (newValue) => {
+  userInfos.value = newValue
+}, { immediate: true })
+
+
 
 </script>
 
@@ -178,6 +214,7 @@ initUserInfo()
     .button-group {
       margin-top: 15px;
       display: flex;
+
       .button {
         min-width: 100px;
       }
@@ -201,5 +238,72 @@ initUserInfo()
     height: 50px;
   }
 
+}
+
+.user-dialog {
+  padding: 10px 40px 0px 40px;
+  display: flex;
+
+  .users-item {
+    position: relative;
+    transition: all 0.2s;
+    width: fit-content;
+    margin: 10px 20px;
+    display: flex;
+    padding-bottom: 5px;
+    flex-direction: column;
+    align-items: center;
+    opacity: 0.5;
+    cursor: pointer;
+
+    .user-img {
+      position: relative;
+      display: block;
+      width: 60px;
+      height: 60px;
+      transition: all 0.2s;
+      border: 1px solid rgb(102, 149, 252);
+      border-radius: 50%;
+      background-color: rgb(240, 253, 255);
+    }
+  }
+
+  .users-item.active::before {
+    cursor: unset;
+    content: '当前用户';
+    display: block;
+    position: absolute;
+    top: -28px;
+    color: rgba(255, 136, 0, 0.527);
+  }
+
+  .users-item:hover {
+    opacity: 0.7;
+
+    .user-img {
+      box-shadow: 0 0 2px rgb(102, 222, 252);
+    }
+  }
+
+  .active {
+    opacity: 1 !important;
+
+    .user-img {
+      box-shadow: 0 0 5px rgb(102, 149, 252) !important;
+    }
+  }
+
+  span {
+    margin-top: 10px;
+    font-size: 13px;
+    max-width: 60px;
+  }
+}
+</style>
+
+<style>
+.el-dialog-change {
+  border-radius: 30px;
+  background-color: rgba(255, 255, 255, 0.95);
 }
 </style>

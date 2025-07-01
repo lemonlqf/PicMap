@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-28 18:49:11
+ * @LastEditTime: 2025-07-01 20:19:02
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -517,6 +517,10 @@ onMounted(() => {
   eventBus.on('delete-image', deleteImage)
   // 监听右键设置分组
   eventBus.on('edit-group', showGroupDialog)
+})
+
+defineExpose({
+  deleteAll
 })
 </script>
 
