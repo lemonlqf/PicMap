@@ -19,7 +19,7 @@
         <el-button class="button" type="" @click="userDialog = true" :icon="User" round>
           切换用户
         </el-button>
-        <el-button class="button" type="" @click="" :icon="Operation" round>
+        <el-button class="button" type="" @click="toSettingPage" :icon="Operation" round>
           设置
         </el-button>
       </el-button-group>
@@ -48,6 +48,7 @@ import { useSchemaStore } from '@/store/schema'
 import type { IUserInfo } from '@/type/appInfo'
 import { User, Operation } from '@element-plus/icons-vue'
 import { getUserInfos } from '@/utils/appInfo'
+import { useRouter } from 'vue-router'
 import img1 from '@/assets/avatar/三明治.png'
 import img2 from '@/assets/avatar/冰淇淋.png'
 import img3 from '@/assets/avatar/咖啡.png'
@@ -63,6 +64,7 @@ const props = defineProps({
     default: 'default_1'
   },
 })
+const router = useRouter()
 const emits = defineEmits(['changeUser'])
 const userDialog = ref(false)
 
@@ -112,9 +114,9 @@ function changeUser(userId: string) {
       return userInfo.userId === userId
     })
     currentUserInfo && appStore.setCurrentUserInfo(currentUserInfo)
+    localStorage.setItem('currentUserId', userId)
+    emits('changeUser', userId)
   }
-  localStorage.setItem('currentUserId', userId)
-  emits('changeUser', userId)
 }
 
 const appStore = useAppStore()
@@ -127,7 +129,9 @@ watch(() => appStore.getUserInfos, (newValue) => {
   userInfos.value = newValue
 }, { immediate: true })
 
-
+function toSettingPage() {
+  router.push('/setting')
+}
 
 </script>
 
@@ -303,7 +307,7 @@ watch(() => appStore.getUserInfos, (newValue) => {
 
 <style>
 .el-dialog-change {
-  border-radius: 30px;
-  background-color: rgba(255, 255, 255, 0.95);
+  border-radius: 30px !important;
+  background-color: rgba(255, 255, 255, 0.95) !important;
 }
 </style>

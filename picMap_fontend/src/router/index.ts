@@ -1,9 +1,9 @@
 /*
  * @Author: Do not edit
  * @Date: 2024-12-12 23:57:41
- * @LastEditors: 吕奇峰 1353041516@qq.com
- * @LastEditTime: 2024-12-13 11:52:46
- * @FilePath: \picMap_fontend\src\router\index
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-07-02 22:41:22
+ * @FilePath: \Code\picMap_fontend\src\router\index.ts
  */
 import { createWebHashHistory, createRouter } from 'vue-router'
 
@@ -11,6 +11,10 @@ import App from '@/App.vue'
 import PicMap from '@/views/picMap/Index.vue'
 import Home from '@/views/home/Index.vue'
 import NotFind from '@/views/404/Index.vue'
+import Setting from '@/views/setting/Index.vue'
+import SettingUser from '@/views/setting/components/SettingUser.vue'
+import SettingMap from '@/views/setting/components/SettingMap.vue'
+import SettingImg from '@/views/setting/components/SettingImg.vue'
 
 const routes = [
   { path: '/', redirect: '/picMap', },
@@ -22,6 +26,25 @@ const routes = [
   {
     path: '/404',
     component: NotFind
+  },
+  {
+    path: '/setting',
+    redirect: '/setting/user',
+    component: Setting,
+    children: [
+      {
+        path: 'user',
+        component: SettingUser
+      },
+      {
+        path: 'map',
+        component: SettingMap
+      },
+      {
+        path: 'img',
+        component: SettingImg
+      }
+    ]
   },
   {
     path: '/:pathMatch(.*)',
