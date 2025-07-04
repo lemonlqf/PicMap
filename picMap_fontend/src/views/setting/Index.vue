@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-02 22:38:50
+ * @LastEditTime: 2025-07-04 21:52:09
  * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
@@ -24,31 +24,47 @@
       </template>
     </div>
     <div class="content">
-      <router-view />
+      <div class="header">
+        <span class="title">{{ title }}</span>
+        <div class="user-item">
+          <span class="user-name">{{ currentUserInfo.userName }}</span>
+          <div class="user-img">
+            <img width="35" :src="getAvatarUrl(currentUserInfo.userAvatar as string)" alt="">
+          </div>
+        </div>
+      </div>
+      <router-view class="view" />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAppStore } from '@/store/appInfo'
 import UserSvg from '@/assets/icon/用户.svg?component'
 import MapSvg from '@/assets/icon/地图.svg?component'
 import ImgSvg from '@/assets/icon/图片.svg?component'
 import MapLogo from '@/assets/icon/mapLogo.svg?component'
+import type { IUserInfo } from '@/type/appInfo'
+import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
 const router = useRouter()
+const appStore = useAppStore()
 const menuList = [
   {
+    title: '用户管理',
     label: '用户',
     router: 'user',
     img: UserSvg
   },
   {
+    title: '地图管理',
     label: '地图',
     router: 'map',
     img: MapSvg
   },
   {
+    title: '图片信息管理',
     label: '图片',
     router: 'img',
     img: ImgSvg
@@ -56,6 +72,20 @@ const menuList = [
 ]
 const activeRouter = ref(menuList[0].router)
 
+const title = computed(() => {
+  return menuList.find(item => {
+    return item.router === activeRouter.value
+  })?.title
+})
+
+const currentUserInfo = computed({
+  get: () => {
+    return appStore.getCurrentUserInfo
+  },
+  set: (value: IUserInfo) => {
+    changeCurrentUser(value.userId)
+  }
+})
 
 function goRouter(value: string) {
   activeRouter.value = value
@@ -70,14 +100,14 @@ function goToPicMap() {
 </script>
 
 <style scoped lang="scss">
-$backgroud: #1cd786e4;
+$backgroud: #3061d4;
 $activeColor: $backgroud;
 $color: #ffffff;
 $activeBackgroud: $color;
-$noActiveBackground: #02c26f;
+$noActiveBackground: #325bca;
 
 .setting-page {
-  background-color: #f3f6f8;
+  background-color: rgb(246, 248, 251);
 }
 
 
@@ -151,6 +181,50 @@ $noActiveBackground: #02c26f;
 
 .content {
   height: 100vh;
+  box-sizing: border-box;
   padding-left: 260px;
+  padding-top: 30px;
+  display: flex;
+  flex-direction: column;
+
+  .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 10px;
+    margin-right: 40px;
+    border-bottom: 1.5px solid rgb(127, 174, 228);
+
+    .title {
+      color: #3061d4;
+      line-height: 50px;
+      font-size: 30px;
+      font-weight: 600;
+    }
+
+    .user-item {
+      position: relative;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      // width: fit-content;
+      margin: 10px 20px;
+
+      .user-name {}
+
+      .user-img {
+        margin-left: 10px;
+        position: relative;
+        display: block;
+        width: 35px;
+        height: 35px;
+        transition: all 0.2s;
+        border: 1px solid rgb(102, 149, 252);
+        border-radius: 50%;
+        background-color: rgb(240, 253, 255);
+      }
+    }
+  }
+
 }
 </style>
