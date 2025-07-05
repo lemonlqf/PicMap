@@ -5,7 +5,7 @@
       <img :src="item?.image" alt="">
       <div class="name">{{ item.name }}</div>
       <div class="active-img">
-        <img src="@/assets/icon/对勾.svg" alt="">
+        <img :src="SelectIcon" alt="">
       </div>
     </div>
   </div>
@@ -16,6 +16,7 @@ import { onBeforeMount, computed, watch, ref } from 'vue'
 import GDSatellite from '@/assets/map/GDSatellite.png'
 import GDGraphics from '@/assets/map/GDGraphics.png'
 import TXGraphics from '@/assets/map/TXGraphics.png'
+import SelectIcon from '@/assets/icon/对勾.svg?svg'
 const emits = defineEmits(['changeMapTile'])
 const appMapTile = [
   {

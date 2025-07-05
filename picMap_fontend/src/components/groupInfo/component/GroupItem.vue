@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-02 09:27:09
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-27 18:39:05
+ * @LastEditTime: 2025-07-05 21:48:19
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\GroupItem.vue
  * @Description: 
 -->
@@ -17,7 +17,7 @@
         </span>
       </el-tooltip>
     </div>
-    <el-popover width="fit-content">
+    <el-popover popper-style="padding: 0px" width="fit-content">
       <GroupContentMenu :group-id="groupInfo.id">
       </GroupContentMenu>
       <template #reference>

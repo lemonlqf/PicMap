@@ -15,27 +15,27 @@ const Result = require('./resultCode/result.js')
 
 /* GET schema. */
 router.get('/getSchema', function (req, res, next) {
-  const { userId } = req.query
+  const { currentUserId } = req.query
   let schema = null
   // 判断文件是否存在
-  const fileExists = fs.existsSync(getSchemaJSONPath(userId))
+  const fileExists = fs.existsSync(getSchemaJSONPath(currentUserId))
   if (!fileExists) {
     // 创建schema保存的目录
-    fs.mkdirSync(getSchemaDirPath(userId), { recursive: true })
+    fs.mkdirSync(getSchemaDirPath(currentUserId), { recursive: true })
     // 在schema保存目录下创建一个初始化的 schema.json 文件
-    fs.writeFileSync(getSchemaJSONPath(userId), defaultSchema, { encoding: 'utf-8' })
+    fs.writeFileSync(getSchemaJSONPath(currentUserId), defaultSchema, { encoding: 'utf-8' })
     schema = defaultSchema
   } else {
-    schema = fs.readFileSync(getSchemaJSONPath(userId), { encoding: 'utf-8' })
+    schema = fs.readFileSync(getSchemaJSONPath(currentUserId), { encoding: 'utf-8' })
   }
 
   res.send(Result.success(schema))
 })
 
 router.post('/setSchema', function (req, res, next) {
-  const { userId } = req.body
+  const { currentUserId } = req.body
   const schema = req.body.schema
-  fs.writeFileSync(getSchemaJSONPath(userId), schema)
+  fs.writeFileSync(getSchemaJSONPath(currentUserId), schema)
   res.send(Result.success('schema数据更新成功！'))
 })
 

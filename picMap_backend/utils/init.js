@@ -6,21 +6,21 @@
  * @FilePath: \Code\picMap_backend\utils\init.js
  * @Description: 
  */
-const { appInfoPath, defaultAppInfo, archiveDirectory, setUserName } = require('../public/globalVariable')
+const { appSchemaPath, defaultAppInfo, archiveDirectory, setUserName } = require('../public/globalVariable')
 const fs = require('node:fs')
 
 // 初始化appInfoJSON文件
 function initAppInfoJSON() {
   let appInfo = defaultAppInfo
   // 判断文件是否存在
-  const fileExists = fs.existsSync(appInfoPath)
+  const fileExists = fs.existsSync(appSchemaPath)
   if (!fileExists) {
     // 创建schema保存的目录
     fs.mkdirSync(archiveDirectory, { recursive: true })
-    // 在schema保存目录下创建一个初始化的 appInfo.json 文件
-    fs.writeFileSync(appInfoPath, defaultAppInfo, { encoding: 'utf-8' })
+    // 在schema保存目录下创建一个初始化的 appSchema.json 文件
+    fs.writeFileSync(appSchemaPath, defaultAppInfo, { encoding: 'utf-8' })
   } else {
-    appInfo = fs.readFileSync(appInfoPath, { encoding: 'utf-8' })
+    appInfo = fs.readFileSync(appSchemaPath, { encoding: 'utf-8' })
   }
   return appInfo
 }

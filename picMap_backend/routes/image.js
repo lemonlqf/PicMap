@@ -18,9 +18,9 @@ const glob = require('glob')
 
 router.post('/uploadImages', async function (req, res, next) {
   const bodyData = req.body.images
-  const { userId } = req.body
+  const { currentUserId } = req.body
   bodyData?.forEach?.(item => {
-    writeBase64File(item.url, item.name, item.id, getImageFilePath(userId))
+    writeBase64File(item.url, item.name, item.id, getImageFilePath(currentUserId))
   })
   // const res1 = await executeQuery('select * from test')
   res.send(Result.success('上传成功'))
@@ -28,8 +28,8 @@ router.post('/uploadImages', async function (req, res, next) {
 
 // 获取缩略图
 router.post('/getSmallImage', async function (req, res, next) {
-  let { imageId, userId } = req.body
-  const file = await getSmallImageFileById(imageId, userId)
+  let { imageId, currentUserId } = req.body
+  const file = await getSmallImageFileById(imageId, currentUserId)
   // const file = getImageFileById(imageId)
 
   if (file) {
@@ -42,9 +42,9 @@ router.post('/getSmallImage', async function (req, res, next) {
 // 获取缩略图
 router.post('/getSmallImages', async function (req, res, next) {
   let files = []
-  let { imageIds, userId } = req.body
+  let { imageIds, currentUserId } = req.body
   for (let i = 0; i < imageIds.length; i++) {
-    const url = await getSmallImageFileById(imageIds[i], userId)
+    const url = await getSmallImageFileById(imageIds[i], currentUserId)
     files.push(url)
   }
   if (files.length > 0) {
@@ -56,8 +56,8 @@ router.post('/getSmallImages', async function (req, res, next) {
 
 // 获取原图
 router.post('/getFullImage', async function (req, res, next) {
-  let { imageId, userId } = req.body
-  const file = getImageFileById(imageId, userId)
+  let { imageId, currentUserId } = req.body
+  const file = getImageFileById(imageId, currentUserId)
   if (file) {
     res.send(Result.success({ file }))
   } else {
@@ -66,11 +66,11 @@ router.post('/getFullImage', async function (req, res, next) {
 })
 
 router.post('/deleteImages', function (req, res, next) {
-  const { deleteImages, userId } = req.body
+  const { deleteImages, currentUserId } = req.body
   // 删除图片库中的图片
   if (deleteImages?.length) {
     deleteImages.forEach(imageId => {
-      const filesPath = glob.sync(`${getImageFilePath(userId)}/${getImageId(imageId)}*`)
+      const filesPath = glob.sync(`${getImageFilePath(currentUserId)}/${getImageId(imageId)}*`)
       if (filesPath.length === 0) {
         res.send(Result.fail('图片还未上传！'))
       } else {
@@ -88,8 +88,8 @@ router.post('/updateImages', function (req, res, next) {
 })
 
 router.post('/downloadImage', function (req, res, next) {
-  const { imageId, userId } = req.body
-  const file = getImageFileById(imageId, userId)
+  const { imageId, currentUserId } = req.body
+  const file = getImageFileById(imageId, currentUserId)
   if (file) {
     res.send(Result.success({ file }))
   } else {

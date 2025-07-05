@@ -11,8 +11,8 @@ const { get } = require("lodash")
 
 // 应用相关的全局变量
 const archiveDirectory = 'D:/PicMap' // 存档路径
-const appInfoFileName = 'appInfo.json' // 应用信息文件名称
-const appInfoPath = `${archiveDirectory}/${appInfoFileName}` // 应用信息文件的完整路径
+const appInfoFileName = 'appSchema.json' // 应用信息文件名称
+const appSchemaPath = `${archiveDirectory}/${appInfoFileName}` // 应用信息文件的完整路径
 
 // 默认应用信息，为JSON格式
 const defaultAppInfo = JSON.stringify({
@@ -91,7 +91,7 @@ module.exports = {
   archiveDirectory,
   globalVariables,
   defaultSchema,
-  appInfoPath,
+  appSchemaPath,
   defaultAppInfo,
   setUserName,
   getSchemaDirPath,

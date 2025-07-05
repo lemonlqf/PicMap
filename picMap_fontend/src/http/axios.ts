@@ -8,7 +8,7 @@
  */
 import axios from 'axios'
 import { ElMessage } from 'element-plus'
-import { useAppStore } from '@/store/appInfo'
+import { useAppStore } from '@/store/appSchema'
 
 const ip = 'http://localhost'
 const port = '5001'
@@ -24,11 +24,11 @@ http.interceptors.request.use(
 
     const appStore = useAppStore()
     // 请求添加上userId
-    const userId = appStore.getCurrentUserInfo.userId; // 这里可以从 store、cookie、localStorage 获取
+    const currentUserId = appStore.getCurrentUserInfo.userId; // 这里可以从 store、cookie、localStorage 获取
     // GET 请求
     if (config.method === 'get') {
       config.params = config.params || {};
-      config.params.userId = userId;
+      config.params.currentUserId = currentUserId;
     }
     // POST/PUT/PATCH 请求
     else if (
@@ -39,12 +39,12 @@ http.interceptors.request.use(
       if (config.headers && config.headers['Content-Type'] === 'application/x-www-form-urlencoded') {
         // 如果是表单，需特殊处理
         const params = new URLSearchParams(config.data || '');
-        params.set('userId', userId);
+        params.set('currentUserId', currentUserId);
         config.data = params.toString();
       } else {
         // 普通 JSON
         config.data = config.data || {};
-        config.data.userId = userId;
+        config.data.currentUserId = currentUserId;
       }
     }
     return config;

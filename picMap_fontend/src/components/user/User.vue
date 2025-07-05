@@ -1,7 +1,7 @@
 <template>
   <div class="user">
     <div class="img">
-      <img :src="getAvatarUrl(currentUserInfo.avatar)" width="100%" alt="">
+      <img :src="getAvatarUrl(currentUserInfo.userAvatar)" width="100%" alt="">
     </div>
     <div class="hover-info">
       <div class="user-name">
@@ -43,11 +43,11 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { useAppStore } from '@/store/appInfo'
+import { useAppStore } from '@/store/appSchema'
 import { useSchemaStore } from '@/store/schema'
-import type { IUserInfo } from '@/type/appInfo'
+import type { IUserInfo } from '@/type/appSchema'
 import { User, Operation } from '@element-plus/icons-vue'
-import { getUserInfos } from '@/utils/appInfo'
+import { getUserInfos } from '@/utils/appSchema'
 import { useRouter } from 'vue-router'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
 

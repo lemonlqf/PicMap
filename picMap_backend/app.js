@@ -19,7 +19,7 @@ var indexRouter = require('./routes/index')
 var usersRouter = require('./routes/users')
 var image = require('./routes/image.js')
 var schema = require('./routes/schema.js')
-var appInfo = require('./routes/appInfo.js')
+var appInfo = require('./routes/appSchema.js')
 
 const { init } = require('./utils/init.js')
 init()
@@ -42,7 +42,7 @@ app.use('/', indexRouter)
 app.use('/user', usersRouter)
 app.use('/image', image)
 app.use('/schema', schema)
-app.use('/appInfo', appInfo)
+app.use('/appSchema', appInfo)
 
 app.use(cors())
 

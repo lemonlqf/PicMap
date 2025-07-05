@@ -11,6 +11,7 @@ import { judgeHadUploadImage } from '../utils/schema'
 import { isGroupIdExist, createNewGroupName } from '@/utils/group'
 import type { IGroupInfo, ISchema } from '@/type/schema'
 
+// 地图schema
 export const useSchemaStore = defineStore('schema', {
   state: () => ({
     schema: {} as ISchema,

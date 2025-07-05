@@ -14,13 +14,13 @@
 <script lang="ts" setup>
 import { ref, onMounted } from 'vue'
 import eventBus from './utils/eventBus'
-import { getUserInfos } from '@/utils/appInfo'
+import { getUserInfos, getAppSchema } from '@/utils/appSchema'
 
 
 const loading = ref(true)
 
 onMounted(async () => {
-  await getUserInfos()
+  await getAppSchema()
   loading.value = false
 })
 

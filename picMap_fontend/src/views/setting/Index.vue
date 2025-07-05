@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-04 21:52:09
+ * @LastEditTime: 2025-07-05 17:00:22
  * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
@@ -41,12 +41,12 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
-import { useAppStore } from '@/store/appInfo'
+import { useAppStore } from '@/store/appSchema'
 import UserSvg from '@/assets/icon/用户.svg?component'
 import MapSvg from '@/assets/icon/地图.svg?component'
 import ImgSvg from '@/assets/icon/图片.svg?component'
 import MapLogo from '@/assets/icon/mapLogo.svg?component'
-import type { IUserInfo } from '@/type/appInfo'
+import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
 const router = useRouter()
 const appStore = useAppStore()
@@ -63,12 +63,12 @@ const menuList = [
     router: 'map',
     img: MapSvg
   },
-  {
-    title: '图片信息管理',
-    label: '图片',
-    router: 'img',
-    img: ImgSvg
-  }
+  // {
+  //   title: '图片信息管理',
+  //   label: '图片',
+  //   router: 'img',
+  //   img: ImgSvg
+  // }
 ]
 const activeRouter = ref(menuList[0].router)
 
