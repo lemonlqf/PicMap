@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-04 19:07:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 21:52:34
+ * @LastEditTime: 2025-07-06 14:57:46
  * @FilePath: \Code\picMap_fontend\src\utils\user.ts
  * @Description: 
  */
@@ -161,9 +161,9 @@ export async function deleteUser(userInfo: IUserInfo) {
     return
   }
   appStore.setUserInfos(userInfos)
+  const res = await saveAppSchema()
   // 删除对应的目录结构
   await deleteUserDir(userInfo.userId)
-  const res = await saveAppSchema()
   if (res.code === 200) {
     // 更新currentUserInfo
     const currentUserInfo = appStore.getCurrentUserInfo

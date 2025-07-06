@@ -11,6 +11,7 @@ import AppInfoHttp from '@/http/modules/appSchema'
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/http/index'
 import { useAppStore } from '@/store/appSchema'
+import schemaHttp from '@/http/modules/schema'
 
 // 将用户信息保存在store中
 export async function getUserInfos() {
@@ -55,3 +56,45 @@ export async function saveAppSchema() {
   const res = await API.appSchema.setAppSchema({ schema: JSON.stringify(schema) })
   return res
 }
+
+// 获取当前用户的schema
+export async function getUserSchema() {
+  const res = await schemaHttp.getSchema()
+  if (res.code === 200) {
+    const schema = JSON.parse(res.data)
+    return schema
+  } else {
+    return {}
+  }
+}
+
+/**
+ * @description: 编辑应用app
+ * @param {string} attr
+ * @param {any} value
+ * @return {*}
+ */
+export async function editAppSchemaAndSave(attr: string, value: any) {
+  const appStore = useAppStore()
+  const appSchema = appStore.getAppSchema
+  set(appSchema, attr, value)
+  await saveAppSchema()
+}
+
+/**
+ * @description: 编辑用户信息
+ * @param {string} userId
+ * @param {string} attr
+ * @param {any} value
+ * @return {*}
+ */
+export async function editUserInfoAndSave(userId: string, attr: string, value: any) {
+  const appStore = useAppStore()
+  const appSchema = appStore.getAppSchema
+  const userInfo = appSchema.userInfos.find(item => item.userId === userId)
+  if (userInfo) {
+    set(userInfo, attr, value)
+    await saveAppSchema()
+  }
+}
+

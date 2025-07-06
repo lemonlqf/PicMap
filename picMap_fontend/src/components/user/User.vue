@@ -5,7 +5,9 @@
     </div>
     <div class="hover-info">
       <div class="user-name">
-        <span>{{ currentUserInfo.userName }}</span>
+        <el-tooltip class="box-item" :content="currentUserInfo?.userName || '未设置'" placement="top-start">
+          <span class="text-overflow">{{ currentUserInfo?.userName || '未设置' }}</span>
+        </el-tooltip>
       </div>
       <div class="data">
         <template v-for="item in dataList">
@@ -151,11 +153,19 @@ function toSettingPage() {
       font-size: 19px;
       margin-top: 10px;
       font-family: PingFang SC, HarmonyOS_Medium, Helvetica Neue, Microsoft YaHei, sans-serif;
-      font-weight: 600;
       color: rgb(64, 158, 255);
+      font-weight: 600;
 
       span {
         display: inline-block;
+        max-width: 200px;
+        width: fit-content;
+        // font-size: 18px;
+        // margin-bottom: 10px;
+        word-wrap: none;
+        word-break: keep-all;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
     }
 
@@ -271,7 +281,7 @@ function toSettingPage() {
   span {
     margin-top: 10px;
     font-size: 13px;
-    max-width: 60px;
+    max-width: 70px;
   }
 }
 </style>

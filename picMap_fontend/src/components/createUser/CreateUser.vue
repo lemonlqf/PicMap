@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-05 16:08:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 16:48:39
+ * @LastEditTime: 2025-07-06 15:08:25
  * @FilePath: \Code\picMap_fontend\src\components\createUser\CreateUser.vue
  * @Description: 
 -->
@@ -79,6 +79,7 @@ function closeDialog() {
 function createNewUser() {
   userFormRef.value.validate(async (valid, fields) => {
     if (valid) {
+      newUserInfo.value.userId = createUserId()
       // 将新分组信息添加到schema中
        await createUser({...newUserInfo.value})
       closeDialog()

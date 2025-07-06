@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 17:00:22
+ * @LastEditTime: 2025-07-06 10:20:05
  * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
@@ -39,17 +39,20 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/store/appSchema'
+import { useSchemaStore } from '@/store/schema'
 import UserSvg from '@/assets/icon/用户.svg?component'
 import MapSvg from '@/assets/icon/地图.svg?component'
 import ImgSvg from '@/assets/icon/图片.svg?component'
 import MapLogo from '@/assets/icon/mapLogo.svg?component'
 import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
+import { getUserSchema } from '@/utils/appSchema'
 const router = useRouter()
 const appStore = useAppStore()
+const schemaStore = useSchemaStore()
 const menuList = [
   {
     title: '用户管理',
@@ -86,6 +89,16 @@ const currentUserInfo = computed({
     changeCurrentUser(value.userId)
   }
 })
+
+const currentSchema = computed(() => {
+  return schemaStore.getSchema
+})
+
+// 更新schema
+watch(() => currentUserInfo.value.userId, async (newValue) => {
+  const schema = await getUserSchema()
+  schemaStore.setSchema(schema)
+}, {deep: true})
 
 function goRouter(value: string) {
   activeRouter.value = value

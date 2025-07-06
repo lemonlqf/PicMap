@@ -25,6 +25,10 @@ const props = defineProps({
   id: {
     type: String,
     defalut: ''
+  },
+  label: {
+    type: String,
+    default: '图片描述'
   }
 })
 

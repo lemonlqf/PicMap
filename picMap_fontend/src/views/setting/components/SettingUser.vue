@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 21:16:03
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 22:16:43
+ * @LastEditTime: 2025-07-06 15:06:09
  * @FilePath: \Code\picMap_fontend\src\views\setting\components\SettingUser.vue
  * @Description: 
 -->
@@ -16,7 +16,7 @@
           <UserCard @card-click="(value) => changeCurrentUser(value)"
             :active="currentUserInfo.userId === userInfo.userId" :user-id="userInfo.userId"></UserCard>
         </template>
-        <UserCard :is-add-card="true" @card-click="showAddCreateUserDialog = true"></UserCard>
+        <UserCard :is-add-card="true" @card-click="showAddDialog"></UserCard>
       </div>
     </el-scrollbar>
     <!-- 具体信息 -->
@@ -33,20 +33,72 @@
         </div>
       </div>
       <div class="info">
-        <div class="info-edit"></div>
+        <div class="info-content">
+          <div class="info-card">
+            <div class="info-title">
+              <UserInfoIcon style="width: 25px; height: 25px"></UserInfoIcon>
+              <div class="title">用户信息</div>
+            </div>
+            <!-- id -->
+            <div class="info-item">
+              <span class="label">ID</span>
+              <div class="value-box">
+                <span class="value">{{ currentUserInfo.userId }}</span>
+              </div>
+            </div>
+            <!-- 姓名 -->
+            <div class="info-item">
+              <span class="label">姓名</span>
+              <div class="value-box">
+                <span v-if="!isEdit" class="value">{{ userName }}</span>
+                <el-input size="" v-else :maxlength="20" show-word-limit v-model="userInputName"
+                  @change="changeName"></el-input>
+              </div>
+            </div>
+          </div>
+          <div class="info-card">
+            <div class="info-title">
+              <ImgInfoIcon style="width: 25px; height: 25px"></ImgInfoIcon>
+              <div class="title">图片信息</div>
+            </div>
+            <!-- id -->
+            <div class="info-item">
+              <span class="label">图片数量</span>
+              <div class="value-box">
+                <CountUp class="value" :duration="0.4" :end-val="imgNums" :start-val="imgStartValue"
+                  @finished="setImgStartValue">
+                </CountUp>
+              </div>
+            </div>
+            <!-- 姓名 -->
+            <div class="info-item">
+              <span class="label">分组数量</span>
+              <div class="value-box">
+                <CountUp class="value" :duration="0.4" :end-val="groupNums" :start-val="groupStartValue"
+                  @finished="setGroupStartValue">
+                </CountUp>
+              </div>
+            </div>
+          </div>
+        </div>
         <div class="info-footer">
-          <el-popconfirm @confirm="deleteUser(currentUserInfo)" width="259" title="确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！"
-            placement="top">
-            <template #reference>
-              <el-button type="danger" :icon="Delete">删除</el-button>
-            </template>
-            <template #actions="{ confirm, cancel }">
-              <el-button @click="cancel">取消</el-button>
-              <el-button type="danger" @click="confirm">
-                确定
-              </el-button>
-            </template>
-          </el-popconfirm>
+          <template v-if="!isEdit">
+            <el-button type="primary" @click="isEdit = true" :icon="Edit">信息编辑</el-button>
+            <el-popconfirm @confirm="confirm(currentUserInfo)" width="259" title="确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！" placement="top">
+              <template #reference>
+                <el-button type="danger" :icon="Delete">删除用户</el-button>
+              </template>
+              <template #actions="{ confirm, cancel }">
+                <el-button @click="cancel">取消</el-button>
+                <el-button type="danger" @click="confirm">
+                  确定
+                </el-button>
+              </template>
+            </el-popconfirm>
+          </template>
+          <template v-else>
+            <el-button @click="isEdit = false" :icon="Back">退出编辑</el-button>
+          </template>
         </div>
       </div>
     </div>
@@ -60,19 +112,43 @@ import UserCard from '@/components/userCard/UserCard.vue';
 import { useAppStore } from '@/store/appSchema';
 import type { IUserInfo } from '@/type/appSchema';
 import { computed } from 'vue';
-import { changeCurrentUser, deleteUser } from '@/utils/user'
+import { changeCurrentUser, deleteUser, isUserNameExist } from '@/utils/user'
 import Avatar from '@/components/avatar/Avatar.vue';
 import CreateUser from '@/components/createUser/CreateUser.vue';
 import { formatDate } from '@/utils/date'
-import { Delete } from '@element-plus/icons-vue'
+import { Delete, Edit, Back } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus';
+import { editUserInfoAndSave } from '@/utils/appSchema';
+import UserInfoIcon from '@/assets/icon/用户信息.svg?component'
+import ImgInfoIcon from '@/assets/icon/图片信息.svg?component'
+import { useSchemaStore } from '@/store/schema';
+import CountUp from 'vue-countup-v3'
 
 const appStore = useAppStore()
+const schemaStore = useSchemaStore()
+const imgNums = computed(() => {
+  return schemaStore?.getSchema?.imageInfo?.length ?? 0
+})
+
+const groupNums = computed(() => {
+  return schemaStore?.getSchema?.groupInfo?.length ?? 0
+})
 
 const userInfos = computed<IUserInfo[]>(() => {
   return appStore.getUserInfos
 })
 
 const showAddCreateUserDialog = ref(false)
+
+const isEdit = ref(false)
+
+const userInputName = ref('')
+const userName = computed(() => {
+  userInputName.value = appStore.getCurrentUserInfo.userName
+  return appStore.getCurrentUserInfo.userName
+})
+
+
 
 const currentUserInfo = computed({
   get: () => {
@@ -83,10 +159,48 @@ const currentUserInfo = computed({
   }
 })
 
+function changeName(value: string) {
+  if (value.length < 1) {
+    ElMessage.warning('姓名不能为空')
+    userInputName.value = userName.value
+  } else {
+    if (isUserNameExist(value)) {
+      ElMessage.warning('姓名已存在')
+      userInputName.value = userName.value
+    } else {
+      editUserInfoAndSave(currentUserInfo.value.userId, 'userName', value)
+    }
+  }
+}
+
+function confirm(currentUserInfo: IUserInfo) {
+  deleteUser(currentUserInfo)
+  showAddCreateUserDialog.value = false
+}
+
 function changeUser() {
   console.log(111)
 }
 
+const imgStartValue = ref(0)
+
+function setImgStartValue() {
+  imgStartValue.value = imgNums.value
+}
+
+const groupStartValue = ref(0)
+
+function setGroupStartValue() {
+  groupStartValue.value = groupNums.value
+}
+
+function showAddDialog() {
+  if (isEdit.value) {
+    ElMessage.warning('请先退出编辑再新建用户！')
+    return
+  }
+  showAddCreateUserDialog.value = true
+}
 onMounted(() => {
 
 })
@@ -161,9 +275,56 @@ onMounted(() => {
     flex: 1;
     flex-direction: column;
     justify-content: space-between;
+    padding: 30px;
+
+    .info-content {
+      display: flex;
+      gap: 40px;
+      .info-card {
+        width: 300px;
+        padding: 20px;
+        .info-title {
+          display: flex;
+          align-items: center;
+          font-size: 22px;
+          font-weight: 500;
+          color: #542de29d;
+
+          .title {
+            margin-left: 10px;
+          }
+        }
+
+
+        .info-item {
+          max-width: 50%;
+          min-width: 300px;
+          width: fit-content;
+          margin-top: 25px;
+
+          .label {
+            font-size: 16px;
+            color: gray;
+          }
+
+          .value-box {
+            height: 20px;
+            padding-top: 5px;
+
+            .value {
+              font-weight: 500;
+              font-size: 20px;
+              color: rgb(56, 56, 56);
+            }
+          }
+
+        }
+      }
+    }
 
     .info-footer {
-      padding: 30px;
+      padding-top: 25px;
+      border-top: 1px #542de265 solid;
     }
   }
 }

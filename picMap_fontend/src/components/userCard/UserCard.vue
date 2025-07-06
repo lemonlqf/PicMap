@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-04 19:36:39
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 16:44:46
+ * @LastEditTime: 2025-07-06 11:23:39
  * @FilePath: \Code\picMap_fontend\src\components\userCard\UserCard.vue
  * @Description: 
 -->
@@ -14,7 +14,9 @@
         <img width="60" :src="getAvatarUrl(userInfo?.userAvatar as string)" alt="">
       </div>
       <div class="user-info">
-        <span class="user-name">{{ userInfo?.userName || '未设置' }}</span>
+        <el-tooltip class="box-item" :content="userInfo?.userName || '未设置'" placement="top-start">
+          <span class="user-name">{{ userInfo?.userName || '未设置' }}</span>
+        </el-tooltip>
         <span class="create-time">{{ `${formatDate(userInfo?.createTime, 'YYYY-MM-DD') || '2000-01-01'}` }}</span>
       </div>
     </div>
@@ -63,7 +65,7 @@ $border-width: 3px;
 .card {
   cursor: pointer;
   flex-shrink: 0;
-  width: 230px;
+  width: 240px;
   height: calc(89px + $border-width);
   transition: all 0.3s;
   position: relative;
@@ -124,9 +126,15 @@ $border-width: 3px;
     justify-content: space-between;
 
     .user-name {
+      max-width: 130px;
+      width: fit-content;
       color: rgb(73, 73, 73);
       font-size: 18px;
       margin-bottom: 10px;
+      word-wrap: none;
+      word-break: keep-all;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .create-time {

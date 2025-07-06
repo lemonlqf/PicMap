@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-06-15 12:59:59
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 21:06:32
+ * @LastEditTime: 2025-07-06 14:52:31
  * @FilePath: \Code\picMap_backend\routes\users.js
  * @Description: 
  */
@@ -41,8 +41,8 @@ router.post('/createUser', function (req, res, next) {
 
 // 删除用户的目录和相关的schema
 router.post('/deleteUser', function (req, res, next) {
-  const { userId } = req.body
-  const userDirectory = `${archiveDirectory}/${userId}`
+  const { userId, currentUserId } = req.body
+  const userDirectory = `${archiveDirectory}/${userId ?? currentUserId}`
   // 如果用户目录存在，则删除
   if (fs.existsSync(userDirectory)) {
     fs.rmSync(userDirectory, { recursive: true, force: true })
