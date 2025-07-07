@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-04 19:07:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 14:57:46
+ * @LastEditTime: 2025-07-06 15:45:54
  * @FilePath: \Code\picMap_fontend\src\utils\user.ts
  * @Description: 
  */
@@ -17,6 +17,7 @@ import img5 from '@/assets/avatar/汉堡.png'
 import img6 from '@/assets/avatar/煎蛋.png'
 import img7 from '@/assets/avatar/面包.png'
 import img8 from '@/assets/avatar/鸡腿.png'
+import defaultTile from '@/assets/map/defaultTile.png'
 import { saveAppSchema } from "./appSchema";
 import { ElMessage } from "element-plus";
 import { cloneDeep } from 'lodash-es';
@@ -66,6 +67,18 @@ export function getAvatarUrl(avatar: string): string {
     // 请求实际的图片
   }
   return url ?? DEFAULT_AVATAR['default_0']
+}
+
+export function getMapTile(imageId: string) {
+  let url = ''
+  if (imageId) {
+    // 获取实际瓦片路径
+  }
+  if (url) {
+    return url
+  } else {
+    return defaultTile
+  }
 }
 
 /**

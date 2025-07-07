@@ -11,7 +11,10 @@
 export type ISchema = {
   verison: string,
   mapInfo: {
-    center: number[]
+    center: number[],
+    maxZoom: number,
+    minZoom: number,
+    zoom: number
   },
   groupInfo: IGroupInfo[],
   imageInfo: IImageInfo[],

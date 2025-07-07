@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 21:16:03
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 15:06:09
- * @FilePath: \Code\picMap_fontend\src\views\setting\components\SettingUser.vue
+ * @LastEditTime: 2025-07-06 15:49:27
+ * @FilePath: \Code\picMap_fontend\src\views\setting\settingUser\SettingUser.vue
  * @Description: 
 -->
 <template>
@@ -46,9 +46,9 @@
                 <span class="value">{{ currentUserInfo.userId }}</span>
               </div>
             </div>
-            <!-- 姓名 -->
+            <!-- 名称 -->
             <div class="info-item">
-              <span class="label">姓名</span>
+              <span class="label">名称</span>
               <div class="value-box">
                 <span v-if="!isEdit" class="value">{{ userName }}</span>
                 <el-input size="" v-else :maxlength="20" show-word-limit v-model="userInputName"
@@ -84,7 +84,8 @@
         <div class="info-footer">
           <template v-if="!isEdit">
             <el-button type="primary" @click="isEdit = true" :icon="Edit">信息编辑</el-button>
-            <el-popconfirm @confirm="confirm(currentUserInfo)" width="259" title="确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！" placement="top">
+            <el-popconfirm @confirm="confirm(currentUserInfo)" width="259" title="确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！"
+              placement="top">
               <template #reference>
                 <el-button type="danger" :icon="Delete">删除用户</el-button>
               </template>

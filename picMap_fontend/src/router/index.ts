@@ -12,9 +12,9 @@ import PicMap from '@/views/picMap/Index.vue'
 import Home from '@/views/home/Index.vue'
 import NotFind from '@/views/404/Index.vue'
 import Setting from '@/views/setting/Index.vue'
-import SettingUser from '@/views/setting/components/SettingUser.vue'
-import SettingMap from '@/views/setting/components/SettingMap.vue'
-import SettingImg from '@/views/setting/components/SettingImg.vue'
+import SettingUser from '@/views/setting/settingUser/SettingUser.vue'
+import SettingMap from '@/views/setting/settingMap/SettingMap.vue'
+import SettingImg from '@/views/setting/settingImg/SettingImg.vue'
 
 const routes = [
   { path: '/', redirect: '/picMap', },

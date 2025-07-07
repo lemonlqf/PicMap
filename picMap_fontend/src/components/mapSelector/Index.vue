@@ -1,8 +1,9 @@
 <template>
-  <div class="selector" :style="{ '--card-number': appMapTile.length }">
-    <div v-for="(item, index) in appMapTile" :key="item.name"
+  <div class="selector" :style="{ '--card-number': defaultMapTile.length }">
+    <div v-for="(item, index) in defaultMapTile" :key="item.name"
       :class="['selector-card', { 'active': item.name === currentName }]" @click="changeMapTile(item)">
-      <img :src="item?.image" alt="">
+      <img v-if="item.isDefault" :src="item?.image" alt="">
+      <!-- <img  :src="getMapTile(item.image)" alt=""> -->
       <div class="name">{{ item.name }}</div>
       <div class="active-img">
         <img :src="SelectIcon" alt="">
@@ -13,32 +14,14 @@
 
 <script setup lang="ts">
 import { onBeforeMount, computed, watch, ref } from 'vue'
-import GDSatellite from '@/assets/map/GDSatellite.png'
-import GDGraphics from '@/assets/map/GDGraphics.png'
-import TXGraphics from '@/assets/map/TXGraphics.png'
+
 import SelectIcon from '@/assets/icon/对勾.svg?svg'
+import { defaultMapTile } from './defaultMap'
+import { getMapTile } from '@/utils/user'
 const emits = defineEmits(['changeMapTile'])
-const appMapTile = [
-  {
-    name: '高德卫星图',
-    url: 'https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
-    // image: '@/assets/map/高德卫星地图.png'
-    image: GDSatellite
-  },
-  {
-    name: '高德矢量图',
-    url: 'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
-    image: GDGraphics
-  },
-  {
-    name: '腾讯矢量图',
-    url: 'https://rt1.map.gtimg.com/tile?z={z}&x={x}&y={-y}&styleid=0&version=256',
-    image: TXGraphics
-  }
-]
 
 const value = defineModel({})
-const currentName = ref(appMapTile[0].name)
+const currentName = ref(defaultMapTile[0].name)
 
 function changeMapTile(item) {
   value.value = item
@@ -48,7 +31,7 @@ function changeMapTile(item) {
 
 onBeforeMount(() => {
   // 初始化取第一个
-  value.value = appMapTile[0]
+  value.value = defaultMapTile[0]
 })
 </script>
 
