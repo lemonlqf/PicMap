@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 10:20:05
- * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
+ * @LastEditTime: 2025-07-08 21:27:12
+ * @FilePath: \PicMap\Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
 <template>
@@ -121,6 +121,7 @@ $noActiveBackground: #325bca;
 
 .setting-page {
   background-color: rgb(246, 248, 251);
+ overflow: auto;
 }
 
 
