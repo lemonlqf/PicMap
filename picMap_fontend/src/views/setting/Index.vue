@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-08 21:27:12
+ * @LastEditTime: 2025-07-09 21:32:42
  * @FilePath: \PicMap\Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
@@ -39,8 +39,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, watch, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAppStore } from '@/store/appSchema'
 import { useSchemaStore } from '@/store/schema'
 import UserSvg from '@/assets/icon/用户.svg?component'
@@ -51,6 +51,7 @@ import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
 import { getUserSchema } from '@/utils/appSchema'
 const router = useRouter()
+const route = useRoute()
 const appStore = useAppStore()
 const schemaStore = useSchemaStore()
 const menuList = [
@@ -109,6 +110,10 @@ function goToPicMap() {
   router.push(`/picMap`)
 }
 
+function initActiveRouter() {
+  activeRouter.value = route.path.split('/')[2]
+}
+initActiveRouter()
 
 </script>
 
