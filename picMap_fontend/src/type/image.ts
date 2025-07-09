@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:15:56
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 08:57:36
- * @FilePath: \Code\picMap_fontend\src\type\image.ts
+ * @LastEditTime: 2025-07-09 21:21:29
+ * @FilePath: \PicMap\Code\picMap_fontend\src\type\image.ts
  * @Description: 
  */
 import type { IGroupInfo, IImageInfo, IGPSInfo } from './schema'
@@ -16,6 +16,12 @@ export type IImageDetailInfo = {
   size?: any,
   GPSInfo: IGPSInfo,
   [key: string]: any // 其他信息
+}
+
+export type IUploadImageInfo = {
+  id: string;
+  name: string;
+  url: string;
 }
 
 export type ICameraDetailInfo = {

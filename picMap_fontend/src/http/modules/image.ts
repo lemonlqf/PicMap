@@ -7,7 +7,7 @@
  * @Description: 对图片库的操作，CRUD相关
  */
 import http from '../axios'
-import type { IImageDetailInfo } from '@/type/image'
+import type { IImageDetailInfo, IUploadImageInfo } from '@/type/image'
 
 export default {
   uploadImages: (data: IImageDetailInfo[]) => {

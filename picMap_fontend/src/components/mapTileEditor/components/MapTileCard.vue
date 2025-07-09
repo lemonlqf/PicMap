@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-08 21:43:25
+ * @LastEditTime: 2025-07-09 20:14:21
  * @FilePath: \PicMap\Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
@@ -30,7 +30,7 @@
 
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
-import ImageUpload from './imgUpload.vue'
+import ImageUpload from '@/components/imgUpload2/ImageUpload.vue'
 import { Delete, Edit, Back } from '@element-plus/icons-vue'
 import L from 'leaflet'
 const props = defineProps({

@@ -369,10 +369,10 @@ async function readFileAsDataURL(file): Promise<string> {
 }
 
 // 添加图片
-async function uploadImages(imagInfos: IImageDetailInfo[]) {
+async function uploadImages(imageInfos: IImageDetailInfo[]) {
   // subimtData.append('data', 123)
   // 上传图片一定要用UploadImages因为有特殊操作，而且要先上传图片再保存schema
-  const res1 = await UploadImages(imagInfos)
+  const res1 = await UploadImages(imageInfos)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
   const allSuccess = res1.every(res => {
