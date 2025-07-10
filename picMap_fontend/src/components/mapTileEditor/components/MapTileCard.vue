@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-09 20:14:21
+ * @LastEditTime: 2025-07-10 23:13:26
  * @FilePath: \PicMap\Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
@@ -13,7 +13,7 @@
       <el-switch class="active-button" v-model="active"></el-switch>
     </div>
     <div class="content">
-      <ImageUpload style="width: 120px"></ImageUpload>
+      <ImageUpload v-model="imageUrl" :tileId="tileId" :disabled="!canEdit"></ImageUpload>
       <div class="info">
         <h3 class="title">瓦片名称</h3>
         <span class="value">{{ name }}</span>
@@ -21,15 +21,15 @@
         <span class="value">{{ url }}</span>
       </div>
       <div class="buttons">
-        <el-button :icon="Edit" type="primary">编辑</el-button>
-        <el-button :icon="Delete" type="danger">删除</el-button>
+        <el-button :icon="Edit" type="primary" :disabled="!canEdit">编辑</el-button>
+        <el-button :icon="Delete" type="danger" :disabled="!canEdit">删除</el-button>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import ImageUpload from '@/components/imgUpload2/ImageUpload.vue'
 import { Delete, Edit, Back } from '@element-plus/icons-vue'
 import L from 'leaflet'
@@ -42,12 +42,32 @@ const props = defineProps({
     type: String,
     default: '未设置'
   },
-  img: {
+  image: {
     type: String,
     default: ''
+  },
+  tileId: {
+    type: String,
+    default: ''
+  },
+  canEdit: {
+    type: Boolean,
+    default: true
+  },
+  active: {
+    type: Boolean,
+    default: false
   }
 })
-const active = ref(false)
+const emits = defineEmits(['activeChange'])
+const active = computed({
+  get: () => {
+    return props.active
+  },
+  set: (value) => {
+    emits('activeChange', { active: value, tileId: props.tileId })
+  }
+})
 const mapRef = ref()
 function initTile() {
   var map = L.map(mapRef.value, {
@@ -64,6 +84,16 @@ function initTile() {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
   }).addTo(map);
 }
+
+const imageUrl = ref('')
+
+watch(() => props.image, (newValue) => {
+  imageUrl.value = newValue
+}, { immediate: true })
+
+watch(() => active.value, (newVal) => {
+  emits('activeChange', { active: active.value, tileId: props.tileId } )
+})
 
 onMounted(() => {
   initTile()

@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-24 20:25:25
- * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
+ * @LastEditTime: 2025-07-10 22:58:53
+ * @FilePath: \PicMap\Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
@@ -139,6 +139,21 @@ export async function editSchemaAndSave(id: string, attr: string, value: any) {
   })
   set(groupOrImageInfo, attr, value)
   await saveSchema()
+}
+
+/**
+ * @description: 编辑schema属性
+ * @param {string} attr
+ * @param {any} value
+ * @return {*}
+ */
+export async function editSchemaAttrAndSave(attr: string, value: any) {
+  const schemaStore = useSchemaStore()
+  const schema = schemaStore.getSchema
+  set(schema, attr, value)
+  const newSchema = cloneDeep(schemaStore.getSchema)
+  // 单独掉接口，不要走处理图片的逻辑
+  await API.schema.setSchema({ schema: JSON.stringify(newSchema) })
 }
 
 /**

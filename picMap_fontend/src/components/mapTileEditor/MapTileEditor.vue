@@ -3,8 +3,11 @@
     <EditorCard title="瓦片配置" :img="TileIcon">
       <template #content>
         <div class="content">
-          <template v-for="item in defaultMapTile">
-            <MapTileCard class="card" :url="item.url" :name="item.name" :img="item.image"></MapTileCard>
+          <!-- 默认瓦片 -->
+          <template v-for="item in tileInfoList">
+            <MapTileCard :can-edit="!item?.isDefault" :active="activeTileList.includes(item.id)"
+              @activeChange="tileActiveChange" class="card" :url="item.url" :name="item.name" :image="item.image"
+              :tileId="item.id"></MapTileCard>
           </template>
           <div class="add">
             <AddIcon width="70"></AddIcon>
@@ -16,13 +19,55 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import EditorCard from '../editorCard/EditorCard.vue';
 import TileIcon from '@/assets/icon/图层.svg?component'
 import MapTileCard from './components/MapTileCard.vue';
-import { defaultMapTile } from '@/components/mapSelector/defaultMap';
+import { defaultMapTile, type IMapTile } from '@/components/mapSelector/defaultMap';
 import AddIcon from '@/assets/icon/添加.svg?component'
-const tileList = ref([{}])
+import { useSchemaStore } from '@/store/schema';
+import { useAppStore } from '@/store/appSchema';
+import { cloneDeep } from 'lodash-es';
+import { editSchemaAndSave, editSchemaAttrAndSave } from '@/utils/schema';
+// const tileInfoList = ref<IMapTile[]>([])
+// const activeTileList = ref<string[]>([])
+
+const tileInfoList = computed<IMapTile[]>(() => {
+  const appSchemaStore = useAppStore()
+  // 获取自定义瓦片信息
+  const customTileInfos = appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? []
+  return [...defaultMapTile, ...customTileInfos]
+})
+
+const activeTileList = computed<string[]>(() => {
+  const schemaStore = useSchemaStore()
+  return schemaStore.getSchema?.mapInfo?.activeTiles ?? []
+})
+
+function init() {
+  // // 获取默认瓦片信息
+  // tileInfoList.value = 
+
+  // // 获取瓦片激活信息
+  // activeTileList.value = schemaStore.getSchema.mapInfo.activeTiles
+}
+
+
+async function tileActiveChange(arg: any) {
+  const { active, tileId } = arg
+  const schemaStore = useSchemaStore()
+  const appSchemaStore = useAppStore()
+  let activeTilesClone: string[] = cloneDeep(schemaStore.getSchema?.mapInfo?.activeTiles ?? [])
+  if (active) {
+    // 如果开启就把启用的瓦片id添加到activeTiles中
+    activeTilesClone = [...new Set([...activeTilesClone, tileId])]
+  } else {
+    // 如果关闭就去掉
+    activeTilesClone = activeTilesClone.filter(id => id !== tileId)
+  }
+  const currentUserId = appSchemaStore.getCurrentUserInfo.userId
+  await editSchemaAttrAndSave('mapInfo.activeTiles', activeTilesClone)
+}
 </script>
 
 <style scoped lang="scss">
@@ -50,15 +95,18 @@ const tileList = ref([{}])
       border-radius: 10px;
       color: #808080;
       border: 5px gray dashed;
+
       * {
         transition: all 0.2s;
       }
     }
+
     .add:hover {
       cursor: pointer;
       transform: scale(1.01);
       box-shadow: 0 0 7px rgba(0, 0, 0, 0.651);
       border-color: #1e4aaf;
+
       * {
         transform: scale(1.1);
         transform-origin: 50% 50%;

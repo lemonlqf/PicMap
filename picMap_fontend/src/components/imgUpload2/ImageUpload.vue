@@ -7,11 +7,6 @@
       <ul v-if="avatarUrlArr.length" class="el-upload-list el-upload-list--picture-card">
         <li v-for="(url, idx) in avatarUrlArr" :key="idx" :tabindex="idx" class="el-upload-list__item is-ready">
           <img :src="url" alt="" class="el-upload-list__item-thumbnail">
-          <span class="el-upload-list__item-actions" @click.stop="clickEditAvatar(idx)">
-            <el-icon class="el-icon-close el-upload-list__item-delete" title="删除" @click.stop="clickDelAvatar(idx);">
-              <Close />
-            </el-icon>
-          </span>
         </li>
       </ul>
       <svg-icon v-else name="style-template-add" class="avatar-uploader-icon" />
@@ -23,6 +18,7 @@
     </el-upload>
     <img-cropper v-model:visible="cropper.visible" :file-url="cropper.fileUrl" :options="cropper.options"
       @ok="handleConfirmCropper" @cancel="handleCancel" @closed="handleClosedCropper" @click.stop />
+    <div class="hover-tips">{{ !disabled ? '点击上传封面' : '不可编辑默认瓦片'}}</div>
   </div>
 </template>
 
@@ -33,14 +29,21 @@ import { onBeforeUnmount, reactive, ref, watch } from 'vue'
 import type { IImageDetailInfo, IUploadImageInfo } from '@/type/image'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl } from '@/utils/Image'
 import API from '@/http/index'
+import { useAppStore } from '@/store/appSchema'
+import { changeUsreAvatar } from '@/utils/user'
+import { changeMapTileAndSave } from '@/utils/appSchema'
 
 defineOptions({
   name: 'BackgroundImageSetting'
 })
-defineProps({
+const props = defineProps({
   disabled: {
     type: Boolean,
     default: false
+  },
+  tileId: {
+    type: String,
+    default: ''
   }
 })
 function formatAccept(fileAccept: string) {
@@ -172,19 +175,8 @@ async function handleConfirmCropper({ file, data }: { file: UploadFile, data: st
   // 包装成imageInfo的格式{id, name, url}
   fileList.value.push(file)
   avatarUrlArr.value.push(data)
-  const imageInfo: IUploadImageInfo = {
-    url: data,
-    name,
-    id: name,
-  }
-  // 上传图片
-  // 请求后端接口上传图片，保存本地文件目录下
-  const res = await API.image.uploadImages({ images: [imageInfo] })
-  // 保存返回的接口结果
-  if (res.code !== 200) {
-    ElMessage.warning(`${imageInfo.name} 上传失败！`)
-    return
-  }
+  const appStore = useAppStore()
+  await changeMapTileAndSave(props.tileId, data)
 
   data = transformUrl2BgImage(data)
   value.value = data
@@ -223,6 +215,13 @@ $tipsColor: #7F7F7F;
 $red: #ff5555;
 
 .background-image-setting {
+  position: relative;
+  transition: all 0.3s;
+  overflow: hidden;
+  width: 120px;
+  flex-shrink: 0;
+  border-radius: 10px;
+
   .image-uploader {
     width: 100%;
     aspect-ratio: 1 / 1;
@@ -230,8 +229,9 @@ $red: #ff5555;
   }
 
   :deep(.el-upload) {
+    box-sizing: border-box;
+    border-radius: 10px;
     border: 1px dashed $borderColor;
-    border-radius: 4px;
     cursor: pointer;
     position: relative;
     overflow: hidden;
@@ -267,7 +267,7 @@ $red: #ff5555;
         position: relative;
 
         &-thumbnail {
-          object-fit: scale-down;
+          object-fit: cover;
           background-position: center center;
         }
 
@@ -340,6 +340,29 @@ $red: #ff5555;
         }
       }
     }
+  }
+
+  .hover-tips {
+    transition: all 0.3s;
+    transform: translateY(40px);
+    color: whitesmoke;
+    background-color: #4e4f5293;
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    left: 0;
+    font-size: 14px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+.background-image-setting:hover {
+  box-shadow: 0 0 5px 2px rgba(95, 173, 236, 0.363);
+  .hover-tips {
+    transform: translateY(0px);
   }
 }
 </style>

@@ -2,14 +2,14 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:41:27
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-18 14:41:01
- * @FilePath: \Code\picMap_fontend\src\store\schema.ts
+ * @LastEditTime: 2025-07-10 22:50:01
+ * @FilePath: \PicMap\Code\picMap_fontend\src\store\schema.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
 import { defineStore } from 'pinia'
 import { judgeHadUploadImage } from '../utils/schema'
 import { isGroupIdExist, createNewGroupName } from '@/utils/group'
-import type { IGroupInfo, ISchema } from '@/type/schema'
+import type { IGroupInfo, IMapInfo, ISchema } from '@/type/schema'
 
 // 地图schema
 export const useSchemaStore = defineStore('schema', {
@@ -22,6 +22,7 @@ export const useSchemaStore = defineStore('schema', {
     getSchema: state => state.schema as ISchema,
     getUploadedImageIds: state => state.uploadedImageIds ?? [] as string[],
     getGroupInfo: state => state.schema.groupInfo ?? [] as IGroupInfo[],
+    getMapInfo: state => state.schema.mapInfo ?? {} as IMapInfo
   },
   actions: {
     setSchema(value) {

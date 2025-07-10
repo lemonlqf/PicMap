@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-09 21:32:42
+ * @LastEditTime: 2025-07-10 23:06:34
  * @FilePath: \PicMap\Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
@@ -99,7 +99,7 @@ const currentSchema = computed(() => {
 watch(() => currentUserInfo.value.userId, async (newValue) => {
   const schema = await getUserSchema()
   schemaStore.setSchema(schema)
-}, {deep: true})
+}, {deep: true, immediate: true})
 
 function goRouter(value: string) {
   activeRouter.value = value

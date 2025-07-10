@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-01-25 20:00:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 16:59:40
- * @FilePath: \Code\picMap_backend\public\globalVariable.js
+ * @LastEditTime: 2025-07-10 22:22:54
+ * @FilePath: \PicMap\Code\picMap_backend\public\globalVariable.js
  * @Description:
  */
 
@@ -67,7 +67,13 @@ function setUserName(name) {
 const defaultSchema = JSON.stringify({
   version: '1.0.0',
   mapInfo: {
-    center
+    center,
+    // 默认瓦片的id,与前端defaultMapTile中的id对应
+    activeTiles: [
+      'default1',
+      'default2',
+      'default3',
+    ]
   },
   groupInfo: [],
   imageInfo: []

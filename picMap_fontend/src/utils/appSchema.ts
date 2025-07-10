@@ -2,8 +2,8 @@
 * @Author: Do not edit
 * @Date: 2025-06-29 15:35:12
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 15:14:14
- * @FilePath: \Code\picMap_fontend\src\utils\appSchema.ts
+ * @LastEditTime: 2025-07-10 22:53:42
+ * @FilePath: \PicMap\Code\picMap_fontend\src\utils\appSchema.ts
 * @Description: 
 */
 import type { IAppSchema, IUserInfo } from '@/type/appSchema';
@@ -74,7 +74,7 @@ export async function getUserSchema() {
  * @param {any} value
  * @return {*}
  */
-export async function editAppSchemaAndSave(attr: string, value: any) {
+export async function editAppSchemaAttrAndSave(attr: string, value: any) {
   const appStore = useAppStore()
   const appSchema = appStore.getAppSchema
   set(appSchema, attr, value)
@@ -96,5 +96,17 @@ export async function editUserInfoAndSave(userId: string, attr: string, value: a
     set(userInfo, attr, value)
     await saveAppSchema()
   }
+}
+
+export async function changeMapTileAndSave(mapTileId: string, image: string) {
+  const appStore = useAppStore()
+  let cloneMapTiles = cloneDeep(appStore.getAppSchema.mapInfo.mapTiles)
+  cloneMapTiles = cloneMapTiles.map(mapTile => {
+    if (mapTileId === mapTile.id) {
+      mapTile.image = image
+    }
+    return mapTile
+  })
+  await editAppSchemaAttrAndSave('mapInfo.mapTiles', cloneMapTiles)
 }
 

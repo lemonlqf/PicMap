@@ -2,22 +2,26 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 09:38:07
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-10 22:30:56
- * @FilePath: \Code\picMap_fontend\src\type\schema.ts
+ * @LastEditTime: 2025-07-10 22:25:50
+ * @FilePath: \PicMap\Code\picMap_fontend\src\type\schema.ts
  * @Description: 
  */
 
 
+
 export type ISchema = {
   verison: string,
-  mapInfo: {
-    center: number[],
-    maxZoom: number,
-    minZoom: number,
-    zoom: number
-  },
+  mapInfo: IMapInfo,
   groupInfo: IGroupInfo[],
   imageInfo: IImageInfo[],
+}
+
+export type IMapInfo = {
+  center: number[],
+  maxZoom: number,
+  minZoom: number,
+  zoom: number,
+  activeTiles: string[]
 }
 
 export type IGroupInfo = {
