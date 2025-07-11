@@ -1,3 +1,12 @@
+<!--
+ * @Author: Do not edit
+ * @Date: 2025-07-06 15:47:50
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-07-11 20:28:16
+ * @FilePath: \PicMap\Code\picMap_fontend\src\components\mapTileEditor\MapTileEditor.vue
+ * @Description: 地图瓦片配置项
+-->
+
 <template>
   <div class="tile-editor">
     <EditorCard title="瓦片配置" :img="TileIcon">
@@ -9,7 +18,7 @@
               @activeChange="tileActiveChange" class="card" :url="item.url" :name="item.name" :image="item.image"
               :tileId="item.id"></MapTileCard>
           </template>
-          <div class="add">
+          <div class="add" @click="addMapTile">
             <AddIcon width="70"></AddIcon>
           </div>
         </div>
@@ -29,6 +38,8 @@ import { useSchemaStore } from '@/store/schema';
 import { useAppStore } from '@/store/appSchema';
 import { cloneDeep } from 'lodash-es';
 import { editSchemaAndSave, editSchemaAttrAndSave } from '@/utils/schema';
+import { ElMessage } from 'element-plus';
+import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
 // const tileInfoList = ref<IMapTile[]>([])
 // const activeTileList = ref<string[]>([])
 
@@ -44,15 +55,6 @@ const activeTileList = computed<string[]>(() => {
   return schemaStore.getSchema?.mapInfo?.activeTiles ?? []
 })
 
-function init() {
-  // // 获取默认瓦片信息
-  // tileInfoList.value = 
-
-  // // 获取瓦片激活信息
-  // activeTileList.value = schemaStore.getSchema.mapInfo.activeTiles
-}
-
-
 async function tileActiveChange(arg: any) {
   const { active, tileId } = arg
   const schemaStore = useSchemaStore()
@@ -65,8 +67,25 @@ async function tileActiveChange(arg: any) {
     // 如果关闭就去掉
     activeTilesClone = activeTilesClone.filter(id => id !== tileId)
   }
-  const currentUserId = appSchemaStore.getCurrentUserInfo.userId
+  if (activeTilesClone.length < 1) {
+    ElMessage.warning('请最少启用一个瓦片！')
+    return
+  }
   await editSchemaAttrAndSave('mapInfo.activeTiles', activeTilesClone)
+}
+
+async function addMapTile() {
+  const id = `tile_${new Date().getTime()}`
+  const newTileInfo = {
+    id,
+    name: '',
+    url: '',
+    image: ''
+  }
+  const appSchemaStore = useAppStore()
+  const customTileInfos = cloneDeep(appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? [])
+  customTileInfos.push(newTileInfo)
+  editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
 }
 </script>
 
@@ -82,16 +101,18 @@ async function tileActiveChange(arg: any) {
 
     .card {
       width: 49%;
+      flex-shrink: 0;
     }
 
     .add {
       transition: all 0.2s;
-      width: 49%;
+      width: 48.2%;
       background-color: rgba(0, 0, 0, 0.062);
       display: flex;
       align-items: center;
       justify-content: center;
-      flex: 1;
+      // flex: 1;
+      flex-shrink: 0;
       border-radius: 10px;
       color: #808080;
       border: 5px gray dashed;

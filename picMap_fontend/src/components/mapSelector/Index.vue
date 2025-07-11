@@ -1,6 +1,6 @@
 <template>
-  <div class="selector" :style="{ '--card-number': defaultMapTile.length }">
-    <div v-for="(item, index) in defaultMapTile" :key="item.name"
+  <div class="selector" :style="{ '--card-number': tileInfoList.length }">
+    <div v-for="(item, index) in tileInfoList" :key="item.name"
       :class="['selector-card', { 'active': item.name === currentName }]" @click="changeMapTile(item)">
       <img v-if="item.isDefault" :src="item?.image" alt="">
       <!-- <img  :src="getMapTile(item.image)" alt=""> -->
@@ -13,15 +13,35 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, computed, watch, ref } from 'vue'
+import { onBeforeMount, computed, watch, ref, onMounted } from 'vue'
 
 import SelectIcon from '@/assets/icon/对勾.svg?svg'
-import { defaultMapTile } from './defaultMap'
+import { defaultMapTile, type IMapTile } from './defaultMap'
 import { getMapTile } from '@/utils/user'
+import { useAppStore } from '@/store/appSchema'
+import { useSchemaStore } from '@/store/schema'
+import { cloneDeep } from 'lodash-es'
 const emits = defineEmits(['changeMapTile'])
 
 const value = defineModel({})
 const currentName = ref(defaultMapTile[0].name)
+
+const tileInfoList = computed<IMapTile[]>(() => {
+  const appSchemaStore = useAppStore()
+  const schemaStore = useSchemaStore()
+  // 获取自定义瓦片信息
+  const customTileInfos = appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? []
+  // 只展示生效的瓦片
+  const activeTileId = cloneDeep(schemaStore.getSchema?.mapInfo?.activeTiles ?? [])
+
+  return [...defaultMapTile, ...customTileInfos].filter(item => {
+    return activeTileId.includes(item.id)
+  })
+})
+
+watch(() => tileInfoList.value, (newValue) => {
+  value.value = newValue[0]
+}, {deep: true})
 
 function changeMapTile(item) {
   value.value = item
@@ -29,10 +49,6 @@ function changeMapTile(item) {
   emits('changeMapTile', item)
 }
 
-onBeforeMount(() => {
-  // 初始化取第一个
-  value.value = defaultMapTile[0]
-})
 </script>
 
 <style scoped lang="scss">
@@ -124,13 +140,15 @@ $border-raduis: 6px;
 
 .selector:hover {
 
+
   // 假设最多有 10 个卡片
-  @for $i from 1 through 10 {
+  @for $i from 1 through 100 {
     .selector-card:nth-of-type(#{$i}) {
       transform: translateX(#{($i - 1) * - 99}px);
     }
   }
 
+  // width: calc(var(cardLength) * 97px);
   width: calc(var(--card-number) * 97px);
 
   .selector-card {

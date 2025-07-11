@@ -2,13 +2,14 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-01 20:15:33
- * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
+ * @LastEditTime: 2025-07-11 19:22:34
+ * @FilePath: \PicMap\Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
 <template>
   <div id="map"></div>
   <div v-show="!pureMode" class="fix-group switch-group">
+    <!-- 瓦片选择器 -->
     <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
   </div>
   <div class="buttons">
@@ -162,9 +163,9 @@ function initTile() {
   if (currentTileLayer) {
     map.removeLayer(currentTileLayer)
   }
-  currentTileLayer = L.tileLayer(`${currentMapTile.url}`, {
+  currentMapTile?.url &&( currentTileLayer = L.tileLayer(`${currentMapTile?.url}`, {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
-  }).addTo(map)
+  })?.addTo?.(map))
 }
 
 /**

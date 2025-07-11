@@ -10,6 +10,7 @@ import { useSchemaStore } from '@/store/schema'
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/http/index'
 import type { ISchema, IGroupInfo, IImageInfo, IShowType } from '@/type/schema'
+import schemaHttp from '@/http/modules/schema'
 
 type IGroupList = IGroupInfo & {
   showType: 'group'
@@ -119,7 +120,7 @@ export async function saveSchema() {
     // 删除url，精简schema
     delete item.url
   })
-  const res = await API.schema.setSchema({ schema: JSON.stringify(schema) })
+  const res = await schemaHttp.setSchema({ schema: JSON.stringify(schema) })
   return res
 }
 
@@ -153,7 +154,7 @@ export async function editSchemaAttrAndSave(attr: string, value: any) {
   set(schema, attr, value)
   const newSchema = cloneDeep(schemaStore.getSchema)
   // 单独掉接口，不要走处理图片的逻辑
-  await API.schema.setSchema({ schema: JSON.stringify(newSchema) })
+  await schemaHttp.setSchema({ schema: JSON.stringify(newSchema) })
 }
 
 /**

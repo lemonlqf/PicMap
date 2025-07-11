@@ -70,9 +70,9 @@ const defaultSchema = JSON.stringify({
     center,
     // 默认瓦片的id,与前端defaultMapTile中的id对应
     activeTiles: [
-      'default1',
-      'default2',
-      'default3',
+      'tile_default1',
+      'tile_default2',
+      'tile_default3',
     ]
   },
   groupInfo: [],

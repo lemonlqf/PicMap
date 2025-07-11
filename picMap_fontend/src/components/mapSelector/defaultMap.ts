@@ -12,7 +12,7 @@ export interface IMapTile {
 
 export const defaultMapTile: IMapTile[] = [
   {
-    id: 'default1',
+    id: 'tile_default1',
     isDefault: true,
     name: '高德卫星图',
     url: 'https://webst01.is.autonavi.com/appmaptile?style=6&x={x}&y={y}&z={z}',
@@ -20,14 +20,14 @@ export const defaultMapTile: IMapTile[] = [
     image: GDSatellite
   },
   {
-    id: 'default2',
+    id: 'tile_default2',
     isDefault: true,
     name: '高德矢量图',
     url: 'https://webrd04.is.autonavi.com/appmaptile?lang=zh_cn&size=1&scale=1&style=7&x={x}&y={y}&z={z}',
     image: GDGraphics
   },
   {
-    id: 'default3',
+    id: 'tile_default3',
     isDefault: true,
     name: '腾讯矢量图',
     url: 'https://rt1.map.gtimg.com/tile?z={z}&x={x}&y={-y}&styleid=0&version=256',

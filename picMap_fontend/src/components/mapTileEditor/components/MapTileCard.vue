@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-10 23:13:26
+ * @LastEditTime: 2025-07-11 20:43:13
  * @FilePath: \PicMap\Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
@@ -16,13 +16,26 @@
       <ImageUpload v-model="imageUrl" :tileId="tileId" :disabled="!canEdit"></ImageUpload>
       <div class="info">
         <h3 class="title">瓦片名称</h3>
-        <span class="value">{{ name }}</span>
+        <div class="value">
+          <span v-if="!isEdit">{{ name || '未设置' }}</span>
+          <el-input v-else size="small" :maxlength="10" show-word-limit v-model="inputName" @change="changeName">
+          </el-input>
+        </div>
         <h3 class="title">地址</h3>
-        <span class="value">{{ url }}</span>
+        <div class="value">
+          <span v-if="!isEdit">{{ url || '未设置' }}</span>
+          <el-input v-else size="small" v-model="inputUrl" @change="changeUrl">
+          </el-input>
+        </div>
       </div>
       <div class="buttons">
-        <el-button :icon="Edit" type="primary" :disabled="!canEdit">编辑</el-button>
-        <el-button :icon="Delete" type="danger" :disabled="!canEdit">删除</el-button>
+        <template v-if="!isEdit">
+          <el-button :icon="Edit" type="primary" :disabled="!canEdit" @click="isEdit = true">编辑</el-button>
+          <el-button :icon="Delete" type="danger" :disabled="!canEdit" @click="deleteTile(props.tileId)">删除</el-button>
+        </template>
+        <template v-else>
+          <el-button @click="isEdit = false" :icon="Back">退出编辑</el-button>
+        </template>
       </div>
     </div>
   </div>
@@ -33,6 +46,11 @@ import { computed, onMounted, ref, watch } from 'vue';
 import ImageUpload from '@/components/imgUpload2/ImageUpload.vue'
 import { Delete, Edit, Back } from '@element-plus/icons-vue'
 import L from 'leaflet'
+import type { IMapTile } from '@/components/mapSelector/defaultMap';
+import { ElMessage } from 'element-plus';
+import { useAppStore } from '@/store/appSchema';
+import { cloneDeep } from 'lodash-es';
+import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
 const props = defineProps({
   url: {
     type: String,
@@ -57,7 +75,7 @@ const props = defineProps({
   active: {
     type: Boolean,
     default: false
-  }
+  },
 })
 const emits = defineEmits(['activeChange'])
 const active = computed({
@@ -85,6 +103,7 @@ function initTile() {
   }).addTo(map);
 }
 
+
 const imageUrl = ref('')
 
 watch(() => props.image, (newValue) => {
@@ -92,8 +111,63 @@ watch(() => props.image, (newValue) => {
 }, { immediate: true })
 
 watch(() => active.value, (newVal) => {
-  emits('activeChange', { active: active.value, tileId: props.tileId } )
+  emits('activeChange', { active: active.value, tileId: props.tileId })
 })
+
+const isEdit = ref(false)
+const inputName = ref('')
+watch(() => props.name, () => {
+  inputName.value = props.name
+}, { immediate: true })
+
+const inputUrl = ref('')
+watch(() => props.url, () => {
+  inputUrl.value = props.url
+}, { immediate: true })
+
+
+
+function changeName(value: string) {
+  if (value.length < 1) {
+    ElMessage.warning('请输入名称')
+    // inputName.value = props.name
+  }
+  const appSchemaStore = useAppStore()
+  let customTileInfos = cloneDeep(appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? [])
+  customTileInfos = customTileInfos.map(item => {
+    if (item.id === props.tileId) {
+      item.name = value
+    }
+    return item
+  })
+  editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
+}
+
+function changeUrl(value: string) {
+  if (value.length < 1) {
+    ElMessage.warning('地址为空时，瓦片不会显示')
+    // inputName.value = props.name
+  }
+  const appSchemaStore = useAppStore()
+  let customTileInfos = cloneDeep(appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? [])
+  customTileInfos = customTileInfos.map(item => {
+    if (item.id === props.tileId) {
+      item.url = value
+    }
+    return item
+  })
+  editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
+}
+
+async function deleteTile(tileId: string) {
+  const appSchemaStore = useAppStore()
+  let customTileInfos = cloneDeep(appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? [])
+  customTileInfos = customTileInfos.filter(item => {
+    return item.id !== tileId
+  })
+  editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
+}
+
 
 onMounted(() => {
   initTile()
