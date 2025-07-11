@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-11 20:43:13
- * @FilePath: \PicMap\Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
+ * @LastEditTime: 2025-07-11 23:53:31
+ * @FilePath: \Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
 <template>
@@ -87,18 +87,28 @@ const active = computed({
   }
 })
 const mapRef = ref()
-function initTile() {
-  var map = L.map(mapRef.value, {
-    zoom: 10, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
-    minZoom: 3,
-    maxZoom: 18, // 目前小于18不显示了
-    center: [30.2489634, 120.2052342],
-    zoomControl: false, //缩放组件
-    attributionControl: false //去掉右下角logol
-  })
+let map: any = null
+function initMap() {
+  if (!map) {
+    map = L.map(mapRef.value, {
+      zoom: 10, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+      minZoom: 3,
+      maxZoom: 18, // 目前小于18不显示了
+      center: [30.2489634, 120.2052342],
+      zoomControl: false, //缩放组件
+      attributionControl: false //去掉右下角logol
+    })
+  }
+}
 
+let currentTileLayer: any = null
+function initTile() {
+  // 移除旧的图层
+  if (currentTileLayer) {
+    map.removeLayer(currentTileLayer)
+  }
   // 添加瓦片图层（OpenStreetMap）
-  L.tileLayer(props.url, {
+  currentTileLayer = L.tileLayer(props.url, {
     attribution: '&copy; <p>OpenStreetMap</p> contributors'
   }).addTo(map);
 }
@@ -143,7 +153,7 @@ function changeName(value: string) {
   editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
 }
 
-function changeUrl(value: string) {
+async function changeUrl(value: string) {
   if (value.length < 1) {
     ElMessage.warning('地址为空时，瓦片不会显示')
     // inputName.value = props.name
@@ -156,7 +166,8 @@ function changeUrl(value: string) {
     }
     return item
   })
-  editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
+  await editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
+  initTile()
 }
 
 async function deleteTile(tileId: string) {
@@ -170,6 +181,7 @@ async function deleteTile(tileId: string) {
 
 
 onMounted(() => {
+  initMap()
   initTile()
 })
 </script>
@@ -189,6 +201,7 @@ onMounted(() => {
     position: relative;
     height: 100px;
     box-shadow: 0 0 5px rgba(0, 0, 0, 0.349);
+    background: linear-gradient(to right, #4b6cb7, #182848);
     // border-bottom: 1px solid rgba(0, 0, 255, 0.349);
 
     :deep() {
@@ -209,6 +222,15 @@ onMounted(() => {
         background: rgb(43, 130, 243);
       }
     }
+  }
+
+  .preview::after {
+    content: '请添加有效瓦片地址以预览';
+    position: absolute;
+    bottom: 3px;
+    right: 3px;
+    opacity: 0.5;
+    color: whitesmoke
   }
 
   .content {

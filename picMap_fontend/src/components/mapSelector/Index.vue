@@ -2,9 +2,9 @@
   <div class="selector" :style="{ '--card-number': tileInfoList.length }">
     <div v-for="(item, index) in tileInfoList" :key="item.name"
       :class="['selector-card', { 'active': item.name === currentName }]" @click="changeMapTile(item)">
-      <img v-if="item.isDefault" :src="item?.image" alt="">
-      <!-- <img  :src="getMapTile(item.image)" alt=""> -->
-      <div class="name">{{ item.name }}</div>
+      <img v-if="item?.image.length" :src="item?.image" alt="">
+      <img v-else style="opacity: 0.4" :src="defaultIcon" alt="">
+      <div class="name"><span>{{ item.name || '未设置' }}</span></div>
       <div class="active-img">
         <img :src="SelectIcon" alt="">
       </div>
@@ -21,6 +21,8 @@ import { getMapTile } from '@/utils/user'
 import { useAppStore } from '@/store/appSchema'
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep } from 'lodash-es'
+import defaultIcon from '@/assets/icon/默认图片.svg?svg'
+
 const emits = defineEmits(['changeMapTile'])
 
 const value = defineModel({})
@@ -92,6 +94,7 @@ $border-raduis: 6px;
     }
 
     .name {
+      flex: 1;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -101,10 +104,16 @@ $border-raduis: 6px;
       position: absolute;
       color: rgb(59, 59, 59);
       background-color: rgba(211, 211, 211, 0.788);
-      font-size: 14px;
+      font-size: 12px;
       height: 30px;
       border-bottom-right-radius: calc($border-raduis - 4px);
       border-bottom-left-radius: calc($border-raduis - 4px);
+      span {
+        text-overflow: ellipsis;
+        overflow: hidden;
+        word-break: keep-all;
+        max-width: 100%;
+      }
     }
 
     .active-img {

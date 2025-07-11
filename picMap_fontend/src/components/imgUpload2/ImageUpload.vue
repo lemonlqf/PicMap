@@ -9,7 +9,8 @@
           <img :src="url" alt="" class="el-upload-list__item-thumbnail">
         </li>
       </ul>
-      <svg-icon v-else name="style-template-add" class="avatar-uploader-icon" />
+      <img v-else width="40%" style="opacity: 0.4" :src="defaultIcon" alt="">
+      <!-- <svg-icon v-else name="style-template-add" class="avatar-uploader-icon" /> -->
       <template #tip>
         <div class="el-upload__tip">
           <!-- {{ `支持上传 png、jpg、jpeg 格式图片，大小不超过 10 M` }} -->
@@ -32,6 +33,7 @@ import API from '@/http/index'
 import { useAppStore } from '@/store/appSchema'
 import { changeUsreAvatar } from '@/utils/user'
 import { changeMapTileAndSave } from '@/utils/appSchema'
+import defaultIcon from '@/assets/icon/默认图片.svg?svg'
 
 defineOptions({
   name: 'BackgroundImageSetting'
@@ -46,6 +48,7 @@ const props = defineProps({
     default: ''
   }
 })
+
 function formatAccept(fileAccept: string) {
   return fileAccept.split(',').map((item) => {
     return `.${item}`

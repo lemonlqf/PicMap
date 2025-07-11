@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-06 15:47:50
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-11 20:28:16
- * @FilePath: \PicMap\Code\picMap_fontend\src\components\mapTileEditor\MapTileEditor.vue
+ * @LastEditTime: 2025-07-12 00:01:08
+ * @FilePath: \Code\picMap_fontend\src\components\mapTileEditor\MapTileEditor.vue
  * @Description: 地图瓦片配置项
 -->
 
@@ -13,7 +13,7 @@
       <template #content>
         <div class="content">
           <!-- 默认瓦片 -->
-          <template v-for="item in tileInfoList">
+          <template v-for="item in tileInfoList" :key="item.id">
             <MapTileCard :can-edit="!item?.isDefault" :active="activeTileList.includes(item.id)"
               @activeChange="tileActiveChange" class="card" :url="item.url" :name="item.name" :image="item.image"
               :tileId="item.id"></MapTileCard>
