@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 21:16:03
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 15:49:27
+ * @LastEditTime: 2025-07-12 12:47:09
  * @FilePath: \Code\picMap_fontend\src\views\setting\settingUser\SettingUser.vue
  * @Description: 
 -->
@@ -98,7 +98,7 @@
             </el-popconfirm>
           </template>
           <template v-else>
-            <el-button @click="isEdit = false" :icon="Back">退出编辑</el-button>
+            <el-button @click="isEdit = false" :icon="Back" type="primary">退出编辑</el-button>
           </template>
         </div>
       </div>

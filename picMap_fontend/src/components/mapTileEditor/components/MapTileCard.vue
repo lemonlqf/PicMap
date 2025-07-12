@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-11 23:53:31
+ * @LastEditTime: 2025-07-12 12:45:08
  * @FilePath: \Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
@@ -34,7 +34,7 @@
           <el-button :icon="Delete" type="danger" :disabled="!canEdit" @click="deleteTile(props.tileId)">删除</el-button>
         </template>
         <template v-else>
-          <el-button @click="isEdit = false" :icon="Back">退出编辑</el-button>
+          <el-button @click="isEdit = false" :icon="Back" type="primary">退出编辑</el-button>
         </template>
       </div>
     </div>
@@ -225,7 +225,7 @@ onMounted(() => {
   }
 
   .preview::after {
-    content: '请添加有效瓦片地址以预览';
+    content: '请添加有效瓦片地址,在此处预览';
     position: absolute;
     bottom: 3px;
     right: 3px;
@@ -257,10 +257,12 @@ onMounted(() => {
         font-size: 15px;
         color: rgb(43, 43, 43);
         margin-bottom: 5px;
+        width: 94%;
       }
 
       .value:nth-of-type(2) {
         height: 45px;
+        word-break: break-all;
       }
     }
 

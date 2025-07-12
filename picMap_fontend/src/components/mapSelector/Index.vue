@@ -35,11 +35,18 @@ const tileInfoList = computed<IMapTile[]>(() => {
   const customTileInfos = appSchemaStore.getAppSchema?.mapInfo?.mapTiles ?? []
   // 只展示生效的瓦片
   const activeTileId = cloneDeep(schemaStore.getSchema?.mapInfo?.activeTiles ?? [])
-
-  return [...defaultMapTile, ...customTileInfos].filter(item => {
+  
+  const res = [...defaultMapTile, ...customTileInfos].filter(item => {
     return activeTileId.includes(item.id)
   })
+  // 如果没有启用就默认使用第一个
+  if (res.length === 0) {
+    res.push(defaultMapTile[0])
+  }
+  currentName.value = res[0].name
+  return res
 })
+
 
 watch(() => tileInfoList.value, (newValue) => {
   value.value = newValue[0]
@@ -153,12 +160,12 @@ $border-raduis: 6px;
   // 假设最多有 10 个卡片
   @for $i from 1 through 100 {
     .selector-card:nth-of-type(#{$i}) {
-      transform: translateX(#{($i - 1) * - 99}px);
+      transform: translateX(#{($i - 1) * - 92}px);
     }
   }
 
   // width: calc(var(cardLength) * 97px);
-  width: calc(var(--card-number) * 97px);
+  width: calc(var(--card-number) * 92px);
 
   .selector-card {
     box-shadow: 2px 2px 5px rgb(0 0 0 / 35%);
