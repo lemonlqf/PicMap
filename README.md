@@ -1,4 +1,6 @@
-# PicMap [中文](README_zh.md)
+# PicMap
+
+[中文](README_zh.md)
 
 PicMap is an image mapping application based on Vue3 for the frontend and Express for the backend. You can display and manage your images on the map.
 
