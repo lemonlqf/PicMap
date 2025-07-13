@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-01 20:19:02
+ * @LastEditTime: 2025-07-13 13:30:28
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -10,7 +10,7 @@
   <div class="img-upload">
     <el-upload v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-      <el-button style="margin-right: 10px; width: 180px;" type="primary">点击上传图片</el-button>
+      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary">点击上传图片</el-button>
       <!-- <template #tip>
         <div class="el-upload__tip">请上传图片</div>
       </template> -->
@@ -20,12 +20,22 @@
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <!-- 重复的图片 -->
         <h3>已上传图片：</h3>
-        <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
-          <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
-            @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
-          <!-- <h1>照片名:{{ item.name }}</h1>
+        <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '53px'">
+          <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
+            <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
+              @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
+            <!-- <h1>照片名:{{ item.name }}</h1>
         <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
         <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1> -->
+          </div>
+        </el-scrollbar>
+        <!-- 折叠、展开、清空已上传图片 -->
+        <div class="button-flex">
+          <el-button class="bottom-button" v-show="uploadExpand" :icon="ArrowUpBold" @click="uploadExpand = false"
+            type="primary">折叠</el-button>
+          <el-button class="bottom-button" v-show="!uploadExpand" :icon="ArrowDownBold" @click="uploadExpand = true"
+            type="primary">展开</el-button>
+          <el-button class="bottom-button" @click="clearUploadImage" :icon="Delete" type="danger">清空</el-button>
         </div>
       </div>
       <div v-show="needUploadImageInfos.length">
@@ -59,9 +69,10 @@
       </div>
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
-    <el-button v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
+    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
       type="primary">批量上传</el-button>
-    <el-button v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">全部清空</el-button>
+    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll"
+      type="danger">全部清空</el-button>
   </div>
   <!-- 定位弹框 -->
   <el-dialog :z-index="9999" v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
@@ -95,6 +106,7 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
+import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
 import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl } from '@/utils/Image'
@@ -133,6 +145,9 @@ const needLocateImageIdFormData = ref({
 })
 
 const locateFromRef = ref()
+
+// 上传图片是否展开
+const uploadExpand = ref(false)
 
 function isInHasUrlFileList(id) {
   return hasUrlFileList.value.some(item => {
@@ -200,6 +215,17 @@ const uploadedImageInfos = computed(() => {
 })
 
 
+// 清空已上传的图片
+function clearUploadImage() {
+  hasUrlFileList.value = hasUrlFileList.value.filter(item => {
+    return !judgeHadUploadImage(item.id)
+  })
+  elUploadFileList.value = elUploadFileList.value.filter(item => {
+    return !judgeHadUploadImage(item.name)
+  })
+}
+
+
 // 通过raw文件获取相关的文件数据
 function getFileInfoByFile(file) {
   const { lastModified, name, size, type } = file
@@ -218,7 +244,7 @@ async function setMoreInfoByExifReader(file, name?) {
   // 图片信息
   const imageInfo: IImageDetailInfo = getImageInfo(tags, file)
   // 相机信息
-  const cameraInfo: ICameraDetailInfo  = getCameraInfo(tags)
+  const cameraInfo: ICameraDetailInfo = getCameraInfo(tags)
   // 作者信息
   const authorInfo: IAuthorDetailInfo = getAuthorInfo(tags)
   // TODO:设置其他值
@@ -508,7 +534,6 @@ function showGroupDialog(imageId) {
   groupDialogShow.value = true
 }
 
-
 // TODO:更新图片信息
 function updateImgs() { }
 
@@ -525,10 +550,15 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
+.bottom-button {
+  margin: 10px 5px !important;
+}
+
 .img-upload {
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
-  padding: 10px 0 10px 10px;
+  padding: 10px 0 0 10px;
+
 }
 
 :deep(.el-upload-list) {
@@ -545,9 +575,27 @@ h3 {
 }
 
 .duplicate-image-box {
+  transition: all 0.3s;
   margin-right: 10px;
   max-width: 200px;
+  height: fit-content;
+  padding: 0 0 5px 0;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.185);
+
+  .button-flex {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 35px;
+  }
+
+  .upload-image-box {
+    transition: 0.3s height;
+    height: fit-content;
+  }
 }
+
+
 
 .upload-img-card {
   display: flex;
@@ -635,4 +683,3 @@ img {
   }
 }
 </style>
-
