@@ -34,7 +34,7 @@ Supported system: `Windows`
 
 ## Quick Start
 
-### 1. 依赖安装
+### 1. Install Dependencies
 
 Frontend：
 
