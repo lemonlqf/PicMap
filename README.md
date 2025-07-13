@@ -1,75 +1,86 @@
-# PicMap
+# PicMap [中文](#中文) | [English](#english)
 
-PicMap 是一个基于 Vue3 前端和 Express 后端的图片地图应用。你可以在地图上展示和管理你的图片。
+PicMap is an image mapping application based on Vue3 for the frontend and Express for the backend. You can display and manage your images on the map.
 
-# 主要功能
-- 图片位置展示（Leaflet）
+This application requires an internet connection only to fetch map tiles; all other features do not require online access. All your information and images are stored locally, eliminating the risk of personal information leakage.
+
+The directory for saving images and data is: `D:\PicMap`
+
+Supported system: `Windows`
+
+# Main Features
+- Image Location Display
 ![alt text](doc/image/image.png)
-- 分组管理
 
-- 图片详情展示
+- Image Grouping
 
-## 技术栈
+- User Management
 
-- 前端：Vue 3 + Vite + TypeScript + SCSS + Leaflet
-- 后端：Node.js + Express
-- 构建/打包：Vite、webpack、electron-builder
+  Allows adding, deleting, and editing user information.
+
+- Map Management
+
+  Allows management of map tiles.
+
+## Tech Stack
+
+- Frontend: Vue 3 + Vite + TypeScript + Leaflet
+- Backend: Node.js + Express
+- Build/Packaging: Vite、webpack、electron-builder
 
 ---
 
-## 快速开始
+## Quick Start
 
 ### 1. 依赖安装
 
-前端：
+Frontend：
 
-进入picMap_fontend目录下
-
-```bash
-npm install
-```
-后端：
-
-进入picMap_backend目录下
+Navigate to the `picMap_frontend` directory
 
 ```bash
 npm install
 ```
+Backend:
 
-### 2. 启动开发环境
+Navigate to the `picMap_backend` directory
 
-前端：
+```bash
+npm install
+```
 
-进入picMap_fontend目录下
+### 2. Start Development Environment
+
+Frontend：
+
+Navigate to the `picMap_frontend` directory
 
 ```bash
 npm run dev
 ```
-后端：
+Backend：
 
-进入picMap_backend目录下
+Navigate to the `picMap_backend` directory
 
 ```bash
 npm run start
 ```
 
-前端默认运行在 http://localhost:5173
+## Build Electron Application
 
-后端默认运行在 http://localhost:5001。
-
-## 构建Electron应用
-
-首先分别对前后端项目进行打包，打包命令如下：
+First, package the frontend and backend projects separately using the following command:
 
 ```bash
 npm run build
 ```
 
-然后回到根目录下进行应用构建，构建命令如下：
+After obtaining the frontend and backend artifacts, proceed to the next step.
+
+Return to the root directory and run the application build command:
 
 ```bash
 npm run build
 ```
 
-打包成功后会在根目录下生成dist目录中产物
+After a successful build, the artifacts will be generated in the `dist` directory in the root folder.
 
