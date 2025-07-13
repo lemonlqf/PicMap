@@ -2,13 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 16:53:17
+ * @LastEditTime: 2025-07-13 14:42:05
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\ImageContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
 <template>
   <div class="image-menu">
-    <div class="menu-item" v-for="item in menuList" @click="item.clickEvent()">
+    <div class="menu-item" v-for="item in menuList" @click="item.clickEvent(props.imageId)">
       <span>{{ item.label }}</span>
     </div>
   </div>
@@ -57,7 +57,7 @@ const menuList = ref([
       menuHidden()
     }
   },
-  canDragMenu(props.imageId)
+  canDragMenu()
 ])
 
 
