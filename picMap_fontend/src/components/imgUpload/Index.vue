@@ -2,13 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-13 13:36:32
+ * @LastEditTime: 2025-07-13 14:32:07
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
 <template>
   <div class="img-upload">
-    <el-upload v-model:file-list="elUploadFileList" class="upload-demo"
+    <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
       <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary">点击上传图片</el-button>
       <!-- <template #tip>
@@ -117,6 +117,7 @@ import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import type { IGPSInfo } from '@/type/schema'
+import { cloneDeep } from 'lodash-es'
 
 const schemaStore = useSchemaStore()
 const props = defineProps({
@@ -124,6 +125,14 @@ const props = defineProps({
     type: Object
   }
 })
+
+const acceptType = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/gif',
+  'image/webp',
+]
 
 const imageUrls = ref<any>({})
 // 图片gps信息，通过el-upload获取的fileList没有这个数据，用这个额变量暂时存一下，后续在formData中添加对应数据
@@ -396,9 +405,17 @@ async function readFileAsDataURL(file): Promise<string> {
 
 // 添加图片
 async function uploadImages(imageInfos: IImageDetailInfo[]) {
+  // 对有定位信息的图片进行上传
+  const locateImageInfos = cloneDeep(imageInfos).filter(item => {
+    return item.GPSInfo.GPSLatitude && item.GPSInfo.GPSLongitude
+  })
+  if (locateImageInfos.length < 1) {
+    ElMessage.warning('无图片可上传，请完善图片定位信息或上传新图片！')
+    return
+  }
   // subimtData.append('data', 123)
   // 上传图片一定要用UploadImages因为有特殊操作，而且要先上传图片再保存schema
-  const res1 = await UploadImages(imageInfos)
+  const res1 = await UploadImages(locateImageInfos)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
   const allSuccess = res1.every(res => {
