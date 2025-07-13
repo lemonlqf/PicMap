@@ -9,7 +9,8 @@ export default defineConfig({
   base: './',
   plugins: [vue(), svgLoader()],
   server: {
-    hmr: true
+    hmr: true,
+    port: 5199,
   },
   resolve: {
     api: 'modern-compiler',

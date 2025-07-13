@@ -2,7 +2,7 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-13 00:07:10
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-01 19:37:41
+ * @LastEditTime: 2025-07-13 15:21:00
  * @FilePath: \Code\picMap_fontend\src\http\axios.ts
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -11,7 +11,7 @@ import { ElMessage } from 'element-plus'
 import { useAppStore } from '@/store/appSchema'
 
 const ip = 'http://localhost'
-const port = '5001'
+const port = '5120'
 
 const http = axios.create({
   baseURL: `${ip}:${port}`,
