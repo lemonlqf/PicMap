@@ -1,4 +1,4 @@
-# PicMap [中文](#中文) | [English](#english)
+# PicMap [English](README.md)
 
 PicMap 是一个基于 Vue3 前端和 Express 后端的图片地图应用，你可以在地图上展示和管理你的图片。
 
