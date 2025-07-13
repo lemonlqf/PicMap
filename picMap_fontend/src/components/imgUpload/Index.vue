@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-13 13:30:28
+ * @LastEditTime: 2025-07-13 13:36:32
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -19,8 +19,8 @@
     <el-scrollbar max-height="75vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <!-- 重复的图片 -->
-        <h3>已上传图片：</h3>
-        <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '53px'">
+        <h3 class="h3-title">已上传图片：</h3>
+        <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
           <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
             <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
               @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
@@ -39,7 +39,7 @@
         </div>
       </div>
       <div v-show="needUploadImageInfos.length">
-        <h3>待上传图片：</h3>
+        <h3 class="h3-title">待上传图片：</h3>
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
             <img :src="item.url" alt="" :title="item.name" height="50px"
@@ -570,8 +570,10 @@ defineExpose({
   overflow: auto;
 }
 
-h3 {
+.h3-title {
   font-size: 12px;
+  color: gray;
+  margin-top: 5px;
 }
 
 .duplicate-image-box {
