@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-04-30 20:47:28
+ * @LastEditTime: 2025-07-15 22:30:32
  * @FilePath: \Code\picMap_backend\routes\image.js
  * @Description:
  */
@@ -79,6 +79,8 @@ router.post('/deleteImages', function (req, res, next) {
         })
       }
     })
+  } else {
+    res.send(Result.success('没有需要删除的图片！'))
   }
 })
 

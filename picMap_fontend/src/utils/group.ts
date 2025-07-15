@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 22:03:55
+ * @LastEditTime: 2025-07-15 22:27:25
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -242,7 +242,7 @@ export async function deleteGroupById(groupId: string, needDeleteImages = true) 
   }
   // 图片还存在其他分组中或者是其他节点中时，不删除
   deleteGroupNumbers = deleteGroupNumbers?.filter(id => {
-    return !isImageExistInOtherGroup(groupId, id) || isImageExistInImageInfo(id)
+    return !isImageExistInOtherGroup(groupId, id)
   })
   // 如果存在再删除
   deleteGroupNumbers && deleteGroupNumbers.forEach(imageId => {
@@ -253,7 +253,7 @@ export async function deleteGroupById(groupId: string, needDeleteImages = true) 
   schemaStore.deleteGroupInGroupInfo(groupId)
   // eventBus.emit('delete-image', groupId)
   saveSchema()
-  return Promise.all([API.image.deleteImages({ deleteImages: [deleteGroupNumbers] })]).then(res => {
+  return Promise.all([API.image.deleteImages({ deleteImages: deleteGroupNumbers })]).then(res => {
     deleteMarkerById(groupId)
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data
