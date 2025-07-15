@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 20:55:03
+ * @LastEditTime: 2025-07-15 22:03:55
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -190,7 +190,11 @@ function getAvarageGPSInfo(imageIds: string[]): IGPSInfo {
 export async function dissolveGroupById(groupId) {
   const schemaStore = useSchemaStore()
   // 将分组内的图片重新添加到地图中
-  const { groupNumbers } = schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
+  let { groupNumbers } = schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
+  // 只有不在其他分组内的图片才需要添加到地图中
+  groupNumbers = groupNumbers?.filter(id => {
+    return !isImageExistInOtherGroup(groupId, id)
+  }) ?? []
   groupNumbers.forEach(imageId => {
     addExistImageToMapById(imageId)
   });
