@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-27 19:23:45
+ * @LastEditTime: 2025-07-15 19:39:53
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -324,6 +324,9 @@ export function deleteMarkerInMap(marker) {
   const map = MAP_INSTANCE
   const mapStore = useMapStore()
   if (map && marker) {
+    // 删除聚合组中的节点
+    markerClusters.removeLayer(marker);
+    // 删除地图中的节点
     map.removeLayer(marker)
     mapStore.deleteMarker(marker)
   }
