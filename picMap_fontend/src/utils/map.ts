@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 19:39:53
+ * @LastEditTime: 2025-07-15 20:23:02
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -157,7 +157,7 @@ export async function addGroupMarkerToMap(groupInfo: IGroupInfo) {
     title: groupInfo.name,
     type: 'group',
     riseOnHover: true,
-    id: groupInfo.id
+    id: groupInfo.id,
   })
   marker.addTo(map)
   // 因为涉及到异步请求数据了，所以这里需要手动添加一下鼠标事件
@@ -794,10 +794,10 @@ export function GPSInfoLegality(GPSInfo: any) {
     return false
   }
   const { GPSLatitude, GPSLongitude, GPSAltitude } = GPSInfo
-  if (typeof GPSLatitude !== 'number' || typeof GPSLongitude !== 'number') {
+  if (typeof +GPSLatitude !== 'number' || typeof +GPSLongitude !== 'number') {
     return false
   }
-  if (GPSAltitude && typeof GPSAltitude !== 'number') {
+  if (GPSAltitude && typeof +GPSAltitude !== 'number') {
     return false
   }
   return true

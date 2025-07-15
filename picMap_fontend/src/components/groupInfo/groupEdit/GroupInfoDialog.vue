@@ -39,7 +39,7 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click=""
+        <el-button @click="locateNewGroup"
           v-if="singleImageGroupInfoFormData.needAddNewGroup && singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'"
           class="locate-button" type="primary" >手动定位</el-button>
         <el-button @click="closeGroupEdit">取消</el-button>
@@ -63,7 +63,7 @@ import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
 import type { IGroupInfo, ISchema } from '@/type/schema'
-import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById } from '@/utils/map'
+import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateGroupToMap } from '@/utils/map'
 
 const props = defineProps({
   imageIds: {
@@ -165,7 +165,7 @@ function pushImageToGroupInfo() {
  * @param {*} formData
  * @return {*}
  */
-async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData) {
+async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData, draggable = false) {
   const hiddenImageIds = formData.imageIds
   // 往schemaStore中添加分组信息
   const newGroupInfo = updateGroupInfoInSchema(formData)
@@ -174,7 +174,7 @@ async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData) {
   if (res.code === 200) {
     ElMessage.success('分组信息设置成功')
     // 更新地图中的节点
-    updateVisibleMarkersByFormData(newGroupInfo, hiddenImageIds)
+    updateVisibleMarkersByFormData(newGroupInfo, hiddenImageIds, draggable)
   } else {
     ElMessage.error('分组信息设置失败')
   }
@@ -228,17 +228,44 @@ function updateGroupInfoInSchema(formData: ISingleImageGroupInfoFormData): IGrou
 }
 
 /**
+ * @description: 手动定位新分组
+ * @return {*}
+ */
+function locateNewGroup() {
+  const { lat, lng } = MAP_INSTANCE.getCenter()
+  // 取地图中心位置
+  singleImageGroupInfoFormData.value.newGroupInfo.newGroupGPSInfo.GPSLatitude = lat
+  singleImageGroupInfoFormData.value.newGroupInfo.newGroupGPSInfo.GPSLongitude = lng
+  singleImageGroupInfoFormData.value.newGroupInfo.newGroupGPSInfo.GPSAltitude = 0
+  groupFormRef.value.validate((valid, fields) => {
+    if (valid) {
+      console.log(singleImageGroupInfoFormData.value)
+      // 将新分组信息添加到schema中
+      handleNewGroupInfo(singleImageGroupInfoFormData.value, true)
+      closeGroupEdit()
+    } else {
+      console.log('error submit!', fields)
+    }
+  })
+}
+
+/**
  * @description: 添加新分组，删除在分组中的图片
  * @param {*} newGroupInfo
  * @param {*} deleteMarkerIds
+ * @param {*} draggable 是否需要移动
  * @return {*}
  */
-function updateVisibleMarkersByFormData(newGroupInfo: IGroupInfo, hiddenMarkerIds: string[]) {
+function updateVisibleMarkersByFormData(newGroupInfo: IGroupInfo, hiddenMarkerIds: string[], draggable = false) {
   // 将分配到组件中的图片隐藏
   hiddenMarkerIds.forEach((imageId) => {
     hiddenMarkerById(imageId)
   })
   if (newGroupInfo) {
+    if (draggable) {
+      addManualLocateGroupToMap(newGroupInfo)
+      return
+    }
     // 添加新的分组点位
     addGroupMarkerToMap(newGroupInfo)
   }
