@@ -2,15 +2,21 @@
  * @Author: Do not edit
  * @Date: 2025-01-25 20:00:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-10 22:22:54
- * @FilePath: \PicMap\Code\picMap_backend\public\globalVariable.js
+ * @LastEditTime: 2025-07-14 20:42:33
+ * @FilePath: \Code\picMap_backend\public\globalVariable.js
  * @Description:
  */
 
 const { get } = require("lodash")
 
 // 应用相关的全局变量
-const archiveDirectory = 'D:/PicMap' // 存档路径
+let archiveDirectory = 'D:/PicMap' // 存档路径
+
+// 设置存档路径
+function setArchiveDirectory(path) {
+  archiveDirectory = path
+}
+
 const appInfoFileName = 'appSchema.json' // 应用信息文件名称
 const appSchemaPath = `${archiveDirectory}/${appInfoFileName}` // 应用信息文件的完整路径
 
@@ -103,4 +109,5 @@ module.exports = {
   getSchemaDirPath,
   getSchemaJSONPath,
   getImageFilePath,
+  setArchiveDirectory,
 }

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-13 14:42:05
+ * @LastEditTime: 2025-07-14 21:08:59
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\ImageContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -52,7 +52,6 @@ const menuList = ref([
     clickEvent: async () => {
       // 编辑分组信息
       eventBus.emit('edit-group', props.imageId)
-      ElMessage.success('设置分组')
       // 删除后隐藏右键菜单
       menuHidden()
     }

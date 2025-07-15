@@ -1,13 +1,45 @@
 /*
  * @Author: Do not edit
  * @Date: 2025-06-29 13:32:47
- * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 13:56:00
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2025-07-14 14:56:25
  * @FilePath: \Code\picMap_backend\utils\init.js
  * @Description: 
  */
-const { appSchemaPath, defaultAppInfo, archiveDirectory, setUserName } = require('../public/globalVariable')
+const os = require('os');
+const { appSchemaPath, defaultAppInfo, archiveDirectory, setUserName, setArchiveDirectory } = require('../public/globalVariable')
 const fs = require('node:fs')
+const path = require('path');
+
+// 初始化存档目录
+function initArchiveDirectory() {
+  if (os.platform() === 'win32') {
+    // Windows系统
+    function findFirstAvailableDrive() {
+      for (let drive = 68; drive <= 90; drive++) { // 从D盘（68对应'D'）开始
+        const driveLetter = String.fromCharCode(drive);
+        const drivePath = `${driveLetter}:/`;
+        try {
+          fs.accessSync(drivePath, fs.constants.F_OK);
+          return driveLetter;
+        } catch (e) {
+          // 忽略，继续下一个盘符
+        }
+      }
+      return null;
+    }
+    const driveLetter = findFirstAvailableDrive();
+    if (driveLetter) {
+      setArchiveDirectory(`${driveLetter}:/PicMap`);
+    } else {
+      // 没有找到非C盘的其他盘符，使用用户主目录
+      setArchiveDirectory(path.join(os.homedir(), 'PicMap'));
+    }
+  } else {
+    // 非Windows系统，直接使用用户主目录
+    setArchiveDirectory(path.join(os.homedir(), 'PicMap'));
+  }
+}
 
 // 初始化appInfoJSON文件
 function initAppInfoJSON() {
@@ -37,6 +69,8 @@ function initUsersDirectory(userInfos = defaultAppInfo.userInfos) {
 }
 
 function init() {
+  // 初始化存档目录
+  initArchiveDirectory()
   // 初始化应用信息JSON文件
   const appInfo = initAppInfoJSON()
   // 初始化用户目录
