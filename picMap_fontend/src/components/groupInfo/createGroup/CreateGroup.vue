@@ -42,7 +42,7 @@ import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import type { ICreateGroupInfoData } from '@/type/group'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage, createNewGroupToSchema } from '@/utils/group'
-import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap } from '@/utils/map'
+import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap, GPSInfoLegality } from '@/utils/map'
 import type { IGroupInfo, ISchema } from '@/type/schema'
 
 const show = defineModel({ default: false })
@@ -140,7 +140,7 @@ function createNewGroup() {
       // 将新分组信息添加到schema中
       const newGroupInfo = await createNewGroupToSchema(createGroupInfoFormData.value)
       const GPSInfo = newGroupInfo.GPSInfo
-      if (GPSInfo) {
+      if (GPSInfoLegality(GPSInfo)) {
         // 往地图上添加groupMarker
         addGroupMarkerToMap(newGroupInfo as IGroupInfo)
       }

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-17 21:22:24
+ * @LastEditTime: 2025-07-15 21:54:01
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\TemporaryMarkerContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -15,14 +15,14 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
 import eventBus from '@/utils/eventBus'
 import API from '@/http/index'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
 import { editSchemaAndSave, saveSchema } from '@/utils/schema'
-import { deleteMarkerInMap, MAP_INSTANCE, getMarkerById, getPermanentType, getGPSInfoByMarkerInstance } from '@/utils/map'
+import { deleteMarkerInMap, MAP_INSTANCE, getMarkerById, getPermanentType, getGPSInfoByMarkerInstance, markerClusters } from '@/utils/map'
 
 const props = defineProps({
   markerId: {

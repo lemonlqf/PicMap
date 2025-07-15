@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-11 19:22:34
- * @FilePath: \PicMap\Code\picMap_fontend\src\views\picMap\Index.vue
+ * @LastEditTime: 2025-07-15 21:25:23
+ * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
 <template>

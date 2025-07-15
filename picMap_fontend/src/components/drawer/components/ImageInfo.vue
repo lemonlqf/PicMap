@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-06-17 19:12:19
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-28 19:17:22
- * @FilePath: \Code\picMap_fontend\src\components\drawer\components\imageInfo.vue
+ * @LastEditTime: 2025-07-15 21:18:23
+ * @FilePath: \Code\picMap_fontend\src\components\drawer\components\ImageInfo.vue
  * @Description: 
 -->
 <template>
@@ -12,7 +12,7 @@
     <KeyValue class="author-info" v-if="imageInfo?.authorInfo" title="时间信息" :info="imageInfo?.authorInfo" />
     <KeyValue class="GPS-info" v-if="imageInfo?.GPSInfo" title="GPS信息" :info="imageInfo?.GPSInfo" />
     <KeyValue class="camera-info" v-if="imageInfo?.cameraInfo" title="相机信息" :info="imageInfo?.cameraInfo" />
-    <Description class="other" :description="imageInfo.description" :id="imageInfo.id"></Description>
+    <Description class="other" :description="imageInfo?.description" :id="imageInfo.id"></Description>
   </div>
 </template>
 

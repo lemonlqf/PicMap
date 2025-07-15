@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 10:27:24
+ * @LastEditTime: 2025-07-15 21:06:12
  * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
@@ -163,6 +163,19 @@ export async function deleteImageById(imageId) {
     }, '')
     ElMessage.success(tipMsg)
     // console.log('promise all ==>', res)
+  })
+}
+
+/**
+ * @description: 判断图片是否在imageInfo
+ * @param {string} imageId
+ * @return {*}
+ */
+export function isImageExistInImageInfo(imageId: string) {
+  const schemaStore = useSchemaStore()
+  const imageInfo = schemaStore.getImageInfo
+  return imageInfo.some(item => {
+    return item.id === imageId
   })
 }
 

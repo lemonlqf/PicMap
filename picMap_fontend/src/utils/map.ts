@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 20:23:02
+ * @LastEditTime: 2025-07-15 21:14:55
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -794,6 +794,9 @@ export function GPSInfoLegality(GPSInfo: any) {
     return false
   }
   const { GPSLatitude, GPSLongitude, GPSAltitude } = GPSInfo
+  if (!GPSLatitude || !GPSLongitude) {
+    return
+  }
   if (typeof +GPSLatitude !== 'number' || typeof +GPSLongitude !== 'number') {
     return false
   }
