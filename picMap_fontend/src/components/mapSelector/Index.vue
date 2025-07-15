@@ -68,6 +68,10 @@ $card-width: 80px;
 $card-number: 3;
 $border-raduis: 6px;
 
+* {
+  user-select: none;
+}
+
 .selector {
   transition: all 0.3s ease-in-out;
   display: flex;

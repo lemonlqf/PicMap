@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-13 14:46:43
+ * @LastEditTime: 2025-07-15 20:31:10
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -137,6 +137,9 @@ async function addManualLocateGroup() {
 </script>
 
 <style lang="scss" scoped>
+* {
+  user-select: none;
+}
 .image-menu {
   background-color: rgba(255, 255, 255, 1);
 

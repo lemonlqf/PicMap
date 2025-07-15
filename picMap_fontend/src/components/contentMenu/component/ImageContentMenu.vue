@@ -68,6 +68,9 @@ function menuHidden() {
 </script>
 
 <style lang="scss" scoped>
+* {
+  user-select: none;
+}
 .image-menu {
   display: inline-block;
   background-color: rgba(255, 255, 255, 1);

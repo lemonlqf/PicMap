@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-05-31 11:33:10
+ * @LastEditTime: 2025-07-15 20:29:38
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\Index.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -72,6 +72,9 @@ onUnmounted(() => {
 </script>
 
 <style lang="scss" scoped>
+* {
+  user-select: none;
+}
 .menu {
   display: inline-block;
   position: fixed;
