@@ -2,14 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-07-05 16:08:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 15:08:25
+ * @LastEditTime: 2025-07-16 21:45:28
  * @FilePath: \Code\picMap_fontend\src\components\createUser\CreateUser.vue
  * @Description: 
 -->
 <template>
   <el-dialog :z-index="9999" v-model="show" title="创建新用户" style="width: 440px;">
-    <el-form ref="userFormRef" :model="newUserInfo" style="width: 400px" label-width="auto"
-      :rules="userEditRules">
+    <el-form ref="userFormRef" :model="newUserInfo" style="width: 400px" label-width="auto" :rules="userEditRules">
       <el-form-item label="用户名称" label-width="90px" prop="userName">
         <el-input v-model="newUserInfo.userName"></el-input>
       </el-form-item>
@@ -17,8 +16,8 @@
     <template #footer>
       <div class="dialog-footer">
         <!-- <el-button @click="addManualLocateGroupToMap" class="locate-button" type="primary">手动定位</el-button> -->
-        <el-button @click="closeDialog">取消</el-button>
-        <el-button type="primary" @click="createNewUser">
+        <el-button @click="closeDialog" :disabled="loading">取消</el-button>
+        <el-button type="primary" @click="createNewUser" :loading="loading">
           确认
         </el-button>
       </div>
@@ -32,6 +31,8 @@ import type { IUserInfo } from '@/type/appSchema'
 import { createUser, createUserId, isUserNameExist } from '@/utils/user'
 
 const show = defineModel({ default: false })
+
+const loading = ref(false)
 
 const userFormRef = ref()
 
@@ -77,13 +78,16 @@ function closeDialog() {
  * @return {*}
  */
 function createNewUser() {
+  loading.value = true
   userFormRef.value.validate(async (valid, fields) => {
     if (valid) {
       newUserInfo.value.userId = createUserId()
       // 将新分组信息添加到schema中
        await createUser({...newUserInfo.value})
       closeDialog()
+      loading.value = false
     } else {
+      loading.value = false
       console.log('error submit!', fields)
     }
   })
