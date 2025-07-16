@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 20:31:10
+ * @LastEditTime: 2025-07-16 22:37:25
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -10,7 +10,7 @@
   <div class="image-menu">
     <!-- 没定位信息的分组允许定位 -->
     <div class="menu-item" v-if="!GPSInfoExist" @click="addManualLocateGroup">
-      <span>定位分组</span>
+      <span>{{ $t('positioningGroup') }}</span>
     </div>
     <div class="menu-item" v-for="item in menuList" @click="editorGroup(item)">
       <span>{{ item.label }}</span>
@@ -21,9 +21,9 @@
     <span>{{ item?.description }}</span>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="hidden">取消</el-button>
+        <el-button @click="hidden">{{ $t('cancel') }}</el-button>
         <el-button type="danger" @click="item.clickEvent" :loading="loading">
-          确认
+          {{ $t('confirm') }}
         </el-button>
       </div>
     </template>

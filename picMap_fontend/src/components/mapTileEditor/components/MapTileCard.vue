@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-12 12:45:08
+ * @LastEditTime: 2025-07-16 22:59:34
  * @FilePath: \Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
@@ -15,7 +15,7 @@
     <div class="content">
       <ImageUpload v-model="imageUrl" :tileId="tileId" :disabled="!canEdit"></ImageUpload>
       <div class="info">
-        <h3 class="title">瓦片名称</h3>
+        <h3 class="title">{{ $t('tileName') }}</h3>
         <div class="value">
           <span v-if="!isEdit">{{ name || '未设置' }}</span>
           <el-input v-else size="small" :maxlength="10" show-word-limit v-model="inputName" @change="changeName">

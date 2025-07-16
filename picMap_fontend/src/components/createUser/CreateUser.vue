@@ -9,16 +9,16 @@
 <template>
   <el-dialog :z-index="9999" v-model="show" title="创建新用户" style="width: 440px;">
     <el-form ref="userFormRef" :model="newUserInfo" style="width: 400px" label-width="auto" :rules="userEditRules">
-      <el-form-item label="用户名称" label-width="90px" prop="userName">
+      <el-form-item :label="$t('userName')" label-width="90px" prop="userName">
         <el-input v-model="newUserInfo.userName"></el-input>
       </el-form-item>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
         <!-- <el-button @click="addManualLocateGroupToMap" class="locate-button" type="primary">手动定位</el-button> -->
-        <el-button @click="closeDialog" :disabled="loading">取消</el-button>
+        <el-button @click="closeDialog" :disabled="loading">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="createNewUser" :loading="loading">
-          确认
+          {{ $t('confirm') }}
         </el-button>
       </div>
     </template>

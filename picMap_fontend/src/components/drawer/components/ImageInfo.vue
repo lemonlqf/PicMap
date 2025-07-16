@@ -8,7 +8,7 @@
 -->
 <template>
   <div class="grid-box">
-    <KeyValue class="image-info" v-if="imageInfo?.imageInfo" title="图片信息" :info="imageInfo?.imageInfo" />
+    <KeyValue class="image-info" v-if="imageInfo?.imageInfo" :title="$t('pictureInfo')" :info="imageInfo?.imageInfo" />
     <KeyValue class="author-info" v-if="imageInfo?.authorInfo" title="时间信息" :info="imageInfo?.authorInfo" />
     <KeyValue class="GPS-info" v-if="imageInfo?.GPSInfo" title="GPS信息" :info="imageInfo?.GPSInfo" />
     <KeyValue class="camera-info" v-if="imageInfo?.cameraInfo" title="相机信息" :info="imageInfo?.cameraInfo" />

@@ -6,7 +6,7 @@
     </div>
   </div>
   <el-dialog class="select-avatar" width="770px" top="200px" :append-to-body="true" v-model="avatarDialog">
-    <h3 class="title">默认头像</h3>
+    <h3 class="title">{{ $t("defaultAvatar") }}</h3>
     <!-- 默认头像 -->
     <div class="avatar-list">
       <template v-for="(item, name) of DEFAULT_AVATAR" :key="name">

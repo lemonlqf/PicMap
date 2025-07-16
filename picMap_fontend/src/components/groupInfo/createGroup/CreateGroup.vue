@@ -2,7 +2,7 @@
   <el-dialog :z-index="9999" v-model="show" title="创建新分组" style="width: 440px;">
     <el-form ref="groupFormRef" :model="createGroupInfoFormData" style="width: 400px" label-width="auto"
       :rules="groupEditRules">
-      <el-form-item label="分组名称" label-width="90px" prop="newGroupName">
+      <el-form-item :label="$t('groupName')" label-width="90px" prop="newGroupName">
         <el-input v-model="createGroupInfoFormData.newGroupInfo.newGroupName"></el-input>
       </el-form-item>
       <!-- <el-form-item label="新分组经度" label-width="90px" prop="GPSLongitude">
@@ -21,9 +21,9 @@
     <template #footer>
       <div class="dialog-footer">
         <!-- <el-button @click="addManualLocateGroupToMap" class="locate-button" type="primary">手动定位</el-button> -->
-        <el-button @click="closeGroupEdit">取消</el-button>
+        <el-button @click="closeGroupEdit">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="createNewGroup">
-          确认
+          {{ $t('confirm') }}
         </el-button>
       </div>
     </template>

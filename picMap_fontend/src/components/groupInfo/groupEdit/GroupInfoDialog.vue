@@ -42,9 +42,9 @@
         <el-button @click="locateNewGroup"
           v-if="singleImageGroupInfoFormData.needAddNewGroup && singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'"
           class="locate-button" type="primary" >手动定位</el-button>
-        <el-button @click="closeGroupEdit">取消</el-button>
+        <el-button @click="closeGroupEdit">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="pushImageToGroupInfo">
-          确认
+          {{ $t('confirm') }}
         </el-button>
       </div>
     </template>

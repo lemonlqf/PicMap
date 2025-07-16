@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-10 23:06:34
- * @FilePath: \PicMap\Code\picMap_fontend\src\views\setting\Index.vue
+ * @LastEditTime: 2025-07-16 22:47:26
+ * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
 <template>
@@ -27,6 +27,7 @@
       <div class="header">
         <span class="title">{{ title }}</span>
         <div class="user-item">
+          <LanguageChange></LanguageChange>
           <span class="user-name">{{ currentUserInfo.userName }}</span>
           <div class="user-img">
             <img width="35" :src="getAvatarUrl(currentUserInfo.userAvatar as string)" alt="">
@@ -50,13 +51,16 @@ import MapLogo from '@/assets/icon/mapLogo.svg?component'
 import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
 import { getUserSchema } from '@/utils/appSchema'
+import LanguageChange from '@/components/languageChange/LanguageChange.vue'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const router = useRouter()
 const route = useRoute()
 const appStore = useAppStore()
 const schemaStore = useSchemaStore()
 const menuList = [
   {
-    title: '用户管理',
+    title: t('userManagement'),
     label: '用户',
     router: 'user',
     img: UserSvg
@@ -228,8 +232,13 @@ $noActiveBackground: #325bca;
       align-items: center;
       // width: fit-content;
       margin: 10px 20px;
+      align-items: center;
+      gap: 5px;
 
-      .user-name {}
+      .user-name {
+        // line-height: 16px;
+        margin-left: 20px;
+      }
 
       .user-img {
         margin-left: 10px;

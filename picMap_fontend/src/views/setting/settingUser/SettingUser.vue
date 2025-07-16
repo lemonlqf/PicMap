@@ -2,13 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 21:16:03
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-12 12:47:09
+ * @LastEditTime: 2025-07-16 23:08:55
  * @FilePath: \Code\picMap_fontend\src\views\setting\settingUser\SettingUser.vue
  * @Description: 
 -->
 <template>
   <div class="">
-    <h2 class="user-nums">用户数量：{{ userInfos.length }}</h2>
+    <h2 class="user-nums">{{ $t('userNumber') }}：{{ userInfos.length }}</h2>
     <!-- 用户选择 -->
     <el-scrollbar class="el-scroll-bar">
       <div class="user-list">
@@ -26,7 +26,7 @@
           <Avatar :user-id="currentUserInfo.userId"></Avatar>
           <div class="user-info">
             <span class="user-name">{{ currentUserInfo?.userName || '未设置' }}</span>
-            <span class="create-time">{{ `创建时间：${formatDate(currentUserInfo?.createTime, 'YYYY-MM-DD HH:mm:ss') ||
+            <span class="create-time">{{ `${$t('createTime') }：${formatDate(currentUserInfo?.createTime, 'YYYY-MM-DD HH:mm:ss') ||
               '2000-01-01 00:00:00'}`
               }}</span>
           </div>
@@ -37,7 +37,7 @@
           <div class="info-card">
             <div class="info-title">
               <UserInfoIcon style="width: 25px; height: 25px"></UserInfoIcon>
-              <div class="title">用户信息</div>
+              <div class="title">{{ $t('userInfo') }}</div>
             </div>
             <!-- id -->
             <div class="info-item">
@@ -48,7 +48,7 @@
             </div>
             <!-- 名称 -->
             <div class="info-item">
-              <span class="label">名称</span>
+              <span class="label">{{ $t('name') }}</span>
               <div class="value-box">
                 <span v-if="!isEdit" class="value">{{ userName }}</span>
                 <el-input size="" v-else :maxlength="20" show-word-limit v-model="userInputName"
@@ -59,20 +59,20 @@
           <div class="info-card">
             <div class="info-title">
               <ImgInfoIcon style="width: 25px; height: 25px"></ImgInfoIcon>
-              <div class="title">图片信息</div>
+              <div class="title">{{ $t('pictureInfo') }}</div>
             </div>
-            <!-- id -->
+            <!-- 图片数量 -->
             <div class="info-item">
-              <span class="label">图片数量</span>
+              <span class="label">{{ $t('pictureNumber') }}</span>
               <div class="value-box">
                 <CountUp class="value" :duration="0.4" :end-val="imgNums" :start-val="imgStartValue"
                   @finished="setImgStartValue">
                 </CountUp>
               </div>
             </div>
-            <!-- 姓名 -->
+            <!-- 分组数量 -->
             <div class="info-item">
-              <span class="label">分组数量</span>
+              <span class="label">{{ $t('groupNumber') }}</span>
               <div class="value-box">
                 <CountUp class="value" :duration="0.4" :end-val="groupNums" :start-val="groupStartValue"
                   @finished="setGroupStartValue">
@@ -90,9 +90,9 @@
                 <el-button type="danger" :icon="Delete">删除用户</el-button>
               </template>
               <template #actions="{ confirm, cancel }">
-                <el-button @click="cancel">取消</el-button>
+                <el-button @click="cancel">{{ $t('cancel') }}</el-button>
                 <el-button type="danger" @click="confirm">
-                  确定
+                  {{ $t('confirm') }}
                 </el-button>
               </template>
             </el-popconfirm>

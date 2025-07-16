@@ -91,9 +91,9 @@
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="manualLocateImage" class="locate-button" type="primary">手动定位</el-button>
-        <el-button @click="cancelLocateImage">取消</el-button>
+        <el-button @click="cancelLocateImage">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="locateImage(locateFromRef)">
-          确认
+          {{ $t('confirm') }}
         </el-button>
       </div>
     </template>
@@ -440,7 +440,7 @@ function showLocateDialog(id) {
 }
 
 /**
- * @description: 取消定位
+ * @description: {{ $t('cancel') }}定位
  * @return {*}
  */
 function cancelLocateImage() {
