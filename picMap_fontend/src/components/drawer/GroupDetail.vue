@@ -12,7 +12,7 @@
       <!-- 图片展示 -->
       <!-- TODO:按照日期分类展示 -->
       <div class="img-boxs">
-        <GroupLayout :group-numbers="groupNumbers"></GroupLayout>
+        <GroupLayout :group-id="groupId" :group-numbers="groupNumbers"></GroupLayout>
       </div>
     </el-scrollbar>
   </div>

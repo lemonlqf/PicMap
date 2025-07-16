@@ -2,12 +2,12 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 22:27:25
+ * @LastEditTime: 2025-07-16 21:31:51
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
 import { useSchemaStore } from '@/store/schema'
-import { saveSchema } from './schema';
+import { editSchemaAndSave, editSchemaAttrAndSave, saveSchema } from './schema';
 import { addImageMarkerToMap, deleteMarkerById, MAP_INSTANCE, getMarkerById, GROUP_COVER_NUMBER, GROUP_MARKER_SIZE, groupMarkerTranslateY } from '@/utils/map';
 import { ElMessage } from 'element-plus';
 import { getGPSInfoById, addExistImageToMapById, imageUrlsIcon } from '@/utils/map';
@@ -19,6 +19,8 @@ import { cloneDeep } from 'lodash-es';
 import type { IGPSInfo, IGroupInfo } from '@/type/schema';
 import type { ICreateGroupInfoData } from '@/type/group'
 import type { INewGroupFormData } from '@/type/schema'
+import { resetIconGroupMarker } from '@/utils/map'
+import { editAppSchemaAttrAndSave } from './appSchema';
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -218,12 +220,40 @@ export function getGroupInfoByGroupId(groupId: string): IGroupInfo {
  * @param {string} deleteImageId
  * @return {*}
  */
-export function isImageExistInOtherGroup(deleteGroupId: string, deleteImageId: string): boolean {
+export function isImageExistInOtherGroup(currentGroupId: string, imageId: string): boolean {
   const schemaStore = useSchemaStore()
-  const otherGroupInfos = schemaStore.getGroupInfo.filter(item => item.id !== deleteGroupId)
+  const otherGroupInfos = schemaStore.getGroupInfo.filter(item => item.id !== currentGroupId)
   return otherGroupInfos.some(groupInfo => {
-    return groupInfo.groupNumbers?.includes(deleteImageId)
+    return groupInfo.groupNumbers?.includes(imageId)
   })
+}
+
+/**
+ * @description: 从分组中移除图片
+ * @param {string} groupId
+ * @param {string} imageId
+ * @return {*}
+ */
+export function removeGroupImage(groupId: string, imageId: string) {
+  const schemaStore = useSchemaStore()
+  let groupInfo: any = schemaStore.getGroupInfo
+  // 移除分组中的图片
+  groupInfo = groupInfo.map((item:any) => {
+    if (item.id === groupId) {
+      item.groupNumbers = item.groupNumbers?.filter((id: string) => {
+        return id !== imageId
+      })
+      return item
+    }
+    return item
+  })
+  // 如果在别的分组里就不用在地图中添加了
+  if (isImageExistInOtherGroup(groupId, imageId)) {
+    return
+  }
+  addExistImageToMapById(imageId)
+  editSchemaAttrAndSave('groupInfo', groupInfo)
+  resetIconGroupMarker(groupId)
 }
 
 /**

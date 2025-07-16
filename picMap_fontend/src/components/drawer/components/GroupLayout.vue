@@ -14,9 +14,15 @@
       <!-- 图片 -->
       <div class="flex-box">
         <template v-for="item in (groupImageSortMap.get(key) as string[])">
-          <Image @click="(e) => showImageInfo(e, item.id)" :show-name="true" class="image" :perview="false"
-            :image-id="item.id">
-          </Image>
+          <div class="image-card">
+            <Image @click="(e) => showImageInfo(e, item.id)" :show-name="true" class="image" :perview="false"
+              :image-id="item.id">
+            </Image>
+            <!-- 退出分组 -->
+            <div class="exit-group" @click="removeGroupImage(groupId, item.id)">
+              <img src="@/assets/icon/退出.png" alt="" width="30px" title="退出分组" />
+            </div>
+          </div>
         </template>
       </div>
     </div>
@@ -32,7 +38,7 @@
 
 <script setup lang="ts">
 import { type PropType, computed, ref } from 'vue'
-import { groupSorting, TimeType, SortType } from '@/utils/group'
+import { groupSorting, TimeType, SortType, removeGroupImage } from '@/utils/group'
 import { getSchemaInfoById } from '@/utils/schema'
 import Image from '@/components/drawer/components/Image.vue';
 import ImageInfoComponent from '@/components/drawer/components/ImageInfo.vue'
@@ -42,6 +48,10 @@ const props = defineProps({
   groupNumbers: {
     type: Object as PropType<string[]>,
     default: () => ([])
+  },
+  groupId: {
+    type: String,
+    default: ''
   }
 })
 
@@ -108,6 +118,7 @@ async function setImageInfo(imageId: string) {
 <style lang="scss" scoped>
 .group-layout {
   padding: 0 20px 20px 20px;
+
   .button-box {
     z-index: 99;
     position: sticky;
@@ -116,8 +127,10 @@ async function setImageInfo(imageId: string) {
     padding: 3px;
     display: flex;
     align-items: center;
+
     .sort {
-      margin-left: 5px;;
+      margin-left: 5px;
+      ;
     }
   }
 
@@ -133,14 +146,41 @@ async function setImageInfo(imageId: string) {
   max-width: 100%;
   display: flex;
   flex-wrap: wrap;
+  position: relative;
+  gap: 10px;
 
-  .image {
-    border-radius: 3px;
-    overflow: hidden;
-    margin-right: 10px;
-    margin-bottom: 10px;
-    height: 120px;
-    width: 170px;
+  .image-card {
+    position: relative;
+
+    .image {
+      border-radius: 3px;
+      overflow: hidden;
+      height: 120px;
+      width: 170px;
+    }
+
+    .exit-group {
+      position: absolute;
+      // height: fit-content;
+      right: 5px;
+      bottom: 0px;
+      transition: all 0.2s;
+      position: absolute;
+      cursor: pointer;
+      pointer-events: all;
+      opacity: 0;
+      z-index: 999;
+    }
+
+    .exit-group:hover {
+      opacity: 1 !important;
+    }
+  }
+
+  .image-card:hover {
+    .exit-group {
+      opacity: 0.7;
+    }
   }
 }
 

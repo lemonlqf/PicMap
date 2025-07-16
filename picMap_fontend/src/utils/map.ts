@@ -23,6 +23,7 @@ import type { IMarker } from '@/type/image'
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
+import { getGroupInfoByGroupId } from './group'
 
 
 // 最大放到18
@@ -164,6 +165,18 @@ export async function addGroupMarkerToMap(groupInfo: IGroupInfo) {
   markerMouseListener(marker)
   // 添加到store中
   mapStore.addMarkerId(groupInfo.id)
+}
+
+/**
+ * @description: 重置分组的封面
+ * @param {*} groupId
+ * @return {*}
+ */
+export async function resetIconGroupMarker(groupId: string) {
+  const groupMarker = getMarkerById(groupId)
+  const groupInfo = getGroupInfoByGroupId(groupId)
+  let newIcon = await createGroupMarkerIcon(groupInfo)
+  groupMarker && groupMarker.setIcon(newIcon)
 }
 
 /**
