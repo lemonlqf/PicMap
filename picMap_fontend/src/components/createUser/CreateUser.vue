@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-05 16:08:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 21:45:28
+ * @LastEditTime: 2025-07-16 21:58:47
  * @FilePath: \Code\picMap_fontend\src\components\createUser\CreateUser.vue
  * @Description: 
 -->
@@ -28,7 +28,7 @@
 <script lang="ts" setup>
 import { ref, reactive, watch, type Ref } from 'vue'
 import type { IUserInfo } from '@/type/appSchema'
-import { createUser, createUserId, isUserNameExist } from '@/utils/user'
+import { changeCurrentUser, createUser, createUserId, isUserNameExist } from '@/utils/user'
 
 const show = defineModel({ default: false })
 
@@ -82,8 +82,11 @@ function createNewUser() {
   userFormRef.value.validate(async (valid, fields) => {
     if (valid) {
       newUserInfo.value.userId = createUserId()
+      newUserInfo.value.createTime = new Date().getTime()
       // 将新分组信息添加到schema中
        await createUser({...newUserInfo.value})
+       // 将新建用户作为激活用户
+      changeCurrentUser(newUserInfo.value.userId)
       closeDialog()
       loading.value = false
     } else {
