@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-04 19:07:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 15:45:54
+ * @LastEditTime: 2025-07-16 21:54:42
  * @FilePath: \Code\picMap_fontend\src\utils\user.ts
  * @Description: 
  */
@@ -166,6 +166,12 @@ export async function createUserDir(userId: string) {
 export async function deleteUser(userInfo: IUserInfo) {
   const appStore = useAppStore()
   let userInfos = cloneDeep(appStore.getUserInfos)
+  let userIndex = 0
+  userInfos.forEach((item, index) => {
+    if (item.userId === userInfo.userId) {
+      userIndex = index
+    }
+  })
   userInfos = userInfos.filter(item => {
     return userInfo.userId !== item.userId
   })
@@ -182,7 +188,7 @@ export async function deleteUser(userInfo: IUserInfo) {
     const currentUserInfo = appStore.getCurrentUserInfo
     // 如果删除的用户恰好是当前用户，则当前用户变为用户列表的第一个
     if (currentUserInfo.userId === userInfo.userId) {
-      appStore.setCurrentUserInfo(userInfos[0])
+      appStore.setCurrentUserInfo(userInfos[Math.max(userIndex - 1, 0)])
     }
     ElMessage.success('用户删除成功！')
   }
