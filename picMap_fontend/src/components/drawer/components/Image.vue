@@ -9,9 +9,9 @@
 <template>
   <div class="img-box">
     <div class="download-button" @click="downloadImage">
-      <img src="@/assets/icon/下载.png" alt="" width="30px" title="下载原图" />
+      <img src="@/assets/icon/下载.png" alt="" width="30px" :title="$t('downloadPicture')" />
     </div>
-    <el-image :key="imageId" alt="图片加载失败" :src="url" :teleported="true"
+    <el-image :key="imageId" :alt="$t('pictureLoadFailed')" :src="url" :teleported="true"
       :preview-src-list="perview ? [url] : []" />
     <div class="image-name" v-if="showName" :title="name">
       {{ name }}

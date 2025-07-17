@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 21:16:03
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 23:08:55
+ * @LastEditTime: 2025-07-17 22:50:58
  * @FilePath: \Code\picMap_fontend\src\views\setting\settingUser\SettingUser.vue
  * @Description: 
 -->
@@ -25,7 +25,7 @@
         <div class="top-left">
           <Avatar :user-id="currentUserInfo.userId"></Avatar>
           <div class="user-info">
-            <span class="user-name">{{ currentUserInfo?.userName || '未设置' }}</span>
+            <span class="user-name">{{ currentUserInfo?.userName || $t('notSet') }}</span>
             <span class="create-time">{{ `${$t('createTime') }：${formatDate(currentUserInfo?.createTime, 'YYYY-MM-DD HH:mm:ss') ||
               '2000-01-01 00:00:00'}`
               }}</span>
@@ -83,11 +83,11 @@
         </div>
         <div class="info-footer">
           <template v-if="!isEdit">
-            <el-button type="primary" @click="isEdit = true" :icon="Edit">信息编辑</el-button>
-            <el-popconfirm @confirm="confirm(currentUserInfo)" width="259" title="确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！"
+            <el-button type="primary" @click="isEdit = true" :icon="Edit">{{ $t('infoEdit') }}</el-button>
+            <el-popconfirm @confirm="confirm(currentUserInfo)" width="259" :title="$t('description.confirmDeleteUser')"
               placement="top">
               <template #reference>
-                <el-button type="danger" :icon="Delete">删除用户</el-button>
+                <el-button type="danger" :icon="Delete">{{ $t('deleteUser') }}</el-button>
               </template>
               <template #actions="{ confirm, cancel }">
                 <el-button @click="cancel">{{ $t('cancel') }}</el-button>
@@ -98,7 +98,7 @@
             </el-popconfirm>
           </template>
           <template v-else>
-            <el-button @click="isEdit = false" :icon="Back" type="primary">退出编辑</el-button>
+            <el-button @click="isEdit = false" :icon="Back" type="primary">{{ $t('exitEdit') }}</el-button>
           </template>
         </div>
       </div>
@@ -124,7 +124,8 @@ import UserInfoIcon from '@/assets/icon/用户信息.svg?component'
 import ImgInfoIcon from '@/assets/icon/图片信息.svg?component'
 import { useSchemaStore } from '@/store/schema';
 import CountUp from 'vue-countup-v3'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const appStore = useAppStore()
 const schemaStore = useSchemaStore()
 const imgNums = computed(() => {
@@ -162,11 +163,11 @@ const currentUserInfo = computed({
 
 function changeName(value: string) {
   if (value.length < 1) {
-    ElMessage.warning('姓名不能为空')
+    ElMessage.warning(t('description.needName'))
     userInputName.value = userName.value
   } else {
     if (isUserNameExist(value)) {
-      ElMessage.warning('姓名已存在')
+      ElMessage.warning(t('description.nameExist'))
       userInputName.value = userName.value
     } else {
       editUserInfoAndSave(currentUserInfo.value.userId, 'userName', value)
@@ -197,7 +198,7 @@ function setGroupStartValue() {
 
 function showAddDialog() {
   if (isEdit.value) {
-    ElMessage.warning('请先退出编辑再新建用户！')
+    ElMessage.warning(t('description.canNotCreateUserWhenEdit'))
     return
   }
   showAddCreateUserDialog.value = true

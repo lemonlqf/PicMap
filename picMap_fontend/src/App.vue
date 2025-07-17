@@ -2,12 +2,12 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 16:26:58
+ * @LastEditTime: 2025-07-17 22:23:56
  * @FilePath: \Code\picMap_fontend\src\App.vue
  * @Description: 
 -->
 <template>
-  <div v-if="loading" class="loading">加载中...</div>
+  <div v-if="loading" class="loading">{{ $t('loading') }}...</div>
   <router-view v-else></router-view>
 </template>
 

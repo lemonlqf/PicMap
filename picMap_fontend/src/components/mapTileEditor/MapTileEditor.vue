@@ -2,14 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-07-06 15:47:50
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-12 00:01:08
+ * @LastEditTime: 2025-07-17 22:55:02
  * @FilePath: \Code\picMap_fontend\src\components\mapTileEditor\MapTileEditor.vue
  * @Description: 地图瓦片配置项
 -->
 
 <template>
   <div class="tile-editor">
-    <EditorCard title="瓦片配置" :img="TileIcon">
+    <EditorCard :title="$t('tileSetting')" :img="TileIcon">
       <template #content>
         <div class="content">
           <!-- 默认瓦片 -->
@@ -32,7 +32,7 @@ import { computed, ref } from 'vue'
 import EditorCard from '../editorCard/EditorCard.vue';
 import TileIcon from '@/assets/icon/图层.svg?component'
 import MapTileCard from './components/MapTileCard.vue';
-import { defaultMapTile, type IMapTile } from '@/components/mapSelector/defaultMap';
+import { getDefaultMapTile, type IMapTile } from '@/components/mapSelector/defaultMap';
 import AddIcon from '@/assets/icon/添加.svg?component'
 import { useSchemaStore } from '@/store/schema';
 import { useAppStore } from '@/store/appSchema';
@@ -40,9 +40,11 @@ import { cloneDeep } from 'lodash-es';
 import { editSchemaAndSave, editSchemaAttrAndSave } from '@/utils/schema';
 import { ElMessage } from 'element-plus';
 import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 // const tileInfoList = ref<IMapTile[]>([])
 // const activeTileList = ref<string[]>([])
-
+const defaultMapTile = getDefaultMapTile()
 const tileInfoList = computed<IMapTile[]>(() => {
   const appSchemaStore = useAppStore()
   // 获取自定义瓦片信息
@@ -68,7 +70,7 @@ async function tileActiveChange(arg: any) {
     activeTilesClone = activeTilesClone.filter(id => id !== tileId)
   }
   if (activeTilesClone.length < 1) {
-    ElMessage.warning('请最少启用一个瓦片！')
+    ElMessage.warning(t('description.activeOneTile'))
     return
   }
   await editSchemaAttrAndSave('mapInfo.activeTiles', activeTilesClone)

@@ -23,7 +23,8 @@ import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
 import { editSchemaAndSave, saveSchema } from '@/utils/schema'
 import { deleteMarkerInMap, MAP_INSTANCE, getMarkerById, getPermanentType, getGPSInfoByMarkerInstance, markerClusters } from '@/utils/map'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   markerId: {
     type: String,
@@ -38,7 +39,7 @@ const postionInfo = ref({
 })
 const menuList = ref([
   {
-    label: '确定位置',
+    label: t('fixPosition'),
     clickEvent: async () => {
       // 让marker变为不可以移动
       temporaryMarkerToPermanent(props.markerId)

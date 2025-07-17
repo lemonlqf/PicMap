@@ -1,38 +1,39 @@
 <template>
-  <el-dialog :z-index="9999" v-model="show" title="设置分组信息" style="width: 440px;">
+  <el-dialog :z-index="9999" v-model="show" :title="$t('setGroupInfo')" style="width: 440px;">
     <el-form ref="groupFormRef" :model="singleImageGroupInfoFormData" style="width: 400px" label-width="auto"
       :rules="groupEditRules">
-      <el-form-item label="目标分组" label-width="90px" prop="groupIds">
+      <el-form-item :label="$t('targetGroup')" label-width="90px" prop="groupIds">
         <!-- 下拉框选择已有的分组 -->
-        <el-select v-model="singleImageGroupInfoFormData.groupIds" multiple placeholder="请选择分组">
+        <el-select v-model="singleImageGroupInfoFormData.groupIds" multiple :placeholder="$t('placeholder.selectGroup')">
           <el-option v-for="item in groupIdAndNameLists" :key="item.id" :label="item.name" :value="item.id">
           </el-option>
         </el-select>
       </el-form-item>
-      <el-form-item label="加入新分组" label-width="90px">
-        <Switch :options="[{ value: true, label: '是' }, { value: false, label: '否' }]"
+      <el-form-item :label="$t('joinNewGroup')" label-width="90px">
+        <Switch :options="[{ value: true, label: $t('yes') }, { value: false, label: $t('no') }]"
           v-model="singleImageGroupInfoFormData.needAddNewGroup">
         </Switch>
       </el-form-item>
       <!-- 新分组相关 -->
       <template v-if="singleImageGroupInfoFormData.needAddNewGroup">
-        <el-form-item label="新分组名称" label-width="90px" prop="newGroupName">
+        <el-form-item :label="$t('newGroupName')" label-width=" 90px" prop="newGroupName">
           <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupName"></el-input>
         </el-form-item>
-        <el-form-item label="新分组位置" label-width="90px">
-          <Switch :options="[{ value: 'auto', label: '自动定位' }, { value: 'manual', label: '手动定位' }]"
+        <el-form-item :label="$t('newGroupLocation')" label-width=" 90px">
+          <Switch :options="[{ value: 'auto', label: $t('autoLocate') }, { value: 'manual', label: $t('manualLocate') }]"
             v-model="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo">
           </Switch>
         </el-form-item>
         <template v-if="singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'">
-          <el-form-item label="新分组经度" label-width="90px" prop="GPSLongitude">
+          <el-form-item :label="$t('newGroupLongitude')" label-width="90px" prop="GPSLongitude">
             <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLongitude"></el-input>
           </el-form-item>
-          <el-form-item label="新分组纬度" label-width="90px" prop="GPSLatitude">
+          <el-form-item :label="$t('newGroupLatitude')" label-width="90px" prop="GPSLatitude">
             <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSLatitude"></el-input>
           </el-form-item>
-          <el-form-item label="新分组海拔" label-width="90px" prop="GPSAltitude">
-            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSAltitude" placeholder="0"></el-input>
+          <el-form-item :label="$t('newGroupAltitude')" label-width="90px" prop="GPSAltitude">
+            <el-input v-model="singleImageGroupInfoFormData.newGroupInfo.newGroupGPSInfo.GPSAltitude"
+              placeholder="0"></el-input>
           </el-form-item>
         </template>
       </template>
@@ -41,7 +42,7 @@
       <div class="dialog-footer">
         <el-button @click="locateNewGroup"
           v-if="singleImageGroupInfoFormData.needAddNewGroup && singleImageGroupInfoFormData.newGroupInfo.needSetGPSInfo === 'manual'"
-          class="locate-button" type="primary" >手动定位</el-button>
+          class="locate-button" type="primary">{{ $t('manualLocate') }}</el-button>
         <el-button @click="closeGroupEdit">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="pushImageToGroupInfo">
           {{ $t('confirm') }}
@@ -64,7 +65,8 @@ import { ElMessage } from 'element-plus'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
 import type { IGroupInfo, ISchema } from '@/type/schema'
 import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateGroupToMap } from '@/utils/map'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   imageIds: {
     type: Array<string>,
@@ -172,11 +174,11 @@ async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData, dragg
   // 保存最新的schema信息
   const res = await saveSchema()
   if (res.code === 200) {
-    ElMessage.success('分组信息设置成功')
+    ElMessage.success(t('editGroupInfoSuccess'))
     // 更新地图中的节点
     updateVisibleMarkersByFormData(newGroupInfo, hiddenImageIds, draggable)
   } else {
-    ElMessage.error('分组信息设置失败')
+    ElMessage.error(t('editGroupInfoFail'))
   }
 }
 
@@ -280,7 +282,7 @@ const groupEditRules = reactive({
   groupIds: [{
     validator: function (rule, value, callback) {
       if (singleImageGroupInfoFormData.value.needAddNewGroup === false && value.length === 0) {
-        callback(new Error("请选择分组或者新建分组！"));
+        callback(new Error(t('description.selectOrCreateGroup')));
       } else {
         //校验通过
         callback();
@@ -293,12 +295,12 @@ const groupEditRules = reactive({
       if (singleImageGroupInfoFormData.value.needAddNewGroup === true && newGroupName?.length > 0) {
         // 如果分组名称已经存在了校验则不通过
         if (groupIdAndNameLists.value.some(item => item.name === newGroupName)) {
-          callback(new Error("分组名称已存在！"));
+          callback(new Error(t('groupNameExist')));
         }
         //校验通过
         callback();
       } else {
-        callback(new Error("请输入分组名称！"));
+        callback(new Error(t('description.enterGroupName')));
       }
     }, trigger: 'blur'
   }],
@@ -309,9 +311,9 @@ const groupEditRules = reactive({
         //校验通过
         callback();
       } else if (!GPSLongitude) {
-        callback(new Error("请输入经度！"));
+        callback(new Error(t('description.enterLongitude')));
       } else if (!isNumber(GPSLongitude)) {
-        callback(new Error("请输入数字！"));
+        callback(new Error(t('description.enterNumber')));
       }
     }, trigger: 'blur'
   }],
@@ -322,9 +324,9 @@ const groupEditRules = reactive({
         //校验通过
         callback();
       } else if (!GPSLatitude) {
-        callback(new Error("请输入经度！"));
+        callback(new Error(t('description.enterLongitude')));
       } else if (!isNumber(GPSLatitude)) {
-        callback(new Error("请输入数字！"));
+        callback(new Error(t('description.enterNumber')));
       }
     }, trigger: 'blur'
   }],
@@ -332,4 +334,11 @@ const groupEditRules = reactive({
 })
 </script>
 
-<style lang="scss" scoped></style>
+<style lang="scss" scoped>
+:deep() {
+  .el-form-item--default .el-form-item__label {
+    line-height: 14px;
+    transform: translateY(6px);
+  }
+}
+</style>

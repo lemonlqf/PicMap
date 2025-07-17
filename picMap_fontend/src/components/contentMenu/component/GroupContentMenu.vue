@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 22:37:25
+ * @LastEditTime: 2025-07-17 22:26:31
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -37,7 +37,8 @@ import { deleteGroupById, dissolveGroupById, getGroupInfoByGroupId, updateGroupI
 import { addManualLocateGroupToMap, getGPSInfoByMarkerInstance, GPSInfoLegality } from '@/utils/map'
 import { canDragMenu } from './markerOperate'
 import { ElMessage } from 'element-plus'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   groupId: {
     type: String,
@@ -54,7 +55,7 @@ const item = ref<any>({})
 const groupEditDialog = ref(false)
 function editorGroup(editItem: any) {
   // 如果是重新定位，不需要弹框二次确认
-  if (editItem.label === '重新定位') {
+  if (editItem.label === t('repositioning')) {
     editItem.clickEvent(props.groupId)
     return
   }
@@ -79,15 +80,15 @@ const menuList = ref([
   //   }
   // },
   {
-    label: '解散分组',
-    title: '解散分组',
-    description: '确定要解散分组吗？该分组将会被解散，组内图片任然保留！',
+    label: t('dissolveGroup'),
+    title: t('dissolveGroup'),
+    description: t('description.ensureToDissolveGroup'),
     clickEvent: async () => {
       loading.value = true
       const groupId = props.groupId
       // 删除schema中的分组信息
       await dissolveGroupById(groupId)
-      ElMessage.success('解散成功！')
+      ElMessage.success(t('description.dissolveSuccess'))
       loading.value = false
       hidden()
       // 隐藏右键菜单
@@ -95,15 +96,15 @@ const menuList = ref([
     }
   },
   {
-    label: '删除分组',
-    title: '删除分组',
-    description: '确定要删除分组吗？该分组以及分组内的图片将被删除！',
+    label: t('deleteGroup'),
+    title: t('deleteGroup'),
+    description: t('description.ensureToDeleteGroup'),
     clickEvent: async () => {
       loading.value = true
       const groupId = props.groupId
       // 删除schema中的分组信息
       await deleteGroupById(groupId)
-      ElMessage.success('删除成功！')
+      ElMessage.success(`${t('deleteSuccess')}!`)
       loading.value = false
       hidden()
       // 隐藏右键菜单

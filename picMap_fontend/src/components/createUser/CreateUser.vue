@@ -2,12 +2,12 @@
  * @Author: Do not edit
  * @Date: 2025-07-05 16:08:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 21:58:47
+ * @LastEditTime: 2025-07-17 21:22:57
  * @FilePath: \Code\picMap_fontend\src\components\createUser\CreateUser.vue
  * @Description: 
 -->
 <template>
-  <el-dialog :z-index="9999" v-model="show" title="创建新用户" style="width: 440px;">
+  <el-dialog :z-index="9999" v-model="show" :title="$t('createUser')" style="width: 440px;">
     <el-form ref="userFormRef" :model="newUserInfo" style="width: 400px" label-width="auto" :rules="userEditRules">
       <el-form-item :label="$t('userName')" label-width="90px" prop="userName">
         <el-input v-model="newUserInfo.userName"></el-input>
@@ -29,7 +29,8 @@
 import { ref, reactive, watch, type Ref } from 'vue'
 import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, createUser, createUserId, isUserNameExist } from '@/utils/user'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const show = defineModel({ default: false })
 
 const loading = ref(false)
@@ -47,10 +48,10 @@ const userEditRules = reactive({
   userName: [{
     validator: function (rule, value, callback) {
       if (newUserInfo?.value?.userName?.length < 1) {
-        callback(new Error("请输入用户名！"));
+        callback(new Error(t('description.enterUserName')));
       } else if (isUserNameExist(newUserInfo.value.userName)) {
         // 如果分组名称已经存在了校验则不通过
-        callback(new Error("用户名已存在！"));
+        callback(new Error(t('description.userNameExist')));
       } else {
         //校验通过
         callback();

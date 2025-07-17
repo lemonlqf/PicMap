@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-04 19:36:39
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-06 11:23:39
+ * @LastEditTime: 2025-07-17 22:20:22
  * @FilePath: \Code\picMap_fontend\src\components\userCard\UserCard.vue
  * @Description: 
 -->
@@ -14,15 +14,15 @@
         <img width="60" :src="getAvatarUrl(userInfo?.userAvatar as string)" alt="">
       </div>
       <div class="user-info">
-        <el-tooltip class="box-item" :content="userInfo?.userName || '未设置'" placement="top-start">
-          <span class="user-name">{{ userInfo?.userName || '未设置' }}</span>
+        <el-tooltip class="box-item" :content="userInfo?.userName || $t('notSet')" placement="top-start">
+          <span class="user-name">{{ userInfo?.userName || $t('notSet') }}</span>
         </el-tooltip>
         <span class="create-time">{{ `${formatDate(userInfo?.createTime, 'YYYY-MM-DD') || '2000-01-01'}` }}</span>
       </div>
     </div>
   </div>
   <!-- 添加 -->
-  <div @click="emits('cardClick')" v-if="isAddCard" class="add-card card" title="添加用户">
+  <div @click="emits('cardClick')" v-if="isAddCard" class="add-card card" :title="$t('createUser')">
     <AddUserIcon class="img" width="40px" height="40px"></AddUserIcon>
     <!-- <span>添加用户</span> -->
   </div>

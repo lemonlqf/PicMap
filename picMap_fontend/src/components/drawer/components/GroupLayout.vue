@@ -20,7 +20,7 @@
             </Image>
             <!-- 退出分组 -->
             <div class="exit-group" @click="removeGroupImage(groupId, item.id)">
-              <img src="@/assets/icon/退出.png" alt="" width="30px" title="退出分组" />
+              <img src="@/assets/icon/退出.png" alt="" width="30px" :title="$t('exitGroup')" />
             </div>
           </div>
         </template>
@@ -43,7 +43,8 @@ import { getSchemaInfoById } from '@/utils/schema'
 import Image from '@/components/drawer/components/Image.vue';
 import ImageInfoComponent from '@/components/drawer/components/ImageInfo.vue'
 import Sort from './Sort.vue'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   groupNumbers: {
     type: Object as PropType<string[]>,
@@ -57,15 +58,15 @@ const props = defineProps({
 
 const radioOptions = [
   {
-    label: '年',
+    label: t('year'),
     value: TimeType.YEAR
   },
   {
-    label: '月',
+    label: t('month'),
     value: TimeType.MONTH
   },
   {
-    label: '日',
+    label: t('day'),
     value: TimeType.DAY
   },
 ]
@@ -95,7 +96,7 @@ const groupImageSortMap = computed<Map<string, any[]>>(() => {
 function showImageInfo(e: MouseEvent, id: string) {
   const target = e.target as any
   // 如果是下载就不显示图片详情
-  if (target?.title === '下载原图') {
+  if (target?.title === t('downloadPicture')) {
     return
   }
   imageInfoDialogShow.value = true

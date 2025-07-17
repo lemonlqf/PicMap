@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 21:25:23
+ * @LastEditTime: 2025-07-17 23:23:42
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -13,12 +13,12 @@
     <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
   </div>
   <div class="buttons">
-    <el-button :icon="Reading" @click="switcPureMode" title="纯净模式" circle></el-button>
-    <el-button v-show="!pureMode" class="button" :icon="MapLocation" @click="setMapCenter" title="初始化中心"
-      circle></el-button>
+    <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
+    <el-button v-show="!pureMode" class="button" :icon="MapLocation" @click="setMapCenter"
+      :title="$t('initializationCenter')" circle></el-button>
     <el-button-group v-show="!pureMode" class="button">
-      <el-button type="" title="放大地图" @click="zoomUp" :icon="Plus" round />
-      <el-button type="" title="缩小地图" @click="zoomDown" :icon="Minus" round />
+      <el-button type="" :title="$t('zoomUpMap')" @click="zoomUp" :icon="Plus" round />
+      <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
     </el-button-group>
   </div>
   <User @changeUser="init" v-show="!pureMode" class="user"></User>

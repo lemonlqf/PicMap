@@ -19,7 +19,7 @@
     </el-upload>
     <img-cropper v-model:visible="cropper.visible" :file-url="cropper.fileUrl" :options="cropper.options"
       @ok="handleConfirmCropper" @cancel="handleCancel" @closed="handleClosedCropper" @click.stop />
-    <div class="hover-tips">{{ !disabled ? '点击上传封面' : '不可编辑默认瓦片'}}</div>
+    <div class="hover-tips">{{ !disabled ? $t('clickToUpliadCover') : $t('NonEditableDefaultTile') }}</div>
   </div>
 </template>
 

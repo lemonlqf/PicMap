@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-13 14:32:07
+ * @LastEditTime: 2025-07-17 23:02:25
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -10,7 +10,8 @@
   <div class="img-upload">
     <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary">点击上传图片</el-button>
+      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary">{{ $t('uploadPicture')
+        }}</el-button>
       <!-- <template #tip>
         <div class="el-upload__tip">请上传图片</div>
       </template> -->
@@ -19,7 +20,7 @@
     <el-scrollbar max-height="75vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <!-- 重复的图片 -->
-        <h3 class="h3-title">已上传图片：</h3>
+        <h3 class="h3-title">{{ $t('uploadedPicture') }}：</h3>
         <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
           <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
             <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
@@ -32,37 +33,39 @@
         <!-- 折叠、展开、清空已上传图片 -->
         <div class="button-flex">
           <el-button class="bottom-button" v-show="uploadExpand" :icon="ArrowUpBold" @click="uploadExpand = false"
-            type="primary">折叠</el-button>
+            type="primary">{{ $t('fold') }}</el-button>
           <el-button class="bottom-button" v-show="!uploadExpand" :icon="ArrowDownBold" @click="uploadExpand = true"
-            type="primary">展开</el-button>
-          <el-button class="bottom-button" @click="clearUploadImage" :icon="Delete" type="danger">清空</el-button>
+            type="primary">{{ $t('expand') }}</el-button>
+          <el-button class="bottom-button" @click="clearUploadImage" :icon="Delete" type="danger">{{ $t('clear')
+            }}</el-button>
         </div>
       </div>
       <div v-show="needUploadImageInfos.length">
-        <h3 class="h3-title">待上传图片：</h3>
+        <h3 class="h3-title">{{ $t('pictureToBeUploaded') }}：</h3>
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
             <img :src="item.url" alt="" :title="item.name" height="50px"
               @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
-            <h1>照片名:{{ item.name }}</h1>
-            <h1>纬度:{{ !item?.GPSInfo?.GPSLatitude ? '无数据' : item?.GPSInfo?.GPSLatitude }}</h1>
-            <h1>经度:{{ !item?.GPSInfo?.GPSLongitude ? '无数据' : item?.GPSInfo?.GPSLongitude }}</h1>
+            <h1>{{ $t('pictureName') }}:{{ item.name }}</h1>
+            <h1>{{ $t('latitude') }}:{{ !item?.GPSInfo?.GPSLatitude ? $t('noData') : item?.GPSInfo?.GPSLatitude }}</h1>
+            <h1>{{ $t('longitude') }}:{{ !item?.GPSInfo?.GPSLongitude ? $t('noData') : item?.GPSInfo?.GPSLongitude }}
+            </h1>
             <!-- <h1>id: {{ item.id }}</h1> -->
           </div>
           <div class="uplod-delete-buttons">
             <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude"
               @click="showLocateDialog(item.name)">
-              <img src="@/assets/icon/定位(白色).png" width="16px" alt="">定位</img>
+              <img src="@/assets/icon/定位(白色).png" width="16px" alt="">{{ $t('locate') }}</img>
             </div>
             <div v-else @click="uploadImage(item.name)">
-              <img src="@/assets/icon/上传 (白色).png" width="16px">上传</img>
+              <img src="@/assets/icon/上传 (白色).png" width="16px">{{ $t('upload') }}</img>
             </div>
             <!-- 分组信息 -->
             <div @click="showGroupDialog(item.id)">
-              <img src="@/assets/icon/分组（白色）.png" width="16px">分组</img>
+              <img src="@/assets/icon/分组（白色）.png" width="16px">{{ $t('group') }}</img>
             </div>
             <div @click="deleteImage(item.name)">
-              <img src="@/assets/icon/删除 (白色).png" width="16px">删除</img>
+              <img src="@/assets/icon/删除 (白色).png" width="16px">{{ $t('delete') }}</img>
             </div>
           </div>
         </div>
@@ -70,27 +73,27 @@
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
     <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
-      type="primary">批量上传</el-button>
-    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll"
-      type="danger">全部清空</el-button>
+      type="primary">{{ $t('batchUpload') }}</el-button>
+    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">{{
+      $t('clearAll') }}</el-button>
   </div>
   <!-- 定位弹框 -->
-  <el-dialog :z-index="9999" v-model="locateDialogShow" title="设置图片位置" style="width: 440px;">
+  <el-dialog :z-index="9999" v-model="locateDialogShow" :title="$t('setPictureLocation')" style="width: 440px;">
     <el-form ref="locateFromRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto"
       :rules="locateRules">
-      <el-form-item label="经度" prop="GPSLongitude">
+      <el-form-item :label="$t('longitude')" prop="GPSLongitude">
         <el-input v-model="needLocateImageIdFormData.GPSLongitude"></el-input>
       </el-form-item>
-      <el-form-item label="纬度" prop="GPSLatitude">
+      <el-form-item :label="$t('latitude')" prop="GPSLatitude">
         <el-input v-model="needLocateImageIdFormData.GPSLatitude"></el-input>
       </el-form-item>
-      <el-form-item label="海拔" prop="GPSAltitude">
+      <el-form-item :label="$t('altitude')" prop="GPSAltitude">
         <el-input v-model="needLocateImageIdFormData.GPSAltitude" placeholder="0"></el-input>
       </el-form-item>
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="manualLocateImage" class="locate-button" type="primary">手动定位</el-button>
+        <el-button @click="manualLocateImage" class="locate-button" type="primary">{{ $t('manualLocate')}}</el-button>
         <el-button @click="cancelLocateImage">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="locateImage(locateFromRef)">
           {{ $t('confirm') }}
@@ -118,6 +121,8 @@ import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vu
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import type { IGPSInfo } from '@/type/schema'
 import { cloneDeep } from 'lodash-es'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 
 const schemaStore = useSchemaStore()
 const props = defineProps({
@@ -349,7 +354,7 @@ const loadingInstance = ref()
 
 watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   if (needUploadImageLoading.value || uploadedImageLoading.value) {
-    loadingInstance.value = ElLoading.service({ fullscreen: true, text: '图片数据解析中......', })
+    loadingInstance.value = ElLoading.service({ fullscreen: true, text: `${t('description.analysisPicture')}......`, })
   } else {
     loadingInstance.value && loadingInstance.value.close()
   }
@@ -367,7 +372,7 @@ function uploadImage(name) {
   if (data[0].GPSInfo.GPSLongitude !== '' && data[0].GPSInfo.GPSLatitude !== '') {
     uploadImages(data)
   } else {
-    ElMessage.error('图片无地址信息，无法直接上传！')
+    ElMessage.error(t('description.needGPSInfo'))
   }
 }
 
@@ -410,7 +415,7 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
     return item.GPSInfo.GPSLatitude && item.GPSInfo.GPSLongitude
   })
   if (locateImageInfos.length < 1) {
-    ElMessage.warning('无图片可上传，请完善图片定位信息或上传新图片！')
+    ElMessage.warning(t('description.noPictureCanUpload'))
     return
   }
   // subimtData.append('data', 123)
@@ -422,10 +427,10 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
     return res.code === 200
   })
   if (allSuccess && res2.code === 200) {
-    ElMessage.success('图片上传成功!')
+    ElMessage.success(t('description.pictureUploadedSuccess'))
     // 上传完成后，点击右键可以出现操作菜单
   } else if (!allSuccess && res2.code === 200) {
-    ElMessage.success('部分图片上传成功!')
+    ElMessage.success(t('description.somePictureUploadedSuccess'))
   }
 }
 
@@ -488,12 +493,12 @@ async function locateImage(locateFromRef) {
 const locateRules = reactive({
   GPSLongitude: [{
     required: true,
-    message: '经度值不能为空！',
+    message: t('description.needLongitude'),
     trigger: 'change',
   }],
   GPSLatitude: [{
     required: true,
-    message: '纬度值不能为空！',
+    message: t('description.needLatitude'),
     trigger: 'change',
   }]
 })
@@ -606,6 +611,9 @@ defineExpose({
     align-items: center;
     justify-content: space-between;
     height: 35px;
+    .el-button {
+      width: 90px;
+    }
   }
 
   .upload-image-box {

@@ -5,8 +5,8 @@
     </div>
     <div class="hover-info">
       <div class="user-name">
-        <el-tooltip class="box-item" :content="currentUserInfo?.userName || '未设置'" placement="top-start">
-          <span class="text-overflow">{{ currentUserInfo?.userName || '未设置' }}</span>
+        <el-tooltip class="box-item" :content="currentUserInfo?.userName || $t('notSet')" placement="top-start">
+          <span class="text-overflow">{{ currentUserInfo?.userName || $t('notSet') }}</span>
         </el-tooltip>
       </div>
       <div class="data">
@@ -19,10 +19,10 @@
       </div>
       <el-button-group class="button-group">
         <el-button class="button" type="" @click="userDialog = true" :icon="User" round>
-          切换用户
+          {{ $t('changeUser') }}
         </el-button>
         <el-button class="button" type="" @click="toSettingPage" :icon="Operation" round>
-          设置
+          {{ $t('setting') }}
         </el-button>
       </el-button-group>
     </div>
@@ -52,7 +52,8 @@ import { User, Operation } from '@element-plus/icons-vue'
 import { getUserInfos } from '@/utils/appSchema'
 import { useRouter } from 'vue-router'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 // const props = defineProps({
 //   avatar: {
 //     type: String,
@@ -65,14 +66,14 @@ const userDialog = ref(false)
 
 const dataList = ref([
   {
-    key: '图片',
+    key: t('picture'),
     value: () => {
       const schemaStore = useSchemaStore()
       return schemaStore?.getSchema?.imageInfo?.length ?? 0
     }
   },
   {
-    key: '分组',
+    key: t('group'),
     value: () => {
       const schemaStore = useSchemaStore()
       return schemaStore?.getSchema?.groupInfo?.length ?? 0

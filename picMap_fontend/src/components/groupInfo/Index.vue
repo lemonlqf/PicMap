@@ -14,10 +14,10 @@
         <el-icon :class="['expand-button', { 'fold-up': !isExpand }]">
           <DArrowRight @click="changeIsExpand" />
         </el-icon>
-        <h3>{{ '分组信息' }}</h3>
+        <h3>{{ $t('groupInfo') }}</h3>
       </div>
       <!-- 添加分组 -->
-      <el-button v-show="isExpand" title="添加分组" type="primary" :icon="Plus"
+      <el-button v-show="isExpand" :title="$t('addGroup')" type="primary" :icon="Plus"
         @click="showCreateDialog"></el-button>
     </div>
     <el-scrollbar max-height="308px">

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-08 19:51:53
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 22:59:34
+ * @LastEditTime: 2025-07-17 23:00:12
  * @FilePath: \Code\picMap_fontend\src\components\mapTileEditor\components\MapTileCard.vue
  * @Description: 
 -->
@@ -11,30 +11,33 @@
     <!-- 预览，允许操作 -->
     <div class="preview" ref="mapRef">
       <el-switch class="active-button" v-model="active"></el-switch>
+      <span class="tips">{{ $t('description.setUrlToPreview') }}</span>
     </div>
     <div class="content">
       <ImageUpload v-model="imageUrl" :tileId="tileId" :disabled="!canEdit"></ImageUpload>
       <div class="info">
         <h3 class="title">{{ $t('tileName') }}</h3>
         <div class="value">
-          <span v-if="!isEdit">{{ name || '未设置' }}</span>
+          <span v-if="!isEdit">{{ name || $t('notSet') }}</span>
           <el-input v-else size="small" :maxlength="10" show-word-limit v-model="inputName" @change="changeName">
           </el-input>
         </div>
-        <h3 class="title">地址</h3>
+        <h3 class="title">{{ $t('address') }}</h3>
         <div class="value">
-          <span v-if="!isEdit">{{ url || '未设置' }}</span>
+          <span v-if="!isEdit">{{ url || $t('notSet') }}</span>
           <el-input v-else size="small" v-model="inputUrl" @change="changeUrl">
           </el-input>
         </div>
       </div>
       <div class="buttons">
         <template v-if="!isEdit">
-          <el-button :icon="Edit" type="primary" :disabled="!canEdit" @click="isEdit = true">编辑</el-button>
-          <el-button :icon="Delete" type="danger" :disabled="!canEdit" @click="deleteTile(props.tileId)">删除</el-button>
+          <el-button :icon="Edit" type="primary" :disabled="!canEdit" @click="isEdit = true">{{ $t('edit')
+          }}</el-button>
+          <el-button :icon="Delete" type="danger" :disabled="!canEdit" @click="deleteTile(props.tileId)">{{ $t('delete')
+          }}</el-button>
         </template>
         <template v-else>
-          <el-button @click="isEdit = false" :icon="Back" type="primary">退出编辑</el-button>
+          <el-button @click="isEdit = false" :icon="Back" type="primary">{{ $t('exitEdit') }}</el-button>
         </template>
       </div>
     </div>
@@ -51,6 +54,8 @@ import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/store/appSchema';
 import { cloneDeep } from 'lodash-es';
 import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   url: {
     type: String,
@@ -58,7 +63,7 @@ const props = defineProps({
   },
   name: {
     type: String,
-    default: '未设置'
+    default: ''
   },
   image: {
     type: String,
@@ -139,7 +144,7 @@ watch(() => props.url, () => {
 
 function changeName(value: string) {
   if (value.length < 1) {
-    ElMessage.warning('请输入名称')
+    ElMessage.warning(t('description.enterName'))
     // inputName.value = props.name
   }
   const appSchemaStore = useAppStore()
@@ -155,7 +160,7 @@ function changeName(value: string) {
 
 async function changeUrl(value: string) {
   if (value.length < 1) {
-    ElMessage.warning('地址为空时，瓦片不会显示')
+    ElMessage.warning(t('description.needTileUrl'))
     // inputName.value = props.name
   }
   const appSchemaStore = useAppStore()
@@ -222,16 +227,16 @@ onMounted(() => {
         background: rgb(43, 130, 243);
       }
     }
+
+    .tips {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      opacity: 0.5;
+      color: whitesmoke
+    }
   }
 
-  .preview::after {
-    content: '请添加有效瓦片地址,在此处预览';
-    position: absolute;
-    bottom: 3px;
-    right: 3px;
-    opacity: 0.5;
-    color: whitesmoke
-  }
 
   .content {
     padding: 10px;
@@ -271,7 +276,7 @@ onMounted(() => {
       // height: 40px;
       // padding: 0 11px;
       position: absolute;
-      transform: translateX(100px);
+      transform: translateX(120px);
       right: 0;
       top: 0;
       bottom: 0;
@@ -285,6 +290,7 @@ onMounted(() => {
 
       .el-button {
         margin: 0;
+        width: 100px;
       }
     }
   }

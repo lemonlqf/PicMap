@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 22:47:26
+ * @LastEditTime: 2025-07-17 22:22:38
  * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
@@ -12,7 +12,7 @@
     <div class="menu">
       <div class="logo-box">
         <MapLogo class="logo" width="100px" height="100px" @click="goToPicMap" />
-        <span class="logo-text">返回相册地图</span>
+        <span class="logo-text">{{ $t('backToPicMap') }}</span>
       </div>
       <template v-for="item in menuList">
         <div>
@@ -61,13 +61,13 @@ const schemaStore = useSchemaStore()
 const menuList = [
   {
     title: t('userManagement'),
-    label: '用户',
+    label: t('user'),
     router: 'user',
     img: UserSvg
   },
   {
-    title: '地图管理',
-    label: '地图',
+    title: t('mapManagement'),
+    label: t('map'),
     router: 'map',
     img: MapSvg
   },

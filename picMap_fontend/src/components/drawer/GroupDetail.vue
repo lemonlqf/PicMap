@@ -27,7 +27,8 @@ import { getImageUrlById } from '@/utils/Image';
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getGroupInfoByGroupId } from '@/utils/group';
 import eventBus from '@/utils/eventBus'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   groupId: {
     type: String,
@@ -60,7 +61,7 @@ const groupNumbers = computed(() => {
 function showImageInfo(e: MouseEvent, id: string) {
   const target = e.target as any
   // 如果是下载就不显示图片详情
-  if (target?.title === '下载原图') {
+  if (target?.title === t('downloadPicture')) {
     return
   }
   imageInfoDialogShow.value = true

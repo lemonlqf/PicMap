@@ -24,7 +24,8 @@ import { deleteImageById } from '@/utils/Image'
 import { judgeHadUploadImage, saveSchema } from '@/utils/schema'
 import { deleteMarkerInMap, MAP_INSTANCE } from '@/utils/map'
 import { canDragMenu } from './markerOperate'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   imageId: {
     type: String,
@@ -39,7 +40,7 @@ const postionInfo = ref({
 })
 const menuList = ref([
   {
-    label: '删除图片',
+    label: t('deletePicture'),
     clickEvent: async () => {
       // 删除图片
       deleteImageById(props.imageId)
@@ -48,7 +49,7 @@ const menuList = ref([
     }
   },
   {
-    label: '设置分组',
+    label: t('setGroup'),
     clickEvent: async () => {
       // 编辑分组信息
       eventBus.emit('edit-group', props.imageId)

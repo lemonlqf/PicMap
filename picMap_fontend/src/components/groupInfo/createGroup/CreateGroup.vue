@@ -1,5 +1,5 @@
 <template>
-  <el-dialog :z-index="9999" v-model="show" title="创建新分组" style="width: 440px;">
+  <el-dialog :z-index="9999" v-model="show" :title="$t('createGroup')" style="width: 440px;">
     <el-form ref="groupFormRef" :model="createGroupInfoFormData" style="width: 400px" label-width="auto"
       :rules="groupEditRules">
       <el-form-item :label="$t('groupName')" label-width="90px" prop="newGroupName">
@@ -44,7 +44,8 @@ import type { ICreateGroupInfoData } from '@/type/group'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage, createNewGroupToSchema } from '@/utils/group'
 import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap, GPSInfoLegality } from '@/utils/map'
 import type { IGroupInfo, ISchema } from '@/type/schema'
-
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const show = defineModel({ default: false })
 
 const groupFormRef = ref()
@@ -76,12 +77,12 @@ const groupEditRules = reactive({
       if (newGroupName?.length > 0) {
         // 如果分组名称已经存在了校验则不通过
         if (groupIdAndNameLists.value.some(item => item.name === newGroupName)) {
-          callback(new Error("分组名称已存在！"));
+          callback(new Error(t('description.groupNameExist')));
         }
         //校验通过
         callback();
       } else {
-        callback(new Error("请输入分组名称！"));
+        callback(new Error(t('description.enterGroupName')));
       }
     }, trigger: 'blur'
   }],
@@ -92,9 +93,9 @@ const groupEditRules = reactive({
         //校验通过
         callback();
       } else if (!GPSLongitude) {
-        callback(new Error("请输入经度！"));
+        callback(new Error(t('description.enterLongitude')));
       } else if (!isNumber(GPSLongitude)) {
-        callback(new Error("请输入数字！"));
+        callback(new Error(t('description.enterNumber')));
       }
     }, trigger: 'blur'
   }],
@@ -105,9 +106,9 @@ const groupEditRules = reactive({
         //校验通过
         callback();
       } else if (!GPSLatitude) {
-        callback(new Error("请输入经度！"));
+        callback(new Error(t('description.enterLongitude')));
       } else if (!isNumber(GPSLatitude)) {
-        callback(new Error("请输入数字！"));
+        callback(new Error(t('description.enterNumber')));
       }
     }, trigger: 'blur'
   }],

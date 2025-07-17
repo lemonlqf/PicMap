@@ -18,7 +18,7 @@
   <div class="image-info-item">
     <h1>{{ props.title }}</h1>
     <div v-for="key in keys" class="key-value">
-      <span class="key" v-if="needShow(key)">{{ labels[key] }}:</span>
+      <span class="key" v-if="needShow(key)">{{ getLabels(key) }}:</span>
       <template v-if="key === 'DateTime'">
         <span class="value" v-if="needShow(key)" style="max-width: 200px">
           {{ formatDate(props.info[key], 'YYYY-MM-DD HH:mm:ss') }}
@@ -26,7 +26,7 @@
       </template>
       <template v-else>
         <span class="value" v-if="needShow(key)" style="max-width: 200px">
-          {{ getValue(props.info[key]) ?? '无数据' }}
+          {{ getValue(props.info[key]) ?? $t('noData') }}
         </span>
       </template>
     </div>
@@ -35,7 +35,7 @@
 
 <script lang="ts" setup>
 import { computed } from 'vue'
-import { labels, showIndicators } from '../imageInfo';
+import { getLabels, showIndicators } from '../imageInfo';
 import { formatDate } from '@/utils/date';
 const props = defineProps({
   info: {

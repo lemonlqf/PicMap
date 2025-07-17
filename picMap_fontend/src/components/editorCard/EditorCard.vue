@@ -2,14 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-07-06 15:51:01
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-07 22:30:33
+ * @LastEditTime: 2025-07-17 21:35:41
  * @FilePath: \Code\picMap_fontend\src\components\editorCard\EditorCard.vue
  * @Description: 
 -->
 <template>
   <div class="editor-card">
     <div class="header">
-      <div class="title">{{ title }}</div>
+      <div class="title">{{ title || $t('defaultTitle') }}</div>
       <div class="img">
         <component class="svg" :is="img"></component>
       </div>
@@ -21,10 +21,11 @@
 </template>
 
 <script setup lang="ts">
+
 const props = defineProps({
   title: {
     type: String,
-    defalut: '默认标题'
+    defalut: ''
   },
   img: {
     type: String,

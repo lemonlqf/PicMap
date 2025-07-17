@@ -1,6 +1,6 @@
 <template>
-  <el-dialog title="请选择合适的图片区域" v-model="compVisible" append-to-body :show-close="false" :close-on-click-modal="false"
-    :close-on-press-escape="false" v-bind="$attrs">
+  <el-dialog :title="$t('chooseAppropriateImageArea')" v-model="compVisible" append-to-body :show-close="false"
+    :close-on-click-modal="false" :close-on-press-escape="false" v-bind="$attrs">
     <div class="cropper-content">
       <div v-if="!isReset" class="cropper" style="text-align: center">
         <VueCropper ref="cropperRef" v-bind="option" />
@@ -14,17 +14,19 @@
           <span style="font-size:12px;">重新选择</span>
         </el-button> -->
         <el-button-group>
-          <el-button :icon="RefreshLeft" plain title="向左旋转90°" @click="cropperRef && cropperRef.rotateLeft()" />
-          <el-button :icon="RefreshRight" plain title="向右旋转90°" @click="cropperRef && cropperRef.rotateRight()" />
-          <el-button :icon="ZoomIn" plain title="放大" @click="cropperRef && cropperRef.changeScale(1)" />
-          <el-button :icon="ZoomOut" plain title="缩小" @click="cropperRef && cropperRef.changeScale(-1)" />
+          <el-button :icon="RefreshLeft" plain :title="`${$t('rotateLeft')}90°`"
+            @click="cropperRef && cropperRef.rotateLeft()" />
+          <el-button :icon="RefreshRight" plain :title="`${$t('rotateRight')}90°`"
+            @click="cropperRef && cropperRef.rotateRight()" />
+          <el-button :icon="ZoomIn" plain :title="$t('zoomIn')" @click="cropperRef && cropperRef.changeScale(1)" />
+          <el-button :icon="ZoomOut" plain :title="$t('zoomOut')" @click="cropperRef && cropperRef.changeScale(-1)" />
         </el-button-group>
       </div>
     </div>
     <template #footer>
       <div class="dialog-footer">
         <el-button @click="cancel"> {{ $t('cancel') }} </el-button>
-        <el-button type="primary" :loading="loading" @click="finish"> 确定 </el-button>
+        <el-button type="primary" :loading="loading" @click="finish"> {{ $t('confirm') }} </el-button>
       </div>
     </template>
   </el-dialog>

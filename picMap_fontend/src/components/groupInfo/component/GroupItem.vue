@@ -11,8 +11,9 @@
     <div>
       <img v-show="expand" src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
       <el-tooltip :content="groupInfo.name" placement="top">
-        <span :class="['group-name', { 'group-name-fold-up': !expand }]">{{ GPSInfoLegality(groupInfo?.GPSInfo) ?
-          groupInfo.name : expand ? `(未定位)${groupInfo.name}` : groupInfo.name
+        <span :class="['group-name', { 'group-name-fold-up': !expand }]">
+          {{ GPSInfoLegality(groupInfo?.GPSInfo) ?
+            groupInfo.name : expand ? `(${$t('unlocated')})${groupInfo.name}` : groupInfo.name
           }}
         </span>
       </el-tooltip>

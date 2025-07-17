@@ -4,7 +4,7 @@
       :class="['selector-card', { 'active': item.name === currentName }]" @click="changeMapTile(item)">
       <img v-if="item?.image.length" :src="item?.image" alt="">
       <img v-else style="opacity: 0.4" :src="defaultIcon" alt="">
-      <div class="name"><span>{{ item.name || '未设置' }}</span></div>
+      <div class="name"><span>{{ item.name || $t('notSet') }}</span></div>
       <div class="active-img">
         <img :src="SelectIcon" alt="">
       </div>
@@ -16,7 +16,7 @@
 import { onBeforeMount, computed, watch, ref, onMounted } from 'vue'
 
 import SelectIcon from '@/assets/icon/对勾.svg?svg'
-import { defaultMapTile, type IMapTile } from './defaultMap'
+import { getDefaultMapTile, type IMapTile } from './defaultMap'
 import { getMapTile } from '@/utils/user'
 import { useAppStore } from '@/store/appSchema'
 import { useSchemaStore } from '@/store/schema'
@@ -24,7 +24,7 @@ import { cloneDeep } from 'lodash-es'
 import defaultIcon from '@/assets/icon/默认图片.svg?svg'
 
 const emits = defineEmits(['changeMapTile'])
-
+const defaultMapTile = getDefaultMapTile()
 const value = defineModel({})
 const currentName = ref(defaultMapTile[0].name)
 

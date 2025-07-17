@@ -2,21 +2,23 @@
  * @Author: Do not edit
  * @Date: 2025-06-27 19:16:10
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-28 19:55:52
+ * @LastEditTime: 2025-07-17 21:33:27
  * @FilePath: \Code\picMap_fontend\src\components\description\Description.vue
  * @Description: 
 -->
 <template>
   <div class="description">
-    <h1>图片描述</h1>
-    <el-input class="normal" v-model="text" :autosize="{ maxRows: 3 }" style="width: 100%" placeholder="图片描述"
-      type="textarea" @change="change" @keydown.enter.prevent />
+    <h1>{{ $t('pictureDescription') }}</h1>
+    <el-input class="normal" v-model="text" :autosize="{ maxRows: 3 }" style="width: 100%"
+      :placeholder="$t('pictureDescription')" type="textarea" @change="change" @keydown.enter.prevent />
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import { editSchemaAndSave } from '@/utils/schema'
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   description: {
     type: String,
@@ -25,10 +27,6 @@ const props = defineProps({
   id: {
     type: String,
     defalut: ''
-  },
-  label: {
-    type: String,
-    default: '图片描述'
   }
 })
 
