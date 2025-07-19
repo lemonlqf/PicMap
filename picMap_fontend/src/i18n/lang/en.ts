@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:08
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 23:26:01
+ * @LastEditTime: 2025-07-18 22:39:30
  * @FilePath: \Code\picMap_fontend\src\i18n\lang\en.ts
  * @Description: 
  */
@@ -41,7 +41,7 @@ export default {
   downloadPicture: 'Download picture',
   pictureLoadFailed: 'Picture load failed',
   timeInfo: 'Time info',
-  GSPInfo: 'GSP info',
+  GPSInfo: 'GPS info',
   cameraInfo: 'Camera info',
   noData: 'No data',
   title: 'Title',
@@ -104,7 +104,7 @@ export default {
   notSet: 'Not set',
   edit: 'Edit',
   exitEdit: 'Exit edit',
-  address: 'Address',
+  address: 'Url',
   changeUser: 'Change',
   setting: 'Setting',
   user: 'User',

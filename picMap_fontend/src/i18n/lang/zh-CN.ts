@@ -41,7 +41,7 @@ export default {
   downloadPicture: '下载原图',
   pictureLoadFailed: '图片加载失败',
   timeInfo: '时间信息',
-  GSPInfo: 'GSP信息',
+  GPSInfo: 'GPS信息',
   cameraInfo: '相机信息',
   noData: '无数据',
   title: '标题',

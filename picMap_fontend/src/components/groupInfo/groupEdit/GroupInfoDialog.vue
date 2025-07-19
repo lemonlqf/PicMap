@@ -174,11 +174,11 @@ async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData, dragg
   // 保存最新的schema信息
   const res = await saveSchema()
   if (res.code === 200) {
-    ElMessage.success(t('editGroupInfoSuccess'))
+    ElMessage.success(t('description.editGroupInfoSuccess'))
     // 更新地图中的节点
     updateVisibleMarkersByFormData(newGroupInfo, hiddenImageIds, draggable)
   } else {
-    ElMessage.error(t('editGroupInfoFail'))
+    ElMessage.error(t('description.editGroupInfoFail'))
   }
 }
 

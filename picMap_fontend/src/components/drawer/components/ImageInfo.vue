@@ -10,7 +10,7 @@
   <div class="grid-box">
     <KeyValue class="image-info" v-if="imageInfo?.imageInfo" :title="$t('pictureInfo')" :info="imageInfo?.imageInfo" />
     <KeyValue class="author-info" v-if="imageInfo?.authorInfo" :title="$t('timeInfo')" :info="imageInfo?.authorInfo" />
-    <KeyValue class="GPS-info" v-if="imageInfo?.GPSInfo" :title="$t('GSPInfo')" :info="imageInfo?.GPSInfo" />
+    <KeyValue class="GPS-info" v-if="imageInfo?.GPSInfo" :title="$t('GPSInfo')" :info="imageInfo?.GPSInfo" />
     <KeyValue class="camera-info" v-if="imageInfo?.cameraInfo" :title="$t('cameraInfo')" :info="imageInfo?.cameraInfo" />
     <Description class="other" :description="imageInfo?.description" :id="imageInfo.id"></Description>
   </div>
