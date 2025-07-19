@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-19 23:16:39
+ * @LastEditTime: 2025-07-20 00:14:19
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -342,7 +342,7 @@ export function deleteMarkerInMap(marker) {
     markerClusters.removeLayer(marker);
     // 删除地图中的节点
     map.removeLayer(marker)
-    mapStore.deleteMarker(marker)
+    mapStore.deleteMarker(marker?.options?.id)
   }
 }
 
