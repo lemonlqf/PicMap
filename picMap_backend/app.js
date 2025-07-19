@@ -2,7 +2,7 @@
  * @Author: 吕奇峰 1353041516@qq.com
  * @Date: 2024-12-12 20:38:47
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-29 13:33:48
+ * @LastEditTime: 2025-07-20 00:17:44
  * @FilePath: \Code\picMap_backend\app.js
  * @Description: 这是默认设置,请设置`customMade`, 打开koroFileHeader查看配置 进行设置: https://github.com/OBKoro1/koro1FileHeader/wiki/%E9%85%8D%E7%BD%AE
  */
@@ -33,7 +33,7 @@ app.set('view engine', 'jade')
 
 app.use(cors())
 app.use(logger('dev'))
-app.use(express.json({ limit: '50mb' }))
+app.use(express.json({ limit: '100mb' }))
 app.use(express.urlencoded({ extended: false }))
 app.use(cookieParser())
 app.use(express.static(path.join(__dirname, 'public')))

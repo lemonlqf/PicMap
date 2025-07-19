@@ -150,6 +150,8 @@ export default {
     canNotCreateUserWhenEdit: 'Please exit editing before creating a new user',
     confirmDeleteUser: 'Are you sure you want to delete the user? All the pictures of this user will also be deleted and cannot be restored!',
     setUrlToPreview: 'Please add a valid tile url to preview here',
+    largeSize: 'pictrue is too big, Over ',
+    uploadFailed: 'Upload filed!'
   },
   placeholder: {
     selectGroup: 'Plaese select group'

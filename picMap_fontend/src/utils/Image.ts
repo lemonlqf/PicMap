@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-19 23:44:04
+ * @LastEditTime: 2025-07-20 00:58:41
  * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
@@ -17,7 +17,7 @@ import { saveSchema } from './schema';
 import { deleteMarkerById, MAP_INSTANCE } from '@/utils/map';
 import type { IImageDetailInfo } from '@/type/image'
 import type { IHttpResponse } from '@/type/http'
-
+import i18n from '@/i18n/index'
 
 // 一个地方集中管理图片，因为一个图片可能在多个分组中
 // 保存缩略图的map
@@ -31,6 +31,9 @@ export function addImageUrl(imageId, imageUrl)  {
 export function getImageUrl (imageId){
   return imageUrlsMap.get(imageId)
 }
+
+// 单位MB
+const largeImageSize = 50
 
 /**
  * @description: 获取单张图片的url，内部实现了复用的逻辑
@@ -110,12 +113,16 @@ export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHtt
     if (!canUpload(imageInfo)) {
       continue
     }
+    if (!imageSizeunderLimit(imageInfo.url)) {
+      ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.largeSize')} ${largeImageSize}MB`)
+      continue
+    }
     // 请求后端接口上传图片，保存本地文件目录下
     const res1 = await API.image.uploadImages({ images: [imageInfo] })
     // 保存返回的接口结果
     res.push(res1)
     if (res1.code !== 200) {
-      ElMessage.warning(`${imageInfo.name} 上传失败！`)
+      ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.uploadFailed')}`)
       continue
     }
     // 将图片保存到已经上传的地方
@@ -136,11 +143,28 @@ export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHtt
  * @return {*}
  */
 function canUpload(imageInfo: IImageDetailInfo): boolean {
-  const res = (
-    imageInfo.url &&
-    imageInfo.GPSInfo
-  )
-  return res ? true : false
+  const hasUrl = !!imageInfo.url
+  const hasGPS = !!imageInfo.GPSInfo
+
+  return hasUrl && hasGPS
+}
+
+function imageSizeunderLimit(url: any) {
+  let size = 0
+  if (typeof url === 'string' && url.startsWith('data:')) {
+    // base64
+    size = base64Size(url)
+  }
+  // 100MB = 100 * 1024 * 1024
+  const underLimit = (size <= largeImageSize * 1024 * 1024)
+  return underLimit
+}
+
+function base64Size(base64: string): number {
+  // 去掉 data:image/png;base64, 头部
+  const base64Str = base64.split(',')[1] || ''
+  // 1 字节 = 8 bit，base64 每 4 个字符代表 3 字节
+  return Math.floor(base64Str.length * 3 / 4)
 }
 
 /**

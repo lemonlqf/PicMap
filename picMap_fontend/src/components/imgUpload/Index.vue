@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 00:03:33
+ * @LastEditTime: 2025-07-20 00:41:19
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -433,14 +433,15 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
   const res1 = await UploadImages(locateImageInfos)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
-  const allSuccess = res1.every(res => {
+  const allSuccess =  res1.filter(res => {
     return res.code === 200
-  })
-  if (allSuccess && res2.code === 200) {
+  }).length === res1.length
+  if (allSuccess && res1.length && res2.code === 200) {
     ElMessage.success(t('description.pictureUploadedSuccess'))
     // 上传完成后，点击右键可以出现操作菜单
-  } else if (!allSuccess && res2.code === 200) {
+  } else if (!allSuccess && res1.length && res2.code === 200) {
     ElMessage.success(t('description.somePictureUploadedSuccess'))
+  } else {
   }
 }
 
