@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 21:06:12
+ * @LastEditTime: 2025-07-19 23:44:04
  * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
@@ -22,7 +22,7 @@ import type { IHttpResponse } from '@/type/http'
 // 一个地方集中管理图片，因为一个图片可能在多个分组中
 // 保存缩略图的map
 // key: imageId, value: imageUrl
-const imageUrlsMap = new Map()
+export const imageUrlsMap = new Map()
 
 export function addImageUrl(imageId, imageUrl)  {
   imageUrlsMap.set(imageId, imageUrl)

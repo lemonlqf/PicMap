@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 23:02:25
+ * @LastEditTime: 2025-07-19 23:44:56
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -23,7 +23,7 @@
         <h3 class="h3-title">{{ $t('uploadedPicture') }}：</h3>
         <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
           <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
-            <img :src="item.url" alt="" :title="item.name" height="50px" :key="item.url"
+            <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px" :key="item.name"
               @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
             <!-- <h1>照片名:{{ item.name }}</h1>
         <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
@@ -44,7 +44,7 @@
         <h3 class="h3-title">{{ $t('pictureToBeUploaded') }}：</h3>
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
-            <img :src="item.url" alt="" :title="item.name" height="50px"
+            <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px"
               @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
             <h1>{{ $t('pictureName') }}:{{ item.name }}</h1>
             <h1>{{ $t('latitude') }}:{{ !item?.GPSInfo?.GPSLatitude ? $t('noData') : item?.GPSInfo?.GPSLatitude }}</h1>
@@ -112,7 +112,7 @@ import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
 import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, imageUrlsMap } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
@@ -122,6 +122,7 @@ import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/t
 import type { IGPSInfo } from '@/type/schema'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
+
 const { t } = useI18n()
 
 const schemaStore = useSchemaStore()
@@ -185,16 +186,20 @@ watch(
           const res1 = getFileInfoByFile(file)
           // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
           const res2 = await setMoreInfoByExifReader(file)
+          const existUrl = imageUrls.value[imageName] || imageUrlsMap.get(imageName)
           // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
-          if (!imageUrls.value[imageName]) {
+          if (!existUrl) {
+            // 完整的base64用于图片上传
             const url = await readFileAsDataURL(file);
-            imageUrls.value[imageName] = url
+            // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
+            const blobUrl = await fileToBlobUrl(file);
+            imageUrls.value[imageName] = blobUrl
             // 保存到imageUrlsMap中，后续图片详情展示使用
-            addImageUrl(imageName, url)
-            hasUrlFileList.value[i] = { ...res1, ...res2, url }
+            addImageUrl(imageName, blobUrl)
+            hasUrlFileList.value[i] = { ...res1, ...res2, url, blobUrl }
           } else {
             // 如果已经有了，直接拿过来用
-            hasUrlFileList.value[i] = { ...res1, ...res2, url: imageUrls.value[imageName] }
+            hasUrlFileList.value[i] = { ...res1, ...res2, url: existUrl }
           }
           // 如果有坐标内容的话，在地图上添加对应的marker
           if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
@@ -205,6 +210,10 @@ watch(
     }
   }
 )
+
+function fileToBlobUrl(file: File | Blob): string {
+  return URL.createObjectURL(file)
+}
 
 const needUploadImageInfos = computed(() => {
   // 更新schema，新的信息保存到schema中

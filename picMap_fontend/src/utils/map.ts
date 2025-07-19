@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 21:14:55
+ * @LastEditTime: 2025-07-19 23:16:39
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -103,7 +103,7 @@ function getAllMarkers(): L.Marker[] {
  * @param {*} imageUrl
  * @return {*}
  */
-export function addImageMarkerToMap(imageInfo) {
+export function addImageMarkerToMap(imageInfo: IImageInfo) {
   const map = MAP_INSTANCE
   const mapStore = useMapStore()
   const myIcon = createImageMarkerIcon(imageInfo)
@@ -270,7 +270,8 @@ export async function addManualLocateGroupToMap(groupInfo: INewGroupFormData, la
  */
 export function createImageMarkerIcon(imageInfo: IImageInfo): L.Icon {
   let myIcon;
-  let imageUrl = imageInfo.url ?? getImageUrl(imageInfo.id)
+  // 优先使用blobUrl,没有再使用url
+  let imageUrl = imageInfo.blobUrl ?? imageInfo.url ?? getImageUrl(imageInfo.id)
   // 如果没有url直接用文字名称代替
   if (!imageUrl) {
     myIcon = L.divIcon({

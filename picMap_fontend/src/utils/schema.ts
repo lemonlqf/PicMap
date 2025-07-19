@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-10 22:58:53
- * @FilePath: \PicMap\Code\picMap_fontend\src\utils\schema.ts
+ * @LastEditTime: 2025-07-19 23:11:25
+ * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
@@ -119,6 +119,8 @@ export async function saveSchema() {
   schema?.imageInfo?.forEach?.(item => {
     // 删除url，精简schema
     delete item.url
+    // 删除blobUrl
+    delete item.blobUrl
   })
   const res = await schemaHttp.setSchema({ schema: JSON.stringify(schema) })
   return res

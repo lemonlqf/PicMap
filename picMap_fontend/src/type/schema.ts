@@ -45,6 +45,8 @@ export type IImageInfo = {
   size?: number,
   type: string,
   describe?: string, // 图片描述信息
+  url?: string,
+  blobUrl?: string,
   [key: string]: any // 其他信息
 }
 
