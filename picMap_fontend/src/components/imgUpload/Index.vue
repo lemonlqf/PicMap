@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-19 23:44:56
+ * @LastEditTime: 2025-07-20 00:03:33
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -203,7 +203,8 @@ watch(
           }
           // 如果有坐标内容的话，在地图上添加对应的marker
           if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
-            addImageMarkerToMap(hasUrlFileList.value[i])
+            // 只有还没有上传过的图片需要添加到地图中
+            !judgeHadUploadImage(imageName) && addImageMarkerToMap(hasUrlFileList.value[i])
           }
         }
       }
