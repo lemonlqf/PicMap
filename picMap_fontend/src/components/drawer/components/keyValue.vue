@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-06-17 20:16:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-28 20:00:42
+ * @LastEditTime: 2025-07-20 11:52:57
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\keyValue.vue
  * @Description: 
 -->
@@ -20,12 +20,17 @@
     <div v-for="key in keys" class="key-value">
       <span class="key" v-if="needShow(key)">{{ getLabels(key) }}:</span>
       <template v-if="key === 'DateTime'">
-        <span class="value" v-if="needShow(key)" style="max-width: 200px">
+        <span class="value" v-if="needShow(key)">
           {{ formatDate(props.info[key], 'YYYY-MM-DD HH:mm:ss') }}
         </span>
       </template>
+      <template v-else-if="key === 'Resolution'">
+        <span class="value" v-if="needShow(key)">
+          {{ handleResolution(props.info[key]) }}
+        </span>
+      </template>
       <template v-else>
-        <span class="value" v-if="needShow(key)" style="max-width: 200px">
+        <span class="value" v-if="needShow(key)">
           {{ getValue(props.info[key]) ?? $t('noData') }}
         </span>
       </template>
@@ -37,6 +42,8 @@
 import { computed } from 'vue'
 import { getLabels, showIndicators } from '../imageInfo';
 import { formatDate } from '@/utils/date';
+import { useI18n } from 'vue-i18n'
+const { t } = useI18n()
 const props = defineProps({
   info: {
     default: {}
@@ -79,6 +86,14 @@ function maxLength(value) {
   return value
 }
 
+/**
+ * @description: 将undefined替换为未知
+ * @param {*} value
+ * @return {*}
+ */
+function handleResolution(value: string) {
+  return value.replaceAll('undefined', t('undefined'))
+}
 </script>
 
 <style lang="scss" scoped>
@@ -115,11 +130,14 @@ h1 {
     }
 
     .value {
+      max-width: 200px;
       width: 100%;
       font-size: 15px;
       color: rgba(0, 0, 0, .8);
       word-break: normal;
       font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
   }
 }

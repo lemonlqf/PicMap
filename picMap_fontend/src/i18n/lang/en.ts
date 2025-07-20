@@ -7,6 +7,7 @@
  * @Description: 
  */
 export default {
+  undefined: 'undefined',
   defaultAvatar: 'Dfault avatar',
   positioningGroup: 'Positioning group',
   confirm: 'Confirm',

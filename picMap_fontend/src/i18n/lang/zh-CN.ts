@@ -7,6 +7,7 @@
  * @Description: 
  */
 export default {
+  undefined: '未知',
   defaultAvatar: '默认头像',
   positioningGroup: '定位分组',
   confirm: '确认',
