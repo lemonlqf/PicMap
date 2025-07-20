@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-14 21:08:59
+ * @LastEditTime: 2025-07-20 11:37:05
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\ImageContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -15,7 +15,7 @@
 </template>
 
 <script lang="ts" setup>
-import { onMounted, onUnmounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import eventBus from '@/utils/eventBus'
 import API from '@/http/index'
 import { useSchemaStore } from '@/store/schema'
@@ -32,13 +32,10 @@ const props = defineProps({
     default: () => ''
   }
 })
-const schemaStore = useSchemaStore()
-const marker = ref({})
-const postionInfo = ref({
-  left: '10px',
-  top: '0px'
-})
-const menuList = ref([
+
+const menuList = ref<any>([])
+
+const deleteAndDragList = [
   {
     label: t('deletePicture'),
     clickEvent: async () => {
@@ -48,6 +45,10 @@ const menuList = ref([
       menuHidden()
     }
   },
+  canDragMenu()
+]
+
+const setGroupList = [
   {
     label: t('setGroup'),
     clickEvent: async () => {
@@ -56,22 +57,39 @@ const menuList = ref([
       // 删除后隐藏右键菜单
       menuHidden()
     }
-  },
-  canDragMenu()
-])
+  }
+]
 
+const isImageUploaded = computed(() => {
+  return judgeHadUploadImage(props.imageId)
+})
+
+watch(() => isImageUploaded.value, (newValue) => {
+  // 如果图片没有上传，那不能设置分组
+  if (!newValue) {
+    menuList.value = [...deleteAndDragList]
+  } else {
+    menuList.value = [...deleteAndDragList, ...setGroupList]
+  }
+}, { immediate: true })
+
+const schemaStore = useSchemaStore()
+const marker = ref({})
+const postionInfo = ref({
+  left: '10px',
+  top: '0px'
+})
 
 function menuHidden() {
   eventBus.emit('hidden-content-menu')
 }
-
-
 </script>
 
 <style lang="scss" scoped>
 * {
   user-select: none;
 }
+
 .image-menu {
   display: inline-block;
   background-color: rgba(255, 255, 255, 1);
