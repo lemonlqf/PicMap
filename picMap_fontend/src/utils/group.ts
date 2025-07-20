@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-16 21:31:51
+ * @LastEditTime: 2025-07-20 11:00:42
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
@@ -45,11 +45,12 @@ export function isInGroup(imageId: string, groupId?) {
  * @param {*} imageId
  * @return {*}
  */
-function getGroupByImageId(imageId) {
+export function getGroupIdsByImageId(imageId: string): string[] | null {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   if (isInGroup(imageId)) {
-    return groupLists.find(group => group.groupNumbers.includes(imageId)).id;
+    const list = groupLists.filter(group => group?.groupNumbers?.includes(imageId));
+    return list.map(item => item.id)
   } else {
     return null
   }

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 14:08:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 00:14:19
+ * @LastEditTime: 2025-07-20 11:14:08
  * @FilePath: \Code\picMap_fontend\src\utils\map.ts
  * @Description:
  */
@@ -23,7 +23,7 @@ import type { IMarker } from '@/type/image'
 import 'leaflet.markercluster/dist/MarkerCluster.css';
 import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
 import 'leaflet.markercluster';
-import { getGroupInfoByGroupId } from './group'
+import { getGroupIdsByImageId, getGroupInfoByGroupId } from './group'
 
 
 // 最大放到18
@@ -235,7 +235,7 @@ export function addManualLocateImageToMap(imageInfo: IImageInfo, lat?: number, L
   return marker
 }
 
-export async function addManualLocateGroupToMap(groupInfo: INewGroupFormData, lat?: number, Lng?: number ) {
+export async function addManualLocateGroupToMap(groupInfo: INewGroupFormData, lat?: number, Lng?: number) {
   // 先判断一下是不是有marker了
   const marker1 = getMarkerById(groupInfo.id)
   if (marker1) {
@@ -541,7 +541,7 @@ function scaleMarkerByMap() {
   const mapStore = useMapStore()
   const markerIdList = mapStore.getMarkerIdList
   const zoom = map.getZoom()
-  
+
   if (zoom >= 15) {
     MARKER_SHOW_RADIO = 1.1
     MARKER_HOVER_SHOW_RADIO = 1.2
@@ -660,7 +660,7 @@ function imageUrlIcon(imgUrl) {
  * @return {*}
  */
 export function imageUrlsIcon(imgUrls: string[]) {
-  if (!imgUrls ||imgUrls.length === 0) {
+  if (!imgUrls || imgUrls.length === 0) {
     return noImagesGroupIcon('暂无图片')
   }
   const locationDiv = document.createElement('div')
@@ -699,7 +699,14 @@ export function noImagesGroupIcon(text) {
 export function getMarkerById(markerId: string): L.Marker {
   let foundMarker;
   const map = MAP_INSTANCE
-  map.eachLayer?.(layer => {
+  // 先遍历聚合组
+  markerClusters.getLayers().forEach((layer: L.Marker) => {
+    if (layer instanceof L.Marker && layer.options.id === markerId) {
+      foundMarker = layer;
+    }
+  })
+  // 没有再遍历地图上的节点
+  !foundMarker && map.eachLayer?.(layer => {
     if (layer instanceof L.Marker && layer.options.id === markerId) {
       foundMarker = layer;
     }
@@ -733,6 +740,30 @@ export function setViewByLatLng(lat: number, lng: number) {
     })
     return
   }
+}
+
+/**
+ * @description: 定位到节点
+ * @param {string} id
+ * @return {*}
+ */
+export function setViewByMarkerId(id: string) {
+  if (!id) {
+    return
+  }
+
+  let marker = getMarkerById(id)
+  // 如果不存在，那可能是在分组里面，这时候需要跳转到第一个分组位置
+  if (!marker) {
+    const groupId = getGroupIdsByImageId(id)?.[0]
+    groupId && (marker = getMarkerById(groupId))
+  }
+  // 这时候还存在就直接返回，说明没这节点
+  if (!marker) {
+    return
+  }
+  const { lat, lng } = marker?.getLatLng()
+  setViewByLatLng(lat, lng)
 }
 
 /**

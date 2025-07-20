@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 00:41:19
+ * @LastEditTime: 2025-07-20 11:09:12
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -11,7 +11,7 @@
     <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
       <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary">{{ $t('uploadPicture')
-        }}</el-button>
+      }}</el-button>
       <!-- <template #tip>
         <div class="el-upload__tip">请上传图片</div>
       </template> -->
@@ -24,10 +24,7 @@
         <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
           <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
             <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px" :key="item.name"
-              @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
-            <!-- <h1>照片名:{{ item.name }}</h1>
-        <h1>纬度:{{ item?.GPSInfo?.GPSLatitude }}</h1>
-        <h1>经度:{{ item?.GPSInfo?.GPSLongitude }}</h1> -->
+              @click="setViewByMarkerId(item?.id)" />
           </div>
         </el-scrollbar>
         <!-- 折叠、展开、清空已上传图片 -->
@@ -37,7 +34,7 @@
           <el-button class="bottom-button" v-show="!uploadExpand" :icon="ArrowDownBold" @click="uploadExpand = true"
             type="primary">{{ $t('expand') }}</el-button>
           <el-button class="bottom-button" @click="clearUploadImage" :icon="Delete" type="danger">{{ $t('clear')
-            }}</el-button>
+          }}</el-button>
         </div>
       </div>
       <div v-show="needUploadImageInfos.length">
@@ -45,7 +42,7 @@
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
             <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px"
-              @click="setViewByLatLng(item?.GPSInfo?.GPSLatitude, item?.GPSInfo?.GPSLongitude)" />
+              @click="setViewByMarkerId(item?.id)" />
             <h1>{{ $t('pictureName') }}:{{ item.name }}</h1>
             <h1>{{ $t('latitude') }}:{{ !item?.GPSInfo?.GPSLatitude ? $t('noData') : item?.GPSInfo?.GPSLatitude }}</h1>
             <h1>{{ $t('longitude') }}:{{ !item?.GPSInfo?.GPSLongitude ? $t('noData') : item?.GPSInfo?.GPSLongitude }}
@@ -93,7 +90,7 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <el-button @click="manualLocateImage" class="locate-button" type="primary">{{ $t('manualLocate')}}</el-button>
+        <el-button @click="manualLocateImage" class="locate-button" type="primary">{{ $t('manualLocate') }}</el-button>
         <el-button @click="cancelLocateImage">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="locateImage(locateFromRef)">
           {{ $t('confirm') }}
@@ -110,7 +107,7 @@ import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
-import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE } from '@/utils/map'
+import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE, setViewByMarkerId } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, imageUrlsMap } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
@@ -433,7 +430,7 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
   const res1 = await UploadImages(locateImageInfos)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
-  const allSuccess =  res1.filter(res => {
+  const allSuccess = res1.filter(res => {
     return res.code === 200
   }).length === res1.length
   if (allSuccess && res1.length && res2.code === 200) {
@@ -622,6 +619,7 @@ defineExpose({
     align-items: center;
     justify-content: space-between;
     height: 35px;
+
     .el-button {
       width: 90px;
     }
