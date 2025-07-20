@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-15 21:54:01
+ * @LastEditTime: 2025-07-20 10:43:00
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\TemporaryMarkerContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -55,10 +55,14 @@ const menuList = ref([
 function temporaryMarkerToPermanent(markerId: string) {
   const marker = getMarkerById(markerId)
   const markerType = marker.options.type
+  markerClusters.addLayer(marker)
   // 改变marker类型
   marker.options.type = getPermanentType(markerType)
   // 变为不可拖拽
   marker.dragging.disable();
+  // 这里的配置也要变，不然从聚合组里再出来还会变成可拖动状态
+  marker.options.draggable = false
+  // 固定后
   const GPSInfo = getGPSInfoByMarkerInstance(marker)
   // 更新schema中的GPSInfo数据
   editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
