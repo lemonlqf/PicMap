@@ -2,14 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-19 23:11:25
+ * @LastEditTime: 2025-09-13 18:19:20
  * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/http/index'
-import type { ISchema, IGroupInfo, IImageInfo, IShowType } from '@/type/schema'
+import type { IGroupInfo, IImageInfo } from '@/type/schema'
 import schemaHttp from '@/http/modules/schema'
 
 type IGroupList = IGroupInfo & {
@@ -55,7 +55,7 @@ export function getGroupAndImageList() {
  * @param {*} id
  * @return {*}
  */
-export function getSchemaInfoById(id) {
+export function getSchemaInfoById(id: string) {
   const schemaStore = useSchemaStore()
   const groupInfo = schemaStore.getSchema.groupInfo
   const imageInfo = schemaStore.getSchema.imageInfo
@@ -81,7 +81,7 @@ export function getSchemaInfoById(id) {
  * @param {*} id
  * @return {*}
  */
-export function judgeHadUploadImage(id) {
+export function judgeHadUploadImage(id: string) {
   const schemaStore = useSchemaStore()
   return schemaStore.getUploadedImageIds.some(item => {
     return item === id

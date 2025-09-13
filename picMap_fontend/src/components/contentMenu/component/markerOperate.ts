@@ -8,22 +8,22 @@
  */
 
 
-import { deleteMarkerInMap, MAP_INSTANCE, getMarkerById, getTemporaryType, getGPSInfoByMarkerInstance, markerClusters } from '@/utils/map'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import markerService from '@/services/marker'
 export const canDragMenu = () => {
   const { t } = useI18n()
   return {
     label: t('repositioning'),
     clickEvent: async (markerId: string) => {
-      const marker = getMarkerById(markerId)
+      const marker = markerService.getMarkerById(markerId)
       if (!marker) {
         ElMessage.warning(t('description.groupNotExist'))
         return
       }
       const markerType = marker.options.type
       // 改变marker类型
-      marker.options.type = getTemporaryType(markerType)
+      marker.options.type = markerService.getTemporaryType(markerType)
       // 变为不可拖拽
       marker.dragging.enable();
     }

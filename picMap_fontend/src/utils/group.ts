@@ -2,15 +2,13 @@
  * @Author: Do not edit
  * @Date: 2025-02-25 20:32:28
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 11:00:42
+ * @LastEditTime: 2025-09-13 19:06:53
  * @FilePath: \Code\picMap_fontend\src\utils\group.ts
  * @Description: 分组相关的一些方法
  */
 import { useSchemaStore } from '@/store/schema'
 import { editSchemaAndSave, editSchemaAttrAndSave, saveSchema } from './schema';
-import { addImageMarkerToMap, deleteMarkerById, MAP_INSTANCE, getMarkerById, GROUP_COVER_NUMBER, GROUP_MARKER_SIZE, groupMarkerTranslateY } from '@/utils/map';
 import { ElMessage } from 'element-plus';
-import { getGPSInfoById, addExistImageToMapById, imageUrlsIcon } from '@/utils/map';
 import eventBus from '@/utils/eventBus'
 import API from '@/http/index'
 import L from 'leaflet'
@@ -19,8 +17,16 @@ import { cloneDeep } from 'lodash-es';
 import type { IGPSInfo, IGroupInfo } from '@/type/schema';
 import type { ICreateGroupInfoData } from '@/type/group'
 import type { INewGroupFormData } from '@/type/schema'
-import { resetIconGroupMarker } from '@/utils/map'
 import { editAppSchemaAttrAndSave } from './appSchema';
+import markerService from '@/services/marker'
+import IconHTMLFactory, { IconType } from "@/utils/iconHTML";
+import {
+  MAP_CONSTANT,
+  MARKER_CONSTANT,
+  GROUP_CONSTANT,
+  imageMarkerTranslateY,
+  groupMarkerTranslateY,
+} from "@/utils/constant";
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -30,7 +36,7 @@ export const defaultGroupNamePrefix = '未命名分组'
  * @param {*} groupId
  * @return {*}
  */
-export function isInGroup(imageId: string, groupId?) {
+export function isInGroup(imageId: string, groupId?: string) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   if (isGroupIdExist(groupId)) {
@@ -61,7 +67,7 @@ export function getGroupIdsByImageId(imageId: string): string[] | null {
  * @param {*} groupId
  * @return {*}
  */
-export function isGroupIdExist(groupId) {
+export function isGroupIdExist(groupId: string) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   return groupLists.some(group => group.id === groupId);
@@ -72,7 +78,7 @@ export function isGroupIdExist(groupId) {
  * @param {*} groupId
  * @return {*}
  */
-export function getGroupNameById(groupId) {
+export function getGroupNameById(groupId: string) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   return groupLists.find(group => group.id === groupId).name;
@@ -83,7 +89,7 @@ export function getGroupNameById(groupId) {
  * @param {*} groupName
  * @return {*}
  */
-export function isGroupNameExist(groupName) {
+export function isGroupNameExist(groupName: string) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   return groupLists.some(group => group.name === groupName);
@@ -95,7 +101,7 @@ export function isGroupNameExist(groupName) {
  * @param {*} groupId
  * @return {*}
  */
-export function isImageExistInGroup(imageId, groupId) {
+export function isImageExistInGroup(imageId: string, groupId: string) {
   const schemaStore = useSchemaStore();
   const groupLists = schemaStore.getGroupInfo;
   return groupLists.find(group => group.id === groupId).groupNumbers.includes(imageId);
@@ -106,7 +112,7 @@ export function isImageExistInGroup(imageId, groupId) {
  * @param {*} groupName
  * @return {*}
  */
-export function createNewGroupName(groupName) {
+export function createNewGroupName(groupName: string) {
   let firsetName = ''
   if (!groupName || groupName === '') {
     firsetName = defaultGroupNamePrefix
@@ -173,7 +179,7 @@ function getAvarageGPSInfo(imageIds: string[]): IGPSInfo {
   let avarageGPSAltitude = 0, avarageGPSLatitude = 0, avarageGPSLongitude = 0;
   const imageIdsLength = imageIds.length
   imageIds.forEach(imageId => {
-    const { GPSAltitude, GPSLatitude, GPSLongitude } = getGPSInfoById(imageId)
+    const { GPSAltitude, GPSLatitude, GPSLongitude } = markerService.getGPSInfoById(imageId)
     GPSAltitude && (avarageGPSAltitude += (GPSAltitude / imageIdsLength))
     GPSLatitude && (avarageGPSLatitude += (GPSLatitude / imageIdsLength))
     GPSLongitude && (avarageGPSLongitude += (GPSLongitude / imageIdsLength))
@@ -190,7 +196,7 @@ function getAvarageGPSInfo(imageIds: string[]): IGPSInfo {
  * @param {*} groupId
  * @return {*}
  */
-export async function dissolveGroupById(groupId) {
+export async function dissolveGroupById(groupId: string) {
   const schemaStore = useSchemaStore()
   // 将分组内的图片重新添加到地图中
   let { groupNumbers } = schemaStore.getGroupInfo.filter(item => item.id === groupId)[0]
@@ -199,7 +205,7 @@ export async function dissolveGroupById(groupId) {
     return !isImageExistInOtherGroup(groupId, id)
   }) ?? []
   groupNumbers.forEach(imageId => {
-    addExistImageToMapById(imageId)
+    markerService.addExistImageMarkerToMapById(imageId)
   });
   // 删除分组信息
   await deleteGroupById(groupId, false)
@@ -252,9 +258,9 @@ export function removeGroupImage(groupId: string, imageId: string) {
   if (isImageExistInOtherGroup(groupId, imageId)) {
     return
   }
-  addExistImageToMapById(imageId)
+  markerService.addExistImageMarkerToMapById(imageId)
   editSchemaAttrAndSave('groupInfo', groupInfo)
-  resetIconGroupMarker(groupId)
+  markerService.resetIconGroupMarker(groupId)
 }
 
 /**
@@ -285,7 +291,7 @@ export async function deleteGroupById(groupId: string, needDeleteImages = true) 
   // eventBus.emit('delete-image', groupId)
   saveSchema()
   return Promise.all([API.image.deleteImages({ deleteImages: deleteGroupNumbers })]).then(res => {
-    deleteMarkerById(groupId)
+    markerService.deleteMarkerById(groupId)
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data
     }, '')
@@ -303,9 +309,9 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     console.error('分组不存在')
     return
   }
-  const groupMark = getMarkerById(groupInfo.id)
+  const groupMark = markerService.getMarkerById(groupInfo.id)
   // 先只获取前4张图片
-  const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_COVER_NUMBER))
+  const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER))
   if (!resImageUrls || resImageUrls.length === 0) {
     ElMessage.error('获取图片失败')
     return
@@ -316,9 +322,9 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
   const myIcon = L.divIcon({
     // 传值使用
     imageUrls,
-    html: imageUrlsIcon(imageUrls),
-    iconSize: GROUP_MARKER_SIZE,
-    iconAnchor: [GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
+    html: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls),
+    iconSize: MARKER_CONSTANT.GROUP_MARKER_SIZE,
+    iconAnchor: [MARKER_CONSTANT.GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
   })
   groupMark?.setIcon?.(myIcon)
 }

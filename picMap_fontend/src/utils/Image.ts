@@ -2,19 +2,18 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 00:58:41
+ * @LastEditTime: 2025-09-13 18:18:27
  * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
 import { useSchemaStore } from '../store/schema'
-import { getMarkerById } from '@/utils/map'
 import API from '@/http/index'
 import imageHttp from '@/http/modules/image'
 import { fileToBase64 } from '@/utils/map'
 import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus';
 import { saveSchema } from './schema';
-import { deleteMarkerById, MAP_INSTANCE } from '@/utils/map';
+import markerService from '@/services/marker'
 import type { IImageDetailInfo } from '@/type/image'
 import type { IHttpResponse } from '@/type/http'
 import i18n from '@/i18n/index'
@@ -24,11 +23,11 @@ import i18n from '@/i18n/index'
 // key: imageId, value: imageUrl
 export const imageUrlsMap = new Map()
 
-export function addImageUrl(imageId, imageUrl)  {
+export function addImageUrl(imageId: string, imageUrl: string)  {
   imageUrlsMap.set(imageId, imageUrl)
 }
 
-export function getImageUrl (imageId){
+export function getImageUrl(imageId: string){
   return imageUrlsMap.get(imageId)
 }
 
@@ -128,7 +127,7 @@ export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHtt
     // 将图片保存到已经上传的地方
     schemaStore.pushImageToUploadedImageIds(imageInfo.id)
     // marker中可以移动的图片重新设置为不可移动
-    const marker = getMarkerById(imageInfo.id, MAP_INSTANCE)
+    const marker = markerService.getMarkerById(imageInfo.id)
     if (marker) {
       // 将 marker 设置为不可移动
       marker?.dragging?.disable?.()
@@ -172,7 +171,7 @@ function base64Size(base64: string): number {
  * @param {*} imageId
  * @return {*}
  */
-export async function deleteImageById(imageId) {
+export async function deleteImageById(imageId: string) {
   const schemaStore = useSchemaStore()
   // 删除schema中的分组信息
   schemaStore.deleteImageInImageInfo(imageId)
@@ -181,7 +180,7 @@ export async function deleteImageById(imageId) {
   eventBus.emit('delete-image', imageId)
   saveSchema()
   return Promise.all([API.image.deleteImages({ deleteImages: [imageId] })]).then(res => {
-    deleteMarkerById(imageId, MAP_INSTANCE)
+    markerService.deleteMarkerById(imageId)
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data
     }, '')

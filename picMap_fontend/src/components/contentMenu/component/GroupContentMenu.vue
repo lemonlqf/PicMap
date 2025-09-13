@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 22:26:31
+ * @LastEditTime: 2025-09-13 18:10:41
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\GroupContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -34,10 +34,12 @@
 import { ref, computed } from 'vue'
 import eventBus from '@/utils/eventBus'
 import { deleteGroupById, dissolveGroupById, getGroupInfoByGroupId, updateGroupInfoToSchema } from '@/utils/group'
-import { addManualLocateGroupToMap, getGPSInfoByMarkerInstance, GPSInfoLegality } from '@/utils/map'
+import { GPSInfoLegality } from '@/utils/map'
 import { canDragMenu } from './markerOperate'
 import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
+import markerService from '@/services/marker'
+
 const { t } = useI18n()
 const props = defineProps({
   groupId: {
@@ -126,7 +128,7 @@ function menuHidden() {
 async function addManualLocateGroup() {
   const groupInfo = getGroupInfoByGroupId(props.groupId)
   // 确定定位后才保存
-  const marker = await addManualLocateGroupToMap(groupInfo)
+  const marker = await markerService.addManualLocateGroupMarkerToMap(groupInfo)
   // TODO: 移动marke更新分组的位置
   // marker.on('moveend', async () => {
   //   const GPSInfo = getGPSInfoByMarkerInstance(marker)

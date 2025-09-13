@@ -15,7 +15,7 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <!-- <el-button @click="addManualLocateGroupToMap" class="locate-button" type="primary">手动定位</el-button> -->
+        <!-- <el-button @click="addManualLocateGroupMarkerToMap" class="locate-button" type="primary">手动定位</el-button> -->
         <el-button @click="closeDialog" :disabled="loading">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="createNewUser" :loading="loading">
           {{ $t('confirm') }}
@@ -46,7 +46,7 @@ const newUserInfo = ref<IUserInfo>({
 
 const userEditRules = reactive({
   userName: [{
-    validator: function (rule, value, callback) {
+    validator: function (rule: any, value: any, callback: Function) {
       if (newUserInfo?.value?.userName?.length < 1) {
         callback(new Error(t('description.enterUserName')));
       } else if (isUserNameExist(newUserInfo.value.userName)) {
@@ -80,7 +80,7 @@ function closeDialog() {
  */
 function createNewUser() {
   loading.value = true
-  userFormRef.value.validate(async (valid, fields) => {
+  userFormRef.value.validate(async (valid: any, fields: any) => {
     if (valid) {
       newUserInfo.value.userId = createUserId()
       newUserInfo.value.createTime = new Date().getTime()

@@ -22,8 +22,8 @@ import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
 import { editSchemaAndSave, saveSchema } from '@/utils/schema'
-import { deleteMarkerInMap, MAP_INSTANCE, getMarkerById, getPermanentType, getGPSInfoByMarkerInstance, markerClusters } from '@/utils/map'
 import { useI18n } from 'vue-i18n'
+import markerService from '@/services/marker'
 const { t } = useI18n()
 const props = defineProps({
   markerId: {
@@ -53,17 +53,18 @@ const menuList = ref([
  * @return {*}
  */
 function temporaryMarkerToPermanent(markerId: string) {
-  const marker = getMarkerById(markerId)
+  const marker = markerService.getMarkerById(markerId)
   const markerType = marker.options.type
+  const markerClusters = markerService.getMarkerClusters()
   markerClusters.addLayer(marker)
   // 改变marker类型
-  marker.options.type = getPermanentType(markerType)
+  marker.options.type = markerService.getPermanentType(markerType)
   // 变为不可拖拽
   marker.dragging.disable();
   // 这里的配置也要变，不然从聚合组里再出来还会变成可拖动状态
   marker.options.draggable = false
   // 固定后
-  const GPSInfo = getGPSInfoByMarkerInstance(marker)
+  const GPSInfo = markerService.getGPSInfoByMarkerInstance(marker)
   // 更新schema中的GPSInfo数据
   editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
 }

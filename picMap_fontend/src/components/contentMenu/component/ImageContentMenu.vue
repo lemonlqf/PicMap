@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-02 14:15:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 11:37:05
+ * @LastEditTime: 2025-09-13 18:43:00
  * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\ImageContentMenu.vue
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
@@ -22,7 +22,6 @@ import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
 import { judgeHadUploadImage, saveSchema } from '@/utils/schema'
-import { deleteMarkerInMap, MAP_INSTANCE } from '@/utils/map'
 import { canDragMenu } from './markerOperate'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()

@@ -20,7 +20,7 @@
     </el-form>
     <template #footer>
       <div class="dialog-footer">
-        <!-- <el-button @click="addManualLocateGroupToMap" class="locate-button" type="primary">手动定位</el-button> -->
+        <!-- <el-button @click="addManualLocateGroupMarkerToMap" class="locate-button" type="primary">手动定位</el-button> -->
         <el-button @click="closeGroupEdit">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="createNewGroup">
           {{ $t('confirm') }}
@@ -42,7 +42,8 @@ import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import type { ICreateGroupInfoData } from '@/type/group'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage, createNewGroupToSchema } from '@/utils/group'
-import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateImageToMap, addManualLocateGroupToMap, GPSInfoLegality } from '@/utils/map'
+import { GPSInfoLegality } from '@/utils/map'
+import markerService from '@/services/marker'
 import type { IGroupInfo, ISchema } from '@/type/schema'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
@@ -64,7 +65,7 @@ const createGroupInfoFormData: Ref<ICreateGroupInfoData> = ref({
 })
 
 const schemaStore = useSchemaStore()
-const groupIdAndNameLists = ref([])
+const groupIdAndNameLists = ref<{id: any, name: string}[]>([])
 
 watch(() => schemaStore.getGroupInfo, (newVal) => {
   groupIdAndNameLists.value = getGroupIdAndNameLists()
@@ -72,7 +73,7 @@ watch(() => schemaStore.getGroupInfo, (newVal) => {
 
 const groupEditRules = reactive({
   newGroupName: [{
-    validator: function (rule, value, callback) {
+    validator: function (rule: any, value: any, callback: Function) {
       const newGroupName = createGroupInfoFormData.value?.newGroupInfo?.newGroupName
       if (newGroupName?.length > 0) {
         // 如果分组名称已经存在了校验则不通过
@@ -87,7 +88,7 @@ const groupEditRules = reactive({
     }, trigger: 'blur'
   }],
   GPSLongitude: [{
-    validator: function (rule, value, callback) {
+    validator: function (rule: any, value: any, callback: Function) {
       const GPSLongitude = createGroupInfoFormData.value?.newGroupInfo?.newGroupGPSInfo.GPSLongitude
       if (isNumber(GPSLongitude)) {
         //校验通过
@@ -100,7 +101,7 @@ const groupEditRules = reactive({
     }, trigger: 'blur'
   }],
   GPSLatitude: [{
-    validator: function (rule, value, callback) {
+    validator: function (rule: any, value: any, callback: Function) {
       const GPSLatitude = createGroupInfoFormData.value?.newGroupInfo?.newGroupGPSInfo.GPSLatitude
       if (isNumber(GPSLatitude)) {
         //校验通过
@@ -136,14 +137,14 @@ function closeGroupEdit() {
  * @return {*}
  */
 function createNewGroup() {
-  groupFormRef.value.validate(async (valid, fields) => {
+  groupFormRef.value.validate(async (valid: any, fields: any) => {
     if (valid) {
       // 将新分组信息添加到schema中
       const newGroupInfo = await createNewGroupToSchema(createGroupInfoFormData.value)
       const GPSInfo = newGroupInfo.GPSInfo
       if (GPSInfoLegality(GPSInfo)) {
         // 往地图上添加groupMarker
-        addGroupMarkerToMap(newGroupInfo as IGroupInfo)
+        markerService.addGroupMarkerToMap(newGroupInfo as IGroupInfo)
       }
       closeGroupEdit()
     } else {

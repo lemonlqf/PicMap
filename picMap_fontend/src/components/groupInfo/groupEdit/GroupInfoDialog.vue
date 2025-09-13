@@ -64,7 +64,9 @@ import { saveSchema } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
 import type { IGroupInfo, ISchema } from '@/type/schema'
-import { addGroupMarkerToMap, MAP_INSTANCE, hiddenMarkerById, addManualLocateGroupToMap } from '@/utils/map'
+import markerService from '@/services/marker'
+import mapService from '@/services/map'
+
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 const props = defineProps({
@@ -234,6 +236,7 @@ function updateGroupInfoInSchema(formData: ISingleImageGroupInfoFormData): IGrou
  * @return {*}
  */
 function locateNewGroup() {
+  const MAP_INSTANCE = mapService.getMapInstance()
   const { lat, lng } = MAP_INSTANCE.getCenter()
   // 取地图中心位置
   singleImageGroupInfoFormData.value.newGroupInfo.newGroupGPSInfo.GPSLatitude = lat
@@ -261,15 +264,15 @@ function locateNewGroup() {
 function updateVisibleMarkersByFormData(newGroupInfo: IGroupInfo, hiddenMarkerIds: string[], draggable = false) {
   // 将分配到组件中的图片隐藏
   hiddenMarkerIds.forEach((imageId) => {
-    hiddenMarkerById(imageId)
+    markerService.hiddenMarkerById(imageId)
   })
   if (newGroupInfo) {
     if (draggable) {
-      addManualLocateGroupToMap(newGroupInfo)
+      markerService.addManualLocateGroupMarkerToMap(newGroupInfo)
       return
     }
     // 添加新的分组点位
-    addGroupMarkerToMap(newGroupInfo)
+    markerService.addGroupMarkerToMap(newGroupInfo)
   }
 }
 

@@ -2,12 +2,12 @@
  * @Author: Do not edit
  * @Date: 2025-05-02 09:27:09
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 21:48:19
+ * @LastEditTime: 2025-09-13 18:29:19
  * @FilePath: \Code\picMap_fontend\src\components\groupInfo\component\GroupItem.vue
  * @Description: 
 -->
 <template>
-  <div ref="itemRef" :class="['flex-box', { 'flex-box-fold-up': !expand }]" @click="setViewById(groupInfo.id)">
+  <div ref="itemRef" :class="['flex-box', { 'flex-box-fold-up': !expand }]" @click="markerService.setViewByMarkerId(groupInfo.id)">
     <div>
       <img v-show="expand" src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
       <el-tooltip :content="groupInfo.name" placement="top">
@@ -36,9 +36,9 @@ import type { IGroupInfo } from '@/type/schema';
 import type { PropType } from 'vue';
 import { onMounted, ref } from 'vue'
 import { computed } from 'vue';
-import { GPSInfoLegality, setViewById } from '@/utils/map';
+import { GPSInfoLegality } from '@/utils/map';
 import GroupContentMenu from '@/components/contentMenu/component/GroupContentMenu.vue'
-
+import markerService from '@/services/marker'
 const props = defineProps({
   groupInfo: {
     type: Object as PropType<IGroupInfo>,

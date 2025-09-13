@@ -9,16 +9,15 @@
 import { defineStore } from 'pinia'
 import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
-import { resetMarker, highlightMarker, getMarkerById } from '../utils/map'
 export const useMapStore = defineStore('map', {
   state: () => ({
     map: null,
     // 地图中添加的所有marker，包括在可视范围外的
-    markerIdList: [],
+    markerIdList: [] as string[],
     // 已经可见的marker，即已经请求过图片数据了
-    visibleMarkerIdList: [],
+    visibleMarkerIdList: [] as string[],
     // 选中的marker，后续用于分组使用？
-    selectedMarkerIdList: []
+    selectedMarkerIdList: [] as string[]
   }),
   getters: {
     getMap: state => state.map,
@@ -33,19 +32,19 @@ export const useMapStore = defineStore('map', {
     removeMap() {
       this.map = null
     },
-    addMarkerId(markerId) {
+    addMarkerId(markerId: string) {
       this.markerIdList.push(markerId)
     },
-    deleteMarker(markerId) {
+    deleteMarker(markerId: string) {
       this.markerIdList = this.markerIdList.filter(item => {
         return item !== markerId
       })
       this.deleteVisbleMarkerId(markerId)
     },
-    addVisibleMarkerId(markerId) {
+    addVisibleMarkerId(markerId: string) {
       this.visibleMarkerIdList.push(markerId)
     },
-    deleteVisbleMarkerId(markerId) {
+    deleteVisbleMarkerId(markerId: string) {
       this.visibleMarkerIdList = this.visibleMarkerIdList.filter(item => {
         return item !== markerId
       })

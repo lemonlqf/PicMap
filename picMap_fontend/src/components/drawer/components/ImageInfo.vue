@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-06-17 19:12:19
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 23:06:44
+ * @LastEditTime: 2025-09-13 18:59:42
  * @FilePath: \Code\picMap_fontend\src\components\drawer\components\ImageInfo.vue
  * @Description: 
 -->
@@ -12,7 +12,7 @@
     <KeyValue class="author-info" v-if="imageInfo?.authorInfo" :title="$t('timeInfo')" :info="imageInfo?.authorInfo" />
     <KeyValue class="GPS-info" v-if="imageInfo?.GPSInfo" :title="$t('GPSInfo')" :info="imageInfo?.GPSInfo" />
     <KeyValue class="camera-info" v-if="imageInfo?.cameraInfo" :title="$t('cameraInfo')" :info="imageInfo?.cameraInfo" />
-    <Description class="other" :description="imageInfo?.description" :id="imageInfo.id"></Description>
+    <Description class="other" :description="imageInfo?.description" :id="imageInfo?.id"></Description>
   </div>
 </template>
 

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 11:09:12
+ * @LastEditTime: 2025-09-13 18:16:31
  * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
@@ -24,7 +24,7 @@
         <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
           <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
             <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px" :key="item.name"
-              @click="setViewByMarkerId(item?.id)" />
+              @click="markerService.setViewByMarkerId(item?.id)" />
           </div>
         </el-scrollbar>
         <!-- 折叠、展开、清空已上传图片 -->
@@ -42,7 +42,7 @@
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
             <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px"
-              @click="setViewByMarkerId(item?.id)" />
+              @click="markerService.setViewByMarkerId(item?.id)" />
             <h1>{{ $t('pictureName') }}:{{ item.name }}</h1>
             <h1>{{ $t('latitude') }}:{{ !item?.GPSInfo?.GPSLatitude ? $t('noData') : item?.GPSInfo?.GPSLatitude }}</h1>
             <h1>{{ $t('longitude') }}:{{ !item?.GPSInfo?.GPSLongitude ? $t('noData') : item?.GPSInfo?.GPSLongitude }}
@@ -107,7 +107,6 @@ import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
-import { addImageMarkerToMap, getMarkerById, deleteMarkerInMap, setViewByLatLng, updateVisibleMarkers, addManualLocateImageToMap, addVisibleMarkerById, MAP_INSTANCE, setViewByMarkerId } from '@/utils/map'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, imageUrlsMap } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
@@ -119,6 +118,8 @@ import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/t
 import type { IGPSInfo } from '@/type/schema'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
+import markerService from '@/services/marker'
+import mapService from '@/services/map'
 
 const { t } = useI18n()
 
@@ -161,7 +162,7 @@ const locateFromRef = ref()
 // 上传图片是否展开
 const uploadExpand = ref(false)
 
-function isInHasUrlFileList(id) {
+function isInHasUrlFileList(id: string) {
   return hasUrlFileList.value.some(item => {
     return item.id === id || item.name == id
   })
@@ -201,7 +202,7 @@ watch(
           // 如果有坐标内容的话，在地图上添加对应的marker
           if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
             // 只有还没有上传过的图片需要添加到地图中
-            !judgeHadUploadImage(imageName) && addImageMarkerToMap(hasUrlFileList.value[i])
+            !judgeHadUploadImage(imageName) && markerService.addImageMarkerToMap(hasUrlFileList.value[i])
           }
         }
       }
@@ -222,7 +223,7 @@ const needUploadImageInfos = computed(() => {
   })
   // 如果有数据的话，走完更新一波可见的markers
   if (res.length) {
-    updateVisibleMarkers()
+    markerService.updateVisibleMarkers()
   }
   return res
 })
@@ -248,7 +249,7 @@ function clearUploadImage() {
 
 
 // 通过raw文件获取相关的文件数据
-function getFileInfoByFile(file) {
+function getFileInfoByFile(file: File) {
   const { lastModified, name, size, type } = file
   // id通过name和type来生成
   const id = name
@@ -257,7 +258,7 @@ function getFileInfoByFile(file) {
 
 
 // 从图片信息对象中提取GPS信息，并添加到地图里面
-async function setMoreInfoByExifReader(file, name?) {
+async function setMoreInfoByExifReader(file: File, name?: string) {
   const tags = await ExifReader.load(file, { expanded: true })
   console.log('--', tags)
   // 设置经纬度到moreInfo中
@@ -372,7 +373,7 @@ watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
  * @param {*} name
  * @return {*}
  */
-function uploadImage(name) {
+function uploadImage(name: string) {
   const data = needUploadImageInfos.value.filter(item => {
     return item.id === name
   })
@@ -389,7 +390,7 @@ function uploadImage(name) {
  * @param {*} name
  * @return {*}
  */
-function deleteImage(name) {
+function deleteImage(name: string) {
   // 删除原来解析好的base64
   delete imageUrls.value[name]
   // 删除上传文件中的图片
@@ -401,9 +402,9 @@ function deleteImage(name) {
     return item.name !== name
   })
   // 获取对应的marker，name和id是一样的
-  const marker = getMarkerById(name)
+  const marker = markerService.getMarkerById(name)
   // 删除掉marker
-  deleteMarkerInMap(marker)
+  markerService.deleteMarkerInMap(marker)
 }
 
 async function readFileAsDataURL(file): Promise<string> {
@@ -447,7 +448,7 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
  * @param {*} id
  * @return {*}
  */
-function showLocateDialog(id) {
+function showLocateDialog(id: string) {
   locateDialogShow.value = true
   needLocateImageIdFormData.value.id = id
 }
@@ -521,14 +522,15 @@ async function manualLocateImage() {
   const fileInfo = hasUrlFileList.value.find(item => {
     return item.id === needLocateImageIdFormData.value.id
   })
+  const MAP_INSTANCE = mapService.getMapInstance()
   const markerLatLng = MAP_INSTANCE.getCenter()
   needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
   needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
-  const marker = addManualLocateImageToMap(fileInfo, markerLatLng.lat, markerLatLng.lng)
+  const marker = markerService.addManualLocateImageMarkerToMap(fileInfo, markerLatLng.lat, markerLatLng.lng)
   // 加入marker
   mapStore.addMarkerId(marker.options.id)
   // 加入visibleMarker
-  addVisibleMarkerById(marker.options.id)
+  markerService.addVisibleMarkerById(marker.options.id)
   updateFromLocateInfo(marker, fileInfo)
   marker.on('moveend', () => {
     updateFromLocateInfo(marker, fileInfo)
@@ -554,12 +556,12 @@ function deleteAll() {
 const groupIdAndNameLists = ref([])
 
 // 可以是多个
-const editImageIds = ref([])
+const editImageIds = ref<string[]>([])
 /**
  * @description: 
  * @return {*}
  */
-function showGroupDialog(imageId) {
+function showGroupDialog(imageId: string) {
   editImageIds.value = [imageId]
   groupDialogShow.value = true
 }

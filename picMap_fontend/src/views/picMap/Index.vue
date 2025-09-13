@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 23:23:42
+ * @LastEditTime: 2025-09-13 19:19:32
  * @FilePath: \Code\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -52,22 +52,14 @@ import User from '@/components/user/User.vue'
 import schemaHttp from '@/http/modules/schema'
 import { useSchemaStore } from '@/store/schema'
 import {
-  addImageMarkerToMap,
-  addGroupMarkerToMap,
-  observeMapChangeToUpgradeMarker,
-  updateVisibleMarkers,
   hiddenImageInfoDrawerMapClick,
-  setViewByLatLng,
-  MAX_ZOOM,
-  MIN_ZOOM,
-  observeClisterClick
 } from '@/utils/map'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
 import eventBus from '@/utils/eventBus'
 import { useMapStore } from '../../store/map'
-import { MAP_INSTANCE, setMapInstance } from '@/utils/map'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
-import { markerClusters } from '@/utils/map' // 确保引入的是同一个实例
+import mapService from '@/services/map'
+import markerService from '@/services/marker'
 
 const schemaStore = useSchemaStore()
 let currentMapTile = null
@@ -117,7 +109,7 @@ async function initMap() {
       attributionControl: false //去掉右下角logol
     })
     // 把地图实例保存一下，其他地方可以用
-    setMapInstance(map)
+    mapService.initMapInstance(map)
   } else {
     // 已经有值的话直接设置一下初始位置
     map.setView(mapCenter.value, mapZoom.value)
@@ -174,6 +166,7 @@ function initTile() {
  */
 function removeAllMarkers() {
   const mapStore = useMapStore()
+  const markerClusters = markerService.getMarkerClusters()
   markerClusters && markerClusters.clearLayers()
   map.eachLayer((layer: L.layer) => {
     if (layer instanceof L.Marker) {
@@ -194,9 +187,9 @@ async function initMarker() {
   if (groupAndImageList?.length) {
     groupAndImageList.forEach(item => {
       if (item.showType === 'group') {
-        addGroupMarkerToMap(item)
+        markerService.addGroupMarkerToMap(item)
       } else if (item.showType === 'image') {
-        addImageMarkerToMap(item)
+        markerService.addImageMarkerToMap(item)
       }
     })
   }
@@ -213,10 +206,10 @@ async function init() {
   initMap()
   initTile()
   initMarker()
-  observeMapChangeToUpgradeMarker()
+  mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
   // 监听簇点击
-  observeClisterClick()
+  markerService.observeClisterClick()
   // 隐藏抽屉
   drawerRef?.value?.drawerHidden()
   // 清空上传组件中的图片
