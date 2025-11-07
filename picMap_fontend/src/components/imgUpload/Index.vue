@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-09-13 18:16:31
- * @FilePath: \Code\picMap_fontend\src\components\imgUpload\Index.vue
+ * @LastEditTime: 2025-11-07 18:48:33
+ * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 
 -->
 <template>
@@ -108,7 +108,7 @@ import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, imageUrlsMap } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
@@ -184,7 +184,7 @@ watch(
           const res1 = getFileInfoByFile(file)
           // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
           const res2 = await setMoreInfoByExifReader(file)
-          const existUrl = imageUrls.value[imageName] || imageUrlsMap.get(imageName)
+          const existUrl = imageUrls.value[imageName] || getImageUrl(imageName)
           // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
           if (!existUrl) {
             // 完整的base64用于图片上传

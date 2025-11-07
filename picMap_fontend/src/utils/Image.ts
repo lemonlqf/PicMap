@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-09-13 18:18:27
- * @FilePath: \Code\picMap_fontend\src\utils\Image.ts
+ * @LastEditTime: 2025-11-07 19:28:08
+ * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description:
  */
 import { useSchemaStore } from '../store/schema'
@@ -18,21 +18,90 @@ import type { IImageDetailInfo } from '@/type/image'
 import type { IHttpResponse } from '@/type/http'
 import i18n from '@/i18n/index'
 
-// 一个地方集中管理图片，因为一个图片可能在多个分组中
-// 保存缩略图的map
-// key: imageId, value: imageUrl
-export const imageUrlsMap = new Map()
-
-export function addImageUrl(imageId: string, imageUrl: string)  {
-  imageUrlsMap.set(imageId, imageUrl)
-}
-
-export function getImageUrl(imageId: string){
-  return imageUrlsMap.get(imageId)
-}
-
 // 单位MB
-const largeImageSize = 50
+const LARGE_IMAGE_SIZE = 50
+
+/**
+ * @description: 图片缓存管理器, 单例模式
+ * @param {*}
+ * @return {*}
+ */
+class ImageCacheManager {
+  private static instance: ImageCacheManager
+  // 保存缩略图的map，集中在这里管理
+  private imageUrlsMap: Map<string, string> = new Map()
+
+  // 单例模式，按需创建
+  static getInstance(): ImageCacheManager {
+    if (!ImageCacheManager.instance) {
+      ImageCacheManager.instance = new ImageCacheManager()
+    }
+    return ImageCacheManager.instance
+  }
+
+  addImageUrl(imageId: string, imageUrl: string) {
+    try {
+      this.imageUrlsMap.set(imageId, imageUrl)
+      return true
+    } catch {
+      console.error('error in ImageCacheManager addImageUrl')
+      return false
+    }
+  }
+
+/**
+ * 根据图片ID获取图片URL
+ * @param {string} imageId - 图片的唯一标识符
+ * @returns {string | undefined} 返回对应的图片URL，如果未找到则返回undefined
+ */
+  getImageUrl(imageId: string) {
+    try {
+    // 尝试从imageUrlsMap中获取指定imageId对应的URL
+      return this.imageUrlsMap.get(imageId)
+    } catch {
+    // 如果获取过程中发生错误，捕获异常并在控制台输出错误信息
+      console.error('error in ImageCacheManager getImageUrl')
+    }
+  }
+
+  isImageExist(imageId: string) {
+    try {
+      return this.imageUrlsMap.has(imageId)
+    } catch {
+      console.error('error in ImageCacheManager isImageExist')
+      return false
+    }
+  }
+}
+
+export const imageUrlsMap = ImageCacheManager.getInstance()
+
+/**
+ * @description: 添加图片到缓存
+ * @param {*}
+ * @return {*}
+ */
+export function addImageUrl(imageId: string, imageUrl: string): any {
+  return ImageCacheManager.getInstance().addImageUrl(imageId, imageUrl)
+}
+
+/**
+ * @description: 从缓存中获取图片url
+ * @param {*}
+ * @return {*}
+ */
+export function getImageUrl(imageId: string) {
+  return ImageCacheManager.getInstance().getImageUrl(imageId)
+}
+
+/**
+ * @description: 判断图片在缓存的map中是否已经存在
+ * @param {*}
+ * @return {*}
+ */
+export function isImageExist(imageId: string) {
+  return ImageCacheManager.getInstance().isImageExist(imageId)
+}
 
 /**
  * @description: 获取单张图片的url，内部实现了复用的逻辑
@@ -41,17 +110,17 @@ const largeImageSize = 50
  */
 export async function getImageUrlById(imageId: string) {
   // 如果已经存在，则直接返回
-  if (imageUrlsMap.has(imageId)) {
-    return imageUrlsMap.get(imageId)
+  if (isImageExist(imageId)) {
+    return getImageUrl(imageId)
   }
   // 否则请求图片
-  const res = await imageHttp.getImage({imageId})
+  const res = await imageHttp.getImage({ imageId }) as any
   if (res.code !== 200) {
     return ''
   }
   const imageUrl = fileToBase64(res.data.file)
   // 将图片保存到映射表中
-  imageUrlsMap.set(imageId, imageUrl)
+  addImageUrl(imageId, imageUrl)
   return imageUrl
 }
 
@@ -63,9 +132,9 @@ export async function getImageUrlById(imageId: string) {
 export async function getImageUrlByIds(imageIds: string[]) {
   // 返回的图片
   const resImageUrls = new Array(imageIds.length).fill(undefined)
-  const requestImageIds = []
+  const requestImageIds = [] as string[]
   imageIds.forEach((imageId, index) => {
-    const imageUrl = imageUrlsMap.get(imageId)
+    const imageUrl = getImageUrl(imageId)
     if (imageUrl) {
       resImageUrls[index] = imageUrl
     } else {
@@ -77,7 +146,7 @@ export async function getImageUrlByIds(imageIds: string[]) {
     return resImageUrls
   }
   // 请求没有在Map中存在的图片
-  const res = await imageHttp.getImages({ imageIds: requestImageIds })
+  const res = await imageHttp.getImages({ imageIds: requestImageIds }) as any
   if (res.code === 200) {
     for (let i = 0; i < resImageUrls.length; i++) {
       if (resImageUrls[i] === undefined) {
@@ -86,7 +155,7 @@ export async function getImageUrlByIds(imageIds: string[]) {
         // 设置到数组中空的地方
         resImageUrls[i] = imageUrl
         // 保存一下
-        imageUrlsMap.set(imageIds[i], imageUrl)
+        addImageUrl(imageIds[i], imageUrl)
       }
     }
     return resImageUrls
@@ -106,14 +175,14 @@ export function calcMBSize(size: number) {
 export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHttpResponse[]> {
   const res = []
   const schemaStore = useSchemaStore()
-  for(let i = 0; i < imageInfos.length; i ++) {
+  for (let i = 0; i < imageInfos.length; i++) {
     const imageInfo = imageInfos[i]
     // 如果不符合上传条件的，先不上传
     if (!canUpload(imageInfo)) {
       continue
     }
     if (!imageSizeunderLimit(imageInfo.url)) {
-      ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.largeSize')} ${largeImageSize}MB`)
+      ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.largeSize')} ${LARGE_IMAGE_SIZE}MB`)
       continue
     }
     // 请求后端接口上传图片，保存本地文件目录下
@@ -155,7 +224,7 @@ function imageSizeunderLimit(url: any) {
     size = base64Size(url)
   }
   // 100MB = 100 * 1024 * 1024
-  const underLimit = (size <= largeImageSize * 1024 * 1024)
+  const underLimit = (size <= LARGE_IMAGE_SIZE * 1024 * 1024)
   return underLimit
 }
 
