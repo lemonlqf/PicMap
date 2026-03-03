@@ -1,10 +1,10 @@
 /*
 * @Author: your name
 * @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2025-09-13 18:48:41
+ * @LastEditTime: 2026-03-03 22:28:14
  * @LastEditors: lemonlqf lemonlqf@outlook.com
 * @Description: In User Settings Edit
- * @FilePath: \Code\picMap_fontend\src\services\marker.ts
+ * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
 */
 import L from "leaflet";
 import { ElMessage } from "element-plus";
@@ -479,6 +479,7 @@ class MarkerService {
     return foundMarker;
   }
 
+
   /**
    * @description: 添加可视marker到store，并且更新实例，实现左键右键等功能
    * @param {*} markerId
@@ -491,6 +492,19 @@ class MarkerService {
     const marker = this.getMarkerById(markerId);
     // 鼠标事件监听
     this.markerMouseListener(marker);
+  }
+
+  /**
+   * @description: 判断marker是否在聚合组中
+   * @param {L.Marker} marker
+   * @return {boolean}
+   */
+  isMarkerInCluster(marker: L.Marker): boolean {
+    let isMarkerInClusters = false;
+    if (!marker._mapToAdd && !marker._map) {
+      isMarkerInClusters = true
+    }
+    return isMarkerInClusters
   }
 
   /**
@@ -527,6 +541,10 @@ class MarkerService {
    * @return {*}
    */
   async updateImageMarker(marker: L.Marker) {
+    const isMarkerInCluster = this.isMarkerInCluster(marker);
+    if (isMarkerInCluster) {
+      return
+    }
     const mapStore = useMapStore()
     // 将marker添加到已经渲染的store中
     const index = mapStore.getVisibleMarkerIdList.findIndex(
@@ -594,7 +612,7 @@ class MarkerService {
     if (!marker) {
       return false;
     }
-    return bounds.contains(marker.getLatLng());
+    return bounds.contains(marker.getLatLng()) && !this.isMarkerInCluster(marker);
   }
 
   /**
