@@ -7,7 +7,11 @@
   "license": "ISC",
   "scripts": {
     "start": "nodemon --exec electron .",
-    "build": "electron-builder"
+    "build": "electron-builder",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "dev:backend": "cd picMap_backend && npm start",
+    "dev:frontend": "cd picMap_fontend && npm run dev",
+    "install:all": "npm install && cd picMap_backend && npm install && cd ../picMap_fontend && npm install"
   },
   "build": {
     "asar": false,
@@ -45,7 +49,8 @@
       ]
     }
   },
-  "devDependencies": {
+"devDependencies": {
+    "concurrently": "^8.2.2",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
     "nodemon": "^3.1.10"
