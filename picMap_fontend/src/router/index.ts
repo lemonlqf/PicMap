@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2024-12-12 23:57:41
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-02 22:41:22
- * @FilePath: \Code\picMap_fontend\src\router\index.ts
+ * @LastEditTime: 2026-03-04 17:28:56
+ * @FilePath: \PicMap\picMap_fontend\src\router\index.ts
  */
 import { createWebHashHistory, createRouter } from 'vue-router'
 
@@ -15,6 +15,7 @@ import Setting from '@/views/setting/Index.vue'
 import SettingUser from '@/views/setting/settingUser/SettingUser.vue'
 import SettingMap from '@/views/setting/settingMap/SettingMap.vue'
 import SettingImg from '@/views/setting/settingImg/SettingImg.vue'
+import SettingData from '@/views/setting/settingData/SettingData.vue'
 
 const routes = [
   { path: '/', redirect: '/picMap', },
@@ -43,6 +44,10 @@ const routes = [
       {
         path: 'img',
         component: SettingImg
+      },
+      {
+        path: 'data',
+        component: SettingData
       }
     ]
   },

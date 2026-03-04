@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:08
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-18 22:39:30
- * @FilePath: \Code\picMap_fontend\src\i18n\lang\en.ts
+ * @LastEditTime: 2026-03-04 17:09:50
+ * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\en.ts
  * @Description: 
  */
 export default {
@@ -122,6 +122,26 @@ export default {
   tileSetting: 'Tile setting',
   map: 'Map',
   setPictureLocation: 'Set picture location',
+  dataManagement: 'Data',
+  backup: 'Backup',
+  createBackup: 'Create Backup',
+  backupTip: 'Backup will include all user data, pictures and settings',
+  backupHistory: 'Backup History',
+  noBackup: 'No backup',
+  restore: 'Restore',
+  restoreData: 'Restore Data',
+  coverMode: 'Cover Mode',
+  mergeMode: 'Merge Mode',
+  coverModeTip: 'Replace existing data with backup data, existing data will be lost',
+  mergeModeTip: 'Merge backup data with existing data, keep all existing data',
+  backupSuccess: 'Backup success',
+  backupFailed: 'Backup failed',
+  restoreSuccess: 'Restore success, please refresh page',
+  restoreFailed: 'Restore failed',
+  confirmDeleteBackup: 'Are you sure you want to delete this backup?',
+  warning: 'Warning',
+  deleteFailed: 'Delete failed',
+
   description: {
     ensureToDissolveGroup: 'Are you sure you want to disband the group? This group will be disbanded, and the pictures within the group will still be retained!',
     ensureToDeleteGroup: 'Are you sure you want to delete the group? This group will be deleted, and the pictures within the group will also be deleted!',

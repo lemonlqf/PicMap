@@ -47,6 +47,7 @@ import { useSchemaStore } from '@/store/schema'
 import UserSvg from '@/assets/icon/用户.svg?component'
 import MapSvg from '@/assets/icon/地图.svg?component'
 import ImgSvg from '@/assets/icon/图片.svg?component'
+import DataSvg from '@/assets/icon/数据.svg?component'
 import MapLogo from '@/assets/icon/mapLogo.svg?component'
 import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
@@ -71,12 +72,12 @@ const menuList = [
     router: 'map',
     img: MapSvg
   },
-  // {
-  //   title: '图片信息管理',
-  //   label: '图片',
-  //   router: 'img',
-  //   img: ImgSvg
-  // }
+  {
+    title: t('dataManagement'),
+    label: t('dataManagement'),
+    router: 'data',
+    img: DataSvg
+  }
 ]
 const activeRouter = ref(menuList[0].router)
 

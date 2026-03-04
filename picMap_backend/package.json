@@ -8,6 +8,7 @@
     "build": "webpack"
   },
   "dependencies": {
+    "archiver": "^7.0.1",
     "cookie-parser": "~1.4.4",
     "cors": "^2.8.5",
     "express": "~4.16.1",
@@ -16,6 +17,7 @@
     "http-errors": "~1.6.3",
     "lodash": "^4.17.21",
     "morgan": "~1.9.1",
+    "node-stream-zip": "^1.15.0",
     "sharp": "^0.34.2"
   },
   "devDependencies": {
