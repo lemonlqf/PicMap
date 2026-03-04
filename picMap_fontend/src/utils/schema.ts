@@ -26,12 +26,12 @@ type IGroupAndImageList = (IGroupList | IImageList)[]
  * @description: 获取图片组和图片列表，用于直接在地图上展示
  * @return {*}
  */
-export function getGroupAndImageList() {
+export function getGroupAndImageList(): IGroupAndImageList {
   const schemaStore = useSchemaStore()
   console.log('-----------', schemaStore.getSchema)
   const imageInfo = cloneDeep(schemaStore.getSchema.imageInfo) as IImageList[]
   const groupInfo = cloneDeep(schemaStore.getSchema.groupInfo) as IGroupList[]
-  const imageIdInGroup = []
+  const imageIdInGroup: string[] = []
   const res: IGroupAndImageList = []
   // 将分组的信息放到res中
   groupInfo?.forEach?.(item => {

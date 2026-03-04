@@ -22,7 +22,6 @@ class MapService {
    * @return {*}
    */
   getMapInstance() {
-    if (!this.MAP_INSTANCE) throw new Error("地图实例不能为空");
     return this.MAP_INSTANCE;
   }
 
