@@ -8,6 +8,9 @@
   "scripts": {
     "start": "nodemon --exec electron .",
     "build": "electron-builder",
+    "build:auto": "npm run build:backend && npm run build:frontend && electron-builder && node clean-node-modules.js",
+    "build:backend": "cd picMap_backend && npm run build",
+    "build:frontend": "cd picMap_fontend && npm run build",
     "dev": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:backend": "cd picMap_backend && npm start",
     "dev:frontend": "cd picMap_fontend && npm run dev",
@@ -26,19 +29,22 @@
       "picMap_fontend/dist/**",
       "package.json"
     ],
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
     "nsis": {
       "oneClick": false,
       "allowElevation": true,
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "安装快捷方式的名称"
+      "shortcutName": "picture-map"
     },
     "directories": {
       "buildResources": "build"
     },
     "win": {
-      "icon": "./ico/logo.ico",
       "target": [
         {
           "target": "nsis",
@@ -49,7 +55,7 @@
       ]
     }
   },
-"devDependencies": {
+  "devDependencies": {
     "concurrently": "^8.2.2",
     "electron": "^36.4.0",
     "electron-builder": "^26.0.12",
