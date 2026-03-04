@@ -1,39 +1,45 @@
+<!--
+ * @Author: Do not edit
+ * @Date: 2025-04-30 18:36:26
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2026-03-04 22:55:33
+ * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupLayout.vue
+ * @Description: 分组布局组件
+ *   - 按时间分组展示图片
+ *   - 通过emit事件通知父组件显示图片详情
+-->
 <template>
-  <div class="group-layout">
-    <div class="button-box">
-      <el-radio-group v-model="precision" size="small">
-        <template v-for="item in radioOptions">
-          <el-radio-button :label="item.label" :value="item.value" />
-        </template>
-      </el-radio-group>
-      <Sort class="sort" v-model="sort"></Sort>
-    </div>
-    <!-- 按时间分组 -->
-    <div v-for="key in groupImageSortMap.keys()" :key="key">
-      <h1>{{ key }}</h1>
-      <!-- 图片 -->
-      <div class="flex-box">
-        <template v-for="item in (groupImageSortMap.get(key) as string[])">
-          <div class="image-card">
-            <Image @click="(e) => showImageInfo(e, item.id)" :show-name="true" class="image" :perview="false"
-              :image-id="item.id">
-            </Image>
-            <!-- 退出分组 -->
-            <div class="exit-group" @click="removeGroupImage(groupId, item.id)">
-              <img src="@/assets/icon/退出.png" alt="" width="30px" :title="$t('exitGroup')" />
+  <div>
+    <div class="group-layout">
+      <div class="button-box">
+        <el-radio-group v-model="precision" size="small">
+          <template v-for="item in radioOptions">
+            <el-radio-button :label="item.label" :value="item.value" />
+          </template>
+        </el-radio-group>
+        <Sort class="sort" v-model="sort"></Sort>
+      </div>
+      <!-- 按时间分组 -->
+      <div v-for="key in groupImageSortMap.keys()" :key="key">
+        <h1>{{ key }}</h1>
+        <!-- 图片 -->
+        <div class="flex-box">
+          <template v-for="item in (groupImageSortMap.get(key) as string[])">
+            <div class="image-card">
+              <!-- 点击图片触发showImageInfo事件，由父组件统一处理弹框 -->
+              <Image @click="(e) => handleImageClick(e, item.id)" :show-name="true" class="image" :perview="false"
+                :image-id="item.id">
+              </Image>
+              <!-- 退出分组 -->
+              <div class="exit-group" @click="removeGroupImage(groupId, item.id)">
+                <img src="@/assets/icon/退出.png" alt="" width="30px" :title="$t('exitGroup')" />
+              </div>
             </div>
-          </div>
-        </template>
+          </template>
+        </div>
       </div>
     </div>
   </div>
-  <!-- 图片信息弹框 -->
-  <el-dialog class="image-info-dialog" width="760px" :show-close="false" v-model="imageInfoDialogShow">
-    <div class="image-info-box">
-      <Image class="image" :image-id="imageId" :key="imageId"></Image>
-      <ImageInfoComponent :imageInfo="imageInfo"></ImageInfoComponent>
-    </div>
-  </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -41,10 +47,11 @@ import { type PropType, computed, ref } from 'vue'
 import { groupSorting, TimeType, SortType, removeGroupImage } from '@/utils/group'
 import { getSchemaInfoById } from '@/utils/schema'
 import Image from '@/components/drawer/components/Image.vue';
-import ImageInfoComponent from '@/components/drawer/components/ImageInfo.vue'
 import Sort from './Sort.vue'
 import { useI18n } from 'vue-i18n'
+
 const { t } = useI18n()
+
 const props = defineProps({
   groupNumbers: {
     type: Object as PropType<string[]>,
@@ -55,6 +62,11 @@ const props = defineProps({
     default: ''
   }
 })
+
+// 定义事件：通知父组件显示图片详情
+const emit = defineEmits<{
+  (e: 'showImageInfo', imageId: string): void
+}>()
 
 const radioOptions = [
   {
@@ -71,11 +83,6 @@ const radioOptions = [
   },
 ]
 
-const imageInfoDialogShow = ref(false)
-// 给弹框使用的
-const url = ref('')
-const imageId = ref('')
-const imageInfo = ref()
 // 分组的时间精度
 const precision = ref<TimeType>(TimeType.YEAR)
 const sort = ref<SortType>(SortType.DES)
@@ -92,27 +99,19 @@ const groupImageSortMap = computed<Map<string, any[]>>(() => {
   return groupSorting(groupImageInfos.value, precision.value, sort.value)
 })
 
-
-function showImageInfo(e: MouseEvent, id: string) {
+/**
+ * 处理图片点击事件
+ * @param e 鼠标事件
+ * @param id 图片ID
+ */
+function handleImageClick(e: MouseEvent, id: string) {
   const target = e.target as any
   // 如果是下载就不显示图片详情
   if (target?.title === t('downloadPicture')) {
     return
   }
-  imageInfoDialogShow.value = true
-  imageId.value = id
-  setImageInfo(id)
-  console.log(target.title)
-}
-
-/**
- * @description: 通过imageId获取图片信息
- * @param {*} imageId
- * @return {*}
- */
-async function setImageInfo(imageId: string) {
-  const imageInfoDetail = getSchemaInfoById(imageId) as any
-  imageInfo.value = imageInfoDetail
+  // 通知父组件显示图片详情
+  emit('showImageInfo', id)
 }
 </script>
 
@@ -182,28 +181,6 @@ async function setImageInfo(imageId: string) {
     .exit-group {
       opacity: 0.7;
     }
-  }
-}
-
-.image-info-box {
-
-  .image {
-    width: 100%;
-    height: 300px;
-    margin-bottom: 15px;
-    border-radius: 8px;
-
-  }
-}
-</style>
-
-<style>
-.image-info-dialog {
-  margin-top: 80px !important;
-  background-color: rgba(160, 160, 160, 0.938) !important;
-
-  .el-dialog__header {
-    display: none !important;
   }
 }
 </style>
