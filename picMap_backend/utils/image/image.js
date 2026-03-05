@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-05 20:52:34
- * @FilePath: \Code\picMap_backend\utils\image\image.js
+ * @LastEditTime: 2026-03-05 16:34:21
+ * @FilePath: \PicMap\picMap_backend\utils\image\image.js
  * @Description:
  */
 const lodash = require('lodash')

@@ -1,3 +1,15 @@
+<!--
+ * @Author: Do not edit
+ * @Date: 2025-04-29 18:33:43
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-11-07 18:48:33
+ * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload2\component\VueCropper.vue
+ * @Description: 图片的裁切编辑组件
+  - 基于vue-cropper封装，提供旋转、缩放等基本功能
+  - 接收图片URL和裁剪配置项作为props
+  - 输出裁剪后的base64数据和文件对象
+  - 在地图瓦片编辑等场景中使用，允许用户调整图片展示区域
+-->
 <template>
   <el-dialog :title="$t('chooseAppropriateImageArea')" v-model="compVisible" append-to-body :show-close="false"
     :close-on-click-modal="false" :close-on-press-escape="false" v-bind="$attrs">

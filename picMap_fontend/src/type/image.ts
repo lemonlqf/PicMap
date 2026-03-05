@@ -2,10 +2,11 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:15:56
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-09 21:21:29
- * @FilePath: \PicMap\Code\picMap_fontend\src\type\image.ts
+ * @LastEditTime: 2026-03-05 11:29:27
+ * @FilePath: \PicMap\picMap_fontend\src\type\image.ts
  * @Description: 
  */
+import en from '@/i18n/lang/en';
 import type { IGroupInfo, IImageInfo, IGPSInfo } from './schema'
 export type IImageDetailInfo = {
   id: string;
@@ -56,3 +57,14 @@ export type IMarker = {
 } & IGroupInfo & IImageInfo
 
 export type IShowType = "image" | "group" | "temporary-image" | "temporary-group"
+
+export enum ImageType {
+  JPEG = 'image/jpeg',
+  JPG = 'image/jpg',
+  PNG = 'image/png',
+  GIF = 'image/gif',
+  BMP = 'image/bmp',
+  WEBP = 'image/webp',
+  HEIC = 'image/heic',
+  HEIF = 'image/heif',
+}

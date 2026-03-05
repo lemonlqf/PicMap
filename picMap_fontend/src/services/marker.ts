@@ -1,10 +1,10 @@
 /*
 * @Author: your name
 * @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2026-03-03 22:28:14
+ * @LastEditTime: 2026-03-05 15:10:19
  * @LastEditors: lemonlqf lemonlqf@outlook.com
-* @Description: In User Settings Edit
  * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
+ * @Description: 地图marker服务，提供marker的创建、删除、更新等功能
 */
 import L from "leaflet";
 import { ElMessage } from "element-plus";
@@ -193,7 +193,7 @@ class MarkerService {
    */
   createImageMarkerIcon(imageInfo: IImageInfo): L.Icon {
     let myIcon;
-    let imageUrl = imageInfo.url ?? getImageUrl(imageInfo.id);
+    let imageUrl = getImageUrl(imageInfo.id) ?? imageInfo.url;
     // 如果没有url直接用文字名称代替
     if (!imageUrl) {
       myIcon = L.divIcon({

@@ -16,6 +16,7 @@
     "exif-js": "^2.3.0",
     "exifreader": "^4.25.0",
     "express": "^4.21.2",
+    "heic2any": "^0.0.4",
     "leaflet": "^1.9.4",
     "leaflet.markercluster": "^1.5.3",
     "lodash-es": "^4.17.21",

@@ -1,3 +1,14 @@
+<!--
+ * @Author: Do not edit
+ * @Date: 2025-04-29 18:33:43
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2026-03-05 09:42:22
+ * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload2\ImageUpload.vue
+ * @Description: 上传图片组件（可编辑），目前主要用于地图瓦片的封面编辑
+  - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
+  - 接收图片URL和编辑状态作为props，输出新的图片URL
+  - 在地图瓦片编辑等场景中使用，允许用户上传并裁剪图片作为瓦片封面
+-->
 <template>
   <div class="background-image-setting">
     <el-upload ref="upload" :class="['image-uploader', { 'is-disabled': disabled, 'is-upload': avatarUrlArr.length }]"

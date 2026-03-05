@@ -5,6 +5,8 @@
  * @LastEditTime: 2025-07-16 23:05:17
  * @FilePath: \Code\picMap_fontend\src\components\languageChange\LanguageChange.vue
  * @Description: 语言选择
+  - 提供一个下拉选择框，列出所有支持的语言选项
+  - 用户选择后将语言设置保存到localStorage，并刷新页面应用新语言
 -->
 <template>
   <div class="flex">

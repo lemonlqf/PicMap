@@ -2,9 +2,9 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-11-07 19:28:08
+ * @LastEditTime: 2026-03-05 15:34:40
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
- * @Description:
+ * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
 import { useSchemaStore } from '../store/schema'
 import API from '@/http/index'
@@ -14,9 +14,10 @@ import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus';
 import { saveSchema } from './schema';
 import markerService from '@/services/marker'
-import type { IImageDetailInfo } from '@/type/image'
+import { ImageType, type IImageDetailInfo } from '@/type/image'
 import type { IHttpResponse } from '@/type/http'
 import i18n from '@/i18n/index'
+import heic2any from "heic2any";
 
 // 单位MB
 const LARGE_IMAGE_SIZE = 50
@@ -269,6 +270,78 @@ export function isImageExistInImageInfo(imageId: string) {
   return imageInfo.some(item => {
     return item.id === imageId
   })
+}
+
+/**
+ * @description: 获取图片类型
+ * @param {string} name
+ * @return {*}
+ */
+export function getImageTypeByName(name: string) {
+  const suffix = name.split('.').pop()?.toLowerCase()
+  switch (suffix) {
+    case 'jpg':
+    case 'jpeg':
+      return ImageType.JPEG
+    case 'png':
+      return ImageType.PNG
+    case 'gif':
+      return ImageType.GIF
+    case 'webp':
+      return ImageType.WEBP
+    case 'heic':
+      return ImageType.HEIC
+    case 'heif':
+      return ImageType.HEIF
+  }
+}
+
+function fileToBlobUrl(file: File | Blob): string {
+  return URL.createObjectURL(file)
+}
+
+/**
+ * @description: 获取图片的blobUrl，支持HEIC格式的图片
+ * @param {File} file
+ * @param {ImageType} type
+ * @return {*}
+ */
+export async function getBlobUrl(file: File, type: ImageType): Promise<string> {
+  let blobUrl;
+  switch (type) {
+    case ImageType.JPEG:
+    case ImageType.JPG:
+    case ImageType.PNG:
+    case ImageType.GIF:
+    case ImageType.WEBP:
+      blobUrl = await fileToBlobUrl(file);
+      break;
+    case ImageType.HEIC:
+    case ImageType.HEIF:
+      // HEIC格式的图片需要特殊处理，转换为JPEG格式
+      const blob = await convertHeicToBlob(file);
+      blobUrl = await fileToBlobUrl(blob);
+      break
+    default:
+      throw new Error('不支持的图片类型')
+  }
+  return blobUrl
+}
+
+async function convertHeicToBlob(file: File): Promise<Blob> {
+  const res = await heic2any({
+    blob: file,
+    toType: 'image/jpeg',
+  }) as Blob
+  return res
+}
+
+export async function convertHeicToJpeg(file: File): Promise<File> {
+  const res = await heic2any({
+    blob: file,
+    toType: 'image/jpeg',
+  }) as Blob
+  return new File([res], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' })
 }
 
 

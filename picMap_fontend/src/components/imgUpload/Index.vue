@@ -2,9 +2,15 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-11-07 18:48:33
+ * @LastEditTime: 2026-03-05 15:33:33
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
- * @Description: 
+ * @Description: 首页的图片上传组件
+  - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
+  - 支持批量上传和单张上传两种模式
+  - 上传前解析图片的EXIF信息，获取GPS坐标等元数据
+  - 已上传的图片会显示在下方列表中，点击可以定位到地图上的对应位置
+  - 没有GPS信息的图片可以手动输入坐标进行定位
+  - 已上传的图片可以进行分组设置，方便在地图上进行分类展示
 -->
 <template>
   <div class="img-upload">
@@ -108,13 +114,14 @@ import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlobUrl } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
+import { ImageType } from '@/type/image'
 import type { IGPSInfo } from '@/type/schema'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
@@ -131,11 +138,13 @@ const props = defineProps({
 })
 
 const acceptType = [
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-  'image/gif',
-  'image/webp',
+  ImageType.PNG,
+  ImageType.JPEG,
+  ImageType.JPG,
+  ImageType.GIF,
+  ImageType.WEBP,
+  ImageType.HEIC,
+  ImageType.HEIF,
 ]
 
 const imageUrls = ref<any>({})
@@ -189,8 +198,10 @@ watch(
           if (!existUrl) {
             // 完整的base64用于图片上传
             const url = await readFileAsDataURL(file);
+            const type = file.type || getImageTypeByName(file.name)
+            console.log('file.type', type, newValue[i])
             // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
-            const blobUrl = await fileToBlobUrl(file);
+            const blobUrl = await getBlobUrl(file, type);
             imageUrls.value[imageName] = blobUrl
             // 保存到imageUrlsMap中，后续图片详情展示使用
             addImageUrl(imageName, blobUrl)
@@ -210,9 +221,7 @@ watch(
   }
 )
 
-function fileToBlobUrl(file: File | Blob): string {
-  return URL.createObjectURL(file)
-}
+
 
 const needUploadImageInfos = computed(() => {
   // 更新schema，新的信息保存到schema中
