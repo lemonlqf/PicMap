@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 20:58:26
+ * @LastEditTime: 2026-03-05 23:11:47
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -70,6 +70,21 @@ class ImageCacheManager {
       return this.imageUrlsMap.has(imageId)
     } catch {
       console.error('error in ImageCacheManager isImageExist')
+      return false
+    }
+  }
+
+/**
+ * @description: 删除图片URL
+ * @param {string} imageId - 图片的唯一标识符
+ * @returns {boolean} 返回删除操作是否成功，如果发生错误则返回false
+ * @return {*}
+ */ 
+  deleteImageUrl(imageId: string) {
+    try {
+      return this.imageUrlsMap.delete(imageId)
+    } catch {
+      console.error('error in ImageCacheManager deleteImageUrl')
       return false
     }
   }
@@ -251,6 +266,8 @@ export async function deleteImageById(imageId: string) {
   saveSchema()
   return Promise.all([API.image.deleteImages({ deleteImages: [imageId] })]).then(res => {
     markerService.deleteMarkerById(imageId)
+    // 删除图片缓存
+    ImageCacheManager.getInstance().deleteImageUrl(imageId)
     const tipMsg = res.reduce((msg, item) => {
       return msg + item.data
     }, '')
