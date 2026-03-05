@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 15:34:40
+ * @LastEditTime: 2026-03-05 20:58:26
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -296,7 +296,7 @@ export function getImageTypeByName(name: string) {
   }
 }
 
-function fileToBlobUrl(file: File | Blob): string {
+export function fileToBlobUrl(file: File | Blob): string {
   return URL.createObjectURL(file)
 }
 
@@ -328,6 +328,19 @@ export async function getBlobUrl(file: File, type: ImageType): Promise<string> {
   return blobUrl
 }
 
+/**
+ * @description: 获取图片的blob，支持HEIC格式的图片
+ * @param {File} file
+ * @param {ImageType} type
+ * @return {*}
+ */
+export async function getBlob(file: File, type: ImageType): Promise<Blob> {
+  if (type === ImageType.HEIC || type === ImageType.HEIF) {
+    return await convertHeicToBlob(file)
+  }
+  return file
+}
+
 async function convertHeicToBlob(file: File): Promise<Blob> {
   const res = await heic2any({
     blob: file,
@@ -342,6 +355,37 @@ export async function convertHeicToJpeg(file: File): Promise<File> {
     toType: 'image/jpeg',
   }) as Blob
   return new File([res], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' })
+}
+
+// TypeScript: File -> 缩略图 Blob
+export async function createThumbnailFromBlob(
+  inputBlob: Blob,
+  opts: { maxW?: number; maxH?: number; type?: string; quality?: number } = {}
+): Promise<Blob> {
+  const { maxW = 1024, maxH = 1024, type = 'image/jpeg', quality = 0.9 } = opts
+  const safeQuality = Math.min(1, Math.max(0, quality))
+
+  const bitmap = await createImageBitmap(inputBlob)
+
+  const scale = Math.min(maxW / bitmap.width, maxH / bitmap.height, 1)
+  const w = Math.max(1, Math.round(bitmap.width * scale))
+  const h = Math.max(1, Math.round(bitmap.height * scale))
+
+  const canvas = document.createElement('canvas')
+  canvas.width = w
+  canvas.height = h
+  const ctx = canvas.getContext('2d')
+  if (!ctx) throw new Error('Canvas 2D context unavailable')
+
+  ctx.imageSmoothingEnabled = true
+  ctx.imageSmoothingQuality = 'high'
+
+  ctx.drawImage(bitmap, 0, 0, w, h)
+  bitmap.close()
+
+  return await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), type, safeQuality)
+  })
 }
 
 

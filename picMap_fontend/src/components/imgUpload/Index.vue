@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 15:33:33
+ * @LastEditTime: 2026-03-05 19:55:29
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -114,7 +114,7 @@ import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlobUrl } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlobUrl, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
@@ -188,6 +188,7 @@ watch(
         const imageName = newValue[i].name
         // 如果没有的话
         if (!isInHasUrlFileList(imageName)) {
+          let data: IImageDetailInfo;
           const file = newValue[i].raw
           // res包括id, lasetModified, name, size, type
           const res1 = getFileInfoByFile(file)
@@ -200,16 +201,24 @@ watch(
             const url = await readFileAsDataURL(file);
             const type = file.type || getImageTypeByName(file.name)
             console.log('file.type', type, newValue[i])
+            const blob = await getBlob(file, type);
             // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
-            const blobUrl = await getBlobUrl(file, type);
+            const blobUrl = await fileToBlobUrl(blob)
             imageUrls.value[imageName] = blobUrl
             // 保存到imageUrlsMap中，后续图片详情展示使用
             addImageUrl(imageName, blobUrl)
-            hasUrlFileList.value[i] = { ...res1, ...res2, url, blobUrl }
+            data = { ...res1, ...res2, url, blobUrl }
+            // 如果是这几个类型的图片，还需要生成缩略图，用于后端保存一下，因为后端需要用到缩略图进行图片展示，如果没有的话，后端就只能每次都重新生成一次，性能会比较差
+            if (type === ImageType.HEIC || type === ImageType.HEIF) {
+              const thumbnail = await createThumbnailFromBlob(blob)
+              const thumbnailUrl = await readFileAsDataURL(thumbnail)
+              data.thumbnailUrl = thumbnailUrl
+            }
           } else {
             // 如果已经有了，直接拿过来用
-            hasUrlFileList.value[i] = { ...res1, ...res2, url: existUrl }
+            data = { ...res1, ...res2, url: existUrl }
           }
+          hasUrlFileList.value[i] = data
           // 如果有坐标内容的话，在地图上添加对应的marker
           if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
             // 只有还没有上传过的图片需要添加到地图中

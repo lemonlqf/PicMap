@@ -12,6 +12,8 @@ export type IImageDetailInfo = {
   id: string;
   name: string;
   url: string;
+  // 新增一个thumbnailUrl字段，用于存储缩略图的url,主要用于传递给后端用来保存
+  thumbnailUrl?: string;
   Resolution?: any
   BrightnessValue?: any
   size?: any,

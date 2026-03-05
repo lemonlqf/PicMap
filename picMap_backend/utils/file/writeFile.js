@@ -2,14 +2,15 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 19:37:46
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 15:13:49
+ * @LastEditTime: 2026-03-05 20:33:38
  * @FilePath: \PicMap\picMap_backend\utils\file\writeFile.js
  * @Description:
  */
 const fs = require('node:fs')
 const nodePath = require('node:path')
 const globalVariables = require('../../public/globalVariable').globalVariables
-const { getNewImageId, getImageId } = require('../image/image.js')
+const { getNewImageId, getImageId, getImageIdWithoutExtension } = require('../image/image.js')
+
 
 /**
  * 从 Data URL 或纯 base64 字符串中提取可用于 Buffer 解码的 payload。
@@ -36,15 +37,25 @@ function getBase64Payload(dataUrl) {
  * - 无 id 时：使用 getNewImageId() 生成文件名
  * - 若主文件名不含后缀，则尝试从 imageName 补充后缀
  *
- * @param {string} [imageName='image.png'] - 原始文件名（用于提取后缀）
  * @param {string | undefined} id - 图片业务 id
  * @returns {string} 最终文件名（不含目录）
  */
-function resolveFileName(imageName = 'image.png', id) {
+function resolveFileName(id, extension) {
   const imageId = id ? getImageId(id) : getNewImageId()
-  const hasExtension = /\.[a-zA-Z0-9]+$/.test(imageId)
-  const extension = nodePath.extname(imageName || '')
-  return `${imageId}${!hasExtension && extension ? extension : ''}`
+  // 将id的后缀替换为extension，如果本来没有后缀的话就直接加上
+  const baseName = getImageIdWithoutExtension(imageId)
+  return `${baseName}${extension}`
+}
+
+/**
+ * @description: 改变文件名的后缀为.jpg，适用于生成缩略图文件名
+ * @param {*} id
+ * @return {*}
+ */
+function changeExtensionToJpg(id) {
+  const imageId = id ? getImageId(id) : getNewImageId()
+  const baseName = getImageIdWithoutExtension(imageId)
+  return `${baseName}.jpg`
 }
 
 /**
@@ -66,16 +77,17 @@ function ensureDir(path) {
  * @param {string} [imageName='image.png'] - 原始文件名（用于后缀推断）
  * @param {string | undefined} id - 图片业务 id（用于生成稳定文件名）
  * @param {string} [savePath=globalVariables.imageFilePath] - 保存目录
+ * @param {string} [prefix=''] - 文件名前缀（如缩略图前缀）
  * @returns {void}
  */
-function writeBase64File(baseUrl, imageName = 'image.png', id, savePath = globalVariables.imageFilePath) {
+function writeBase64File(baseUrl, id, extension, savePath = globalVariables.imageFilePath, prefix = '') {
   const base64Payload = getBase64Payload(baseUrl)
   if (!base64Payload) {
     return
   }
   const dataBuffer = Buffer.from(base64Payload, 'base64')
   ensureDir(savePath)
-  const fileName = resolveFileName(imageName, id)
+  const fileName = prefix + resolveFileName(id, extension)
   const filePath = nodePath.join(savePath, fileName)
 
   // 写入文件，w为覆盖，a为累加
@@ -83,9 +95,9 @@ function writeBase64File(baseUrl, imageName = 'image.png', id, savePath = global
     if (err) {
       console.error('writeFile failed', err)
     } else {
-      console.log(imageName)
+      console.log(fileName)
     }
   })
 }
 
-module.exports = { writeBase64File }
+module.exports = { writeBase64File, changeExtensionToJpg }
