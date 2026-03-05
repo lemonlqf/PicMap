@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 19:55:29
+ * @LastEditTime: 2026-03-05 23:57:31
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -180,52 +180,62 @@ function isInHasUrlFileList(id: string) {
 watch(
   () => elUploadFileList.value,
   async (newValue) => {
-    // 如果无值直接清空
-    if (newValue?.length === 0) {
-      hasUrlFileList.value = []
-    } else {
-      for (let i = 0; i < newValue.length; i++) {
-        const imageName = newValue[i].name
-        // 如果没有的话
-        if (!isInHasUrlFileList(imageName)) {
-          let data: IImageDetailInfo;
-          const file = newValue[i].raw
-          // res包括id, lasetModified, name, size, type
-          const res1 = getFileInfoByFile(file)
-          // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
-          const res2 = await setMoreInfoByExifReader(file)
-          const existUrl = imageUrls.value[imageName] || getImageUrl(imageName)
-          // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
-          if (!existUrl) {
-            // 完整的base64用于图片上传
-            const url = await readFileAsDataURL(file);
-            const type = file.type || getImageTypeByName(file.name)
-            console.log('file.type', type, newValue[i])
-            const blob = await getBlob(file, type);
-            // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
-            const blobUrl = await fileToBlobUrl(blob)
-            imageUrls.value[imageName] = blobUrl
-            // 保存到imageUrlsMap中，后续图片详情展示使用
-            addImageUrl(imageName, blobUrl)
-            data = { ...res1, ...res2, url, blobUrl }
-            // 如果是这几个类型的图片，还需要生成缩略图，用于后端保存一下，因为后端需要用到缩略图进行图片展示，如果没有的话，后端就只能每次都重新生成一次，性能会比较差
-            if (type === ImageType.HEIC || type === ImageType.HEIF) {
-              const thumbnail = await createThumbnailFromBlob(blob)
-              const thumbnailUrl = await readFileAsDataURL(thumbnail)
-              data.thumbnailUrl = thumbnailUrl
+    try {
+      // 如果无值直接清空
+      if (newValue?.length === 0) {
+        hasUrlFileList.value = []
+      } else {
+        for (let i = 0; i < newValue.length; i++) {
+          const imageName = newValue[i].name
+          // 如果没有上传过的话，走上传图片逻辑
+          if (!isInHasUrlFileList(imageName)) {
+            let data: IImageDetailInfo;
+            const file = newValue[i].raw
+            // res包括id, lasetModified, name, size, type
+            const res1 = getFileInfoByFile(file)
+            // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
+            const res2 = await setMoreInfoByExifReader(file)
+            // 如果exifReader解析失败的话，给个提示解析失败了，不能上传
+            if (!res2) {
+              ElMessage.warning(`${imageName} ${t('description.parsePictureInfoFailed')}`)
+              continue
             }
-          } else {
-            // 如果已经有了，直接拿过来用
-            data = { ...res1, ...res2, url: existUrl }
-          }
-          hasUrlFileList.value[i] = data
-          // 如果有坐标内容的话，在地图上添加对应的marker
-          if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
-            // 只有还没有上传过的图片需要添加到地图中
-            !judgeHadUploadImage(imageName) && markerService.addImageMarkerToMap(hasUrlFileList.value[i])
+            const existUrl = imageUrls.value[imageName] || getImageUrl(imageName)
+            // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
+            if (!existUrl) {
+              // 完整的base64用于图片上传
+              const url = await readFileAsDataURL(file);
+              const type = file.type || getImageTypeByName(file.name)
+              console.log('file.type', type, newValue[i])
+              const blob = await getBlob(file, type);
+              // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
+              const blobUrl = await fileToBlobUrl(blob)
+              imageUrls.value[imageName] = blobUrl
+              // 保存到imageUrlsMap中，后续图片详情展示使用
+              addImageUrl(imageName, blobUrl)
+              data = { ...res1, ...res2, url, blobUrl }
+              // 如果是这几个类型的图片，还需要生成缩略图，用于后端保存一下，因为后端需要用到缩略图进行图片展示，如果没有的话，后端就只能每次都重新生成一次，性能会比较差
+              if (type === ImageType.HEIC || type === ImageType.HEIF) {
+                const thumbnail = await createThumbnailFromBlob(blob)
+                const thumbnailUrl = await readFileAsDataURL(thumbnail)
+                data.thumbnailUrl = thumbnailUrl
+              }
+            } else {
+              // 如果已经有了，直接拿过来用
+              data = { ...res1, ...res2, url: existUrl }
+            }
+            hasUrlFileList.value[i] = data
+            // 如果有坐标内容的话，在地图上添加对应的marker
+            if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
+              // 只有还没有上传过的图片需要添加到地图中
+              !judgeHadUploadImage(imageName) && markerService.addImageMarkerToMap(hasUrlFileList.value[i])
+            }
           }
         }
       }
+    } catch (error) {
+      console.error('解析图片信息失败', error)
+      ElMessage.error(t('description.parsePictureInfoFailed'))
     }
   }
 )
@@ -277,20 +287,24 @@ function getFileInfoByFile(file: File) {
 
 // 从图片信息对象中提取GPS信息，并添加到地图里面
 async function setMoreInfoByExifReader(file: File, name?: string) {
-  const tags = await ExifReader.load(file, { expanded: true })
-  console.log('--', tags)
-  // 设置经纬度到moreInfo中
-  const GPSInfo: IGPSInfo = getGPSInfo(tags)
-  // 图片信息
-  const imageInfo: IImageDetailInfo = getImageInfo(tags, file)
-  // 相机信息
-  const cameraInfo: ICameraDetailInfo = getCameraInfo(tags)
-  // 作者信息
-  const authorInfo: IAuthorDetailInfo = getAuthorInfo(tags)
-  // TODO:设置其他值
-  // setxxxInfo(tags, name)
+  try {
+    const tags = await ExifReader.load(file, { expanded: true })
+    console.log('--', tags)
+    // 设置经纬度到moreInfo中
+    const GPSInfo: IGPSInfo = getGPSInfo(tags)
+    // 图片信息
+    const imageInfo: IImageDetailInfo = getImageInfo(tags, file)
+    // 相机信息
+    const cameraInfo: ICameraDetailInfo = getCameraInfo(tags)
+    // 作者信息
+    const authorInfo: IAuthorDetailInfo = getAuthorInfo(tags)
+    // TODO:设置其他值
+    // setxxxInfo(tags, name)
 
-  return { GPSInfo, imageInfo, cameraInfo, authorInfo }
+    return { GPSInfo, imageInfo, cameraInfo, authorInfo }
+  } catch (error) {
+    return null
+  }
 }
 
 // 获取不同图片经纬度信息

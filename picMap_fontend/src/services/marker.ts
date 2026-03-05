@@ -1,7 +1,7 @@
 /*
 * @Author: your name
 * @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2026-03-05 15:10:19
+ * @LastEditTime: 2026-03-05 23:44:35
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
  * @Description: 地图marker服务，提供marker的创建、删除、更新等功能
@@ -621,6 +621,7 @@ class MarkerService {
    * @return {*}
    */
   markerMouseListener(marker: L.Marker) {
+    if (!marker) return;
     // 添加点击事件监听，这里的mouseEvent的target中有marker信息
     marker.on("click", (event: MouseEvent) => {
       // ElMessage.success('触发Marker点击事件')

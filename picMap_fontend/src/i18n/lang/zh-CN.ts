@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-20 00:59:24
- * @FilePath: \Code\picMap_fontend\src\i18n\lang\zh-CN.ts
+ * @LastEditTime: 2026-03-05 23:48:08
+ * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
 export default {
@@ -171,8 +171,8 @@ export default {
     confirmDeleteUser: '确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！',
     setUrlToPreview: '请添加有效瓦片地址,在此处预览',
     largeSize: '图片尺寸过大, 超过 ',
-    uploadFailed: '上传失败!'
-
+    uploadFailed: '上传失败!',
+    parsePictureInfoFailed: '解析图片信息失败!'
   },
   placeholder: {
     selectGroup: '请选择分组'

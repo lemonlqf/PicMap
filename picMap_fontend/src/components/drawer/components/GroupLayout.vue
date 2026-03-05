@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-04 22:55:33
+ * @LastEditTime: 2026-03-05 23:44:08
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupLayout.vue
  * @Description: 分组布局组件
  *   - 按时间分组展示图片
@@ -90,7 +90,8 @@ const sort = ref<SortType>(SortType.DES)
 const groupImageInfos = computed(() => {
   return props.groupNumbers.map((imageId: string) => {
     const imageInfo = getSchemaInfoById(imageId) as any
-    return { id: imageInfo.id, time: imageInfo.authorInfo.DateTime }
+    // 如果没有找到图片信息，说明图片可能没有上传，只是把id保存在分组里面了，这时直接返回原来的id就可以了
+    return { id: imageInfo?.id ?? imageId, time: imageInfo?.authorInfo.DateTime }
   })
 })
 

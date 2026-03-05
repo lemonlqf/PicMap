@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:08
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-04 17:09:50
+ * @LastEditTime: 2026-03-05 23:55:50
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\en.ts
  * @Description: 
  */
@@ -172,7 +172,8 @@ export default {
     confirmDeleteUser: 'Are you sure you want to delete the user? All the pictures of this user will also be deleted and cannot be restored!',
     setUrlToPreview: 'Please add a valid tile url to preview here',
     largeSize: 'pictrue is too big, Over ',
-    uploadFailed: 'Upload filed!'
+    uploadFailed: 'Upload filed!',
+    parsePictureInfoFailed: 'Parse picture info failed!'
   },
   placeholder: {
     selectGroup: 'Plaese select group'
