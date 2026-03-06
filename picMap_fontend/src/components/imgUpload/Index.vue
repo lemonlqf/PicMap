@@ -14,10 +14,10 @@
 -->
 <template>
   <div class="img-upload">
-    <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
+<el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary">{{ $t('uploadPicture')
-      }}</el-button>
+      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary" :disabled="isLoading">{{ $t('uploadPicture')
+      }}<el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;"><Loading /></el-icon></el-button>
       <!-- <template #tip>
         <div class="el-upload__tip">请上传图片</div>
       </template> -->
@@ -76,8 +76,8 @@
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
     <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
-      type="primary">{{ $t('batchUpload') }}</el-button>
-    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll" type="danger">{{
+      type="primary" :disabled="isUploading">{{ $t('batchUpload') }}<el-icon v-if="isUploading" class="is-loading" style="margin-left: 8px;"><Loading /></el-icon></el-button>
+    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll" type="danger" :disabled="isUploading">{{
       $t('clearAll') }}</el-button>
   </div>
   <!-- 定位弹框 -->
@@ -112,7 +112,7 @@
 import { ref, watch, computed, reactive, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
-import { ArrowUpBold, ArrowDownBold, Delete } from '@element-plus/icons-vue'
+import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlobUrl, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
@@ -181,6 +181,7 @@ watch(
   () => elUploadFileList.value,
   async (newValue) => {
     try {
+      isLoading.value = true
       // 如果无值直接清空
       if (newValue?.length === 0) {
         hasUrlFileList.value = []
@@ -236,6 +237,8 @@ watch(
     } catch (error) {
       console.error('解析图片信息失败', error)
       ElMessage.error(t('description.parsePictureInfoFailed'))
+    } finally {
+      isLoading.value = false
     }
   }
 )
@@ -391,6 +394,8 @@ function getImageInfo(info, file) {
 const needUploadImageLoading = ref(false)
 const uploadedImageLoading = ref(false)
 const loadingInstance = ref()
+const isLoading = ref(false)
+const isUploading = ref(false)
 
 watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   if (needUploadImageLoading.value || uploadedImageLoading.value) {
@@ -450,12 +455,14 @@ async function readFileAsDataURL(file): Promise<string> {
 
 // 添加图片
 async function uploadImages(imageInfos: IImageDetailInfo[]) {
+  isUploading.value = true
   // 对有定位信息的图片进行上传
   const locateImageInfos = cloneDeep(imageInfos).filter(item => {
     return item.GPSInfo.GPSLatitude && item.GPSInfo.GPSLongitude
   })
   if (locateImageInfos.length < 1) {
     ElMessage.warning(t('description.noPictureCanUpload'))
+    isUploading.value = false
     return
   }
   // subimtData.append('data', 123)
@@ -473,6 +480,7 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
     ElMessage.success(t('description.somePictureUploadedSuccess'))
   } else {
   }
+  isUploading.value = false
 }
 
 /**
