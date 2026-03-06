@@ -2,33 +2,37 @@
 
 [中文](README_zh.md)
 
-PicMap is an image mapping application based on Vue3 for the frontend and Express for the backend. You can display and manage your images on the map.
+---
 
-This application requires an internet connection only to fetch map tiles; all other features do not require online access. All your information and images are stored locally, eliminating the risk of personal information leakage.
+> An image map application based on Vue3 and Express. You can display and manage your photos on the map.
 
-The directory for saving images and data is: `D:\PicMap`
+![Vue 3](https://img.shields.io/badge/Vue-3.3.4-brightgreen)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
+![Electron](https://img.shields.io/badge/Electron-28+-gray)
 
-Supported system: `Windows`
+This application requires an internet connection only to fetch map tiles; all other features work offline. All your information and images are stored locally, eliminating personal information leakage risk.
 
-# Main Features
-- Image Location Display
-![alt text](doc/image/image.png)
+Supported System: Windows  
+Data Storage Directory: `D:\PicMap`
 
-- Image Grouping
+---
 
-- User Management
+## Features Preview
 
-  Allows adding, deleting, and editing user information.
+![Feature Demo](doc/image/image.png)
 
-- Map Management
+---
 
-  Allows management of map tiles.
+## Core Features
 
-## Tech Stack
-
-- Frontend: Vue 3 + Vite + TypeScript + Leaflet
-- Backend: Node.js + Express
-- Build/Packaging: Vite、webpack、electron-builder
+| Feature | Description |
+|---------|-------------|
+| 🔒 Local Storage | All data stored locally, no privacy leak risk |
+| 🗺️ Map Display | Supports multiple map tiles, displaying photo locations |
+| 📤 Batch Upload | Select multiple images, supports HEIC/HEIF format |
+| 🏷️ Image Grouping | Create groups, color coding, filtering |
+| 👥 Multi-user | Multiple users with isolated data |
+| 💾 Data Backup | Backup, import and restore support |
 
 ---
 
@@ -36,53 +40,65 @@ Supported system: `Windows`
 
 ### 1. Install Dependencies
 
-Frontend：
-
-Navigate to the `picMap_frontend` directory
-
 ```bash
+# Frontend
+cd picMap_fontend
 npm install
-```
-Backend:
 
-Navigate to the `picMap_backend` directory
-
-```bash
+# Backend
+cd picMap_backend
 npm install
 ```
 
-### 2. Start Development Environment
-
-Frontend：
-
-Navigate to the `picMap_frontend` directory
+### 2. Start Development
 
 ```bash
+# Frontend
+cd picMap_fontend
 npm run dev
-```
-Backend：
 
-Navigate to the `picMap_backend` directory
-
-```bash
+# Backend
+cd picMap_backend
 npm run start
 ```
 
-## Build Electron Application
+---
 
-First, package the frontend and backend projects separately using the following command:
+## Build Electron App
 
 ```bash
+# 1. Build frontend and backend separately
+cd picMap_fontend && npm run build
+cd picMap_backend && npm run build
+
+# 2. Build app in root directory
+cd ..
 npm run build
 ```
 
-After obtaining the frontend and backend artifacts, proceed to the next step.
+Build artifacts will be generated in the `dist` directory
 
-Return to the root directory and run the application build command:
+---
 
-```bash
-npm run build
-```
+## Tech Stack
 
-After a successful build, the artifacts will be generated in the `dist` directory in the root folder.
+- **Frontend**: Vue 3 + TypeScript + Vite + Leaflet + Element Plus
+- **Backend**: Node.js + Express
+- **Packaging**: Electron + electron-builder
 
+---
+
+## Documentation
+
+- [Feature Overview](doc/feature_overview.md) - Detailed feature documentation
+- [Data Schema](doc/DATA_SCHEMA.md) - Data structure specification
+- [API Documentation](doc/API.md) - Frontend and backend API reference
+
+---
+
+## Notes
+
+- 💡 All data stored locally, recommend regular backups
+- 📍 Only images with EXIF GPS info can be auto-located
+- 📂 Default storage path: D:\PicMap
+- 🌐 Except map tiles, other features work offline
