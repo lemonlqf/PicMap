@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-02-26 20:55:41
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-02-26 22:05:39
- * @FilePath: \Code\picMap_fontend\src\components\switch\Index.vue
+ * @LastEditTime: 2026-03-06 11:10:14
+ * @FilePath: \PicMap\picMap_fontend\src\components\switch\Index.vue
  * @Description: 
 -->
 <template>
@@ -16,7 +16,7 @@
 </template>
 
 <script lang="ts" setup>
-import { defineProps, defineModel, onMounted, watch } from 'vue'
+import { onMounted, watch } from 'vue'
 const emit = defineEmits(['onclick'])
 const props = defineProps({
   options: {

@@ -8,12 +8,23 @@ import svgLoader from 'vite-svg-loader'
 export default defineConfig({
   base: './',
   plugins: [vue(), svgLoader()],
+  css: {
+    preprocessorOptions: {
+      scss: {
+        api: 'modern-compiler',
+        silenceDeprecations: ['legacy-js-api']
+      },
+      sass: {
+        api: 'modern-compiler',
+        silenceDeprecations: ['legacy-js-api']
+      }
+    }
+  },
   server: {
     hmr: true,
     port: 5199,
   },
   resolve: {
-    api: 'modern-compiler',
     alias: {
       '@': resolve(__dirname, 'src') // 路径别名
     },

@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 22:22:38
- * @FilePath: \Code\picMap_fontend\src\views\setting\Index.vue
+ * @LastEditTime: 2026-03-06 11:09:42
+ * @FilePath: \PicMap\picMap_fontend\src\views\setting\Index.vue
  * @Description: 
 -->
 <template>
@@ -104,7 +104,7 @@ const currentSchema = computed(() => {
 watch(() => currentUserInfo.value.userId, async (newValue) => {
   const schema = await getUserSchema()
   schemaStore.setSchema(schema)
-}, {deep: true, immediate: true})
+}, { deep: true, immediate: true })
 
 function goRouter(value: string) {
   activeRouter.value = value
@@ -131,15 +131,11 @@ $noActiveBackground: #325bca;
 
 .setting-page {
   background-color: rgb(246, 248, 251);
- overflow: auto;
+  overflow: auto;
 }
 
 
 .menu {
-  * {
-    transition: all 0.2s;
-  }
-
   position: absolute;
   top: 12vh;
   left: 30px;
@@ -151,10 +147,13 @@ $noActiveBackground: #325bca;
   padding: 20px;
   border-radius: 30px;
   box-shadow: rgba(0, 0, 0, 0.214) 0px 4px 8px 0px,
-  rgba(0, 0, 0, 0.043) 0px 2px 4px 0px;
+    rgba(0, 0, 0, 0.043) 0px 2px 4px 0px;
   background: $backgroud;
   padding: 36px 24px 24px;
 
+  * {
+    transition: all 0.2s;
+  }
 
   .logo-box {
     margin-bottom: 70px;
