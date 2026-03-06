@@ -30,7 +30,7 @@ Data Storage Directory: `D:\PicMap`
 | 🔒 Local Storage | All data stored locally, no privacy leak risk |
 | 🗺️ Map Display | Supports multiple map tiles, displaying photo locations |
 | 📤 Batch Upload | Select multiple images, supports HEIC/HEIF format |
-| 🏷️ Image Grouping | Create groups, color coding, filtering |
+| 🏷️ Image Grouping | Create groups, filtering |
 | 👥 Multi-user | Multiple users with isolated data |
 | 💾 Data Backup | Backup, import and restore support |
 
