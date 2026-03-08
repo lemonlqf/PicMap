@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 20:37:57
+ * @LastEditTime: 2026-03-08 22:29:00
  * @FilePath: \PicMap\picMap_backend\routes\image.js
  * @Description:
  */
@@ -52,15 +52,17 @@ router.post('/getSmallImage', async function (req, res, next) {
 router.post('/getSmallImages', async function (req, res, next) {
   let files = []
   let { imageIds, currentUserId } = req.body
-  for (let i = 0; i < imageIds.length; i++) {
-    const url = await getSmallImageFileById(imageIds[i], currentUserId)
-    files.push(url)
-  }
-  if (files.length > 0) {
-    res.send(Result.success({ files }))
-  } else {
-    res.send(Result.fail('获取图片失败'))
-  }
+
+  Promise.all(imageIds.map(async (id) => {
+    const url = await getSmallImageFileById(id, currentUserId)
+    return url
+  })).then(files => {
+    if (files.length > 0) {
+      res.send(Result.success({ files }))
+    } else {
+      res.send(Result.fail('获取图片失败'))
+    }
+  })
 })
 
 // 获取原图
