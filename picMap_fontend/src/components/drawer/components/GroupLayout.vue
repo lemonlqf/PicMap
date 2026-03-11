@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 23:44:08
+ * @LastEditTime: 2026-03-11 16:40:55
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupLayout.vue
  * @Description: 分组布局组件
  *   - 按时间分组展示图片
@@ -21,6 +21,7 @@
       </div>
       <!-- 按时间分组 -->
       <div v-for="key in groupImageSortMap.keys()" :key="key">
+        <!-- 时间 -->
         <h1>{{ key }}</h1>
         <!-- 图片 -->
         <div class="flex-box">

@@ -1,7 +1,7 @@
 /*
 * @Author: your name
 * @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2026-03-05 23:44:35
+ * @LastEditTime: 2026-03-11 16:41:29
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
  * @Description: 地图marker服务，提供marker的创建、删除、更新等功能
@@ -45,12 +45,14 @@ class MarkerService {
   constructor() {
     this.markerClusters = L.markerClusterGroup({
       // spiderfyOnMaxZoom: false,
-      maxClusterRadius: 20,
+      maxClusterRadius: 50,
       // 缩放比例为MAP_CONSTANT.MAX_ZOOM时不在成簇
       disableClusteringAtZoom: MAP_CONSTANT.MAX_ZOOM,
+      // 距离视口过远的聚合点和标记会从地图中移除
+      removeOutsideVisibleBounds: true,
       // 样式
       // iconCreateFunction: function (cluster: any) {
-      //   return L.divIcon({ html: '<b>' + cluster.getChildCount() + '</b>' });
+        // return L.divIcon({ html: '<b>' + cluster.getChildCount() + '</b>' });
       // }
     });
   }
