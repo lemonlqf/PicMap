@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-04 20:52:39
+ * @LastEditTime: 2026-03-11 20:50:59
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 
 -->
@@ -36,6 +36,10 @@
   <div v-show="!pureMode" class="fix-group group-info-group">
     <GroupInfo :map="map"></GroupInfo>
   </div>
+  <!-- 时间轴 -->
+  <div class="time-line">
+    <TimeLine @change="timeChange" mode="year"></TimeLine>
+  </div>
 </template>
 
 <script lang="ts" setup>
@@ -54,12 +58,22 @@ import { useSchemaStore } from '@/store/schema'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 import Map from './Map.vue'
+import TimeLine from '@/components/timeLine/TimeLine.vue'
 
 const schemaStore = useSchemaStore()
 let currentMapTile = ref()
 const mapCenter = ref([30.2489634, 120.2052342])
 const mapZoom = ref(10)
 const mapRef = ref()
+const timeRanges = ref({
+  min: new Date('2000-01-01').getTime(),
+  max: new Date().getTime()
+})
+
+function timeChange(dataRange: { min: number; max: number }) {
+  timeRanges.value = dataRange
+  console.log('父组件接收到时间范围了', timeRanges.value)
+}
 
 /**
  * @description: 切换地图瓦片
@@ -195,6 +209,15 @@ onMounted(() => {
   position: absolute;
   top: 17px;
   left: 225px;
+  z-index: 1000;
+}
+
+.time-line {
+  position: absolute;
+  bottom: 20px;
+  width: 80vw;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 1000;
 }
 </style>

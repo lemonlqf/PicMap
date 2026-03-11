@@ -12,11 +12,7 @@
   <div>
     <div class="group-layout">
       <div class="button-box">
-        <el-radio-group v-model="precision" size="small">
-          <template v-for="item in radioOptions">
-            <el-radio-button :label="item.label" :value="item.value" />
-          </template>
-        </el-radio-group>
+        <TimePrecision class="precision" v-model="precision"></TimePrecision>
         <Sort class="sort" v-model="sort"></Sort>
       </div>
       <!-- 按时间分组 -->
@@ -49,6 +45,7 @@ import { groupSorting, TimeType, SortType, removeGroupImage } from '@/utils/grou
 import { getSchemaInfoById } from '@/utils/schema'
 import Image from '@/components/drawer/components/Image.vue';
 import Sort from './Sort.vue'
+import TimePrecision from './TimePrecision.vue'
 import { useI18n } from 'vue-i18n'
 
 const { t } = useI18n()
@@ -68,21 +65,6 @@ const props = defineProps({
 const emit = defineEmits<{
   (e: 'showImageInfo', imageId: string): void
 }>()
-
-const radioOptions = [
-  {
-    label: t('year'),
-    value: TimeType.YEAR
-  },
-  {
-    label: t('month'),
-    value: TimeType.MONTH
-  },
-  {
-    label: t('day'),
-    value: TimeType.DAY
-  },
-]
 
 // 分组的时间精度
 const precision = ref<TimeType>(TimeType.YEAR)
