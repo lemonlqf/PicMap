@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-04 19:36:39
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 22:20:22
- * @FilePath: \Code\picMap_fontend\src\components\userCard\UserCard.vue
+ * @LastEditTime: 2026-03-12 15:49:03
+ * @FilePath: \PicMap\picMap_fontend\src\components\userCard\UserCard.vue
  * @Description: 
 -->
 <template>
@@ -22,10 +22,12 @@
     </div>
   </div>
   <!-- 添加 -->
-  <div @click="emits('cardClick')" v-if="isAddCard" class="add-card card" :title="$t('createUser')">
-    <AddUserIcon class="img" width="40px" height="40px"></AddUserIcon>
-    <!-- <span>添加用户</span> -->
-  </div>
+  <el-tooltip :content="$t('createUser')" placement="top">
+    <div @click="emits('cardClick')" v-if="isAddCard" class="add-card card">
+      <AddUserIcon class="img" width="40px" height="40px"></AddUserIcon>
+    </div>
+  </el-tooltip>
+  <!-- <span>添加用户</span> -->
 </template>
 
 <script setup lang="ts">

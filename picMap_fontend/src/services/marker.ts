@@ -1,7 +1,7 @@
 /*
 * @Author: your name
 * @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2026-03-11 16:41:29
+ * @LastEditTime: 2026-03-12 17:32:37
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
  * @Description: 地图marker服务，提供marker的创建、删除、更新等功能
@@ -42,6 +42,8 @@ class MarkerService {
   private MAP_INSTANCE: L.Map | null;
   // 创建聚合组
   private markerClusters: L.MarkerClusterGroup | null;
+  // 存储被隐藏的 markers，key 是 markerId
+  private hiddenMarkers: Map<string, L.Marker> = new Map();
   constructor() {
     this.markerClusters = L.markerClusterGroup({
       // spiderfyOnMaxZoom: false,
@@ -52,7 +54,7 @@ class MarkerService {
       removeOutsideVisibleBounds: true,
       // 样式
       // iconCreateFunction: function (cluster: any) {
-        // return L.divIcon({ html: '<b>' + cluster.getChildCount() + '</b>' });
+      // return L.divIcon({ html: '<b>' + cluster.getChildCount() + '</b>' });
       // }
     });
   }
@@ -84,10 +86,23 @@ class MarkerService {
    */
   getAllMarkers(): L.Marker[] {
     const markers: L.Marker[] = [];
-    this.MAP_INSTANCE.eachLayer((layer: L.Layer) => {
+    // 获取 markerClusters 中的 markers
+    if (this.markerClusters) {
+      this.markerClusters.getLayers().forEach((layer: L.Layer) => {
+        if (layer instanceof L.Marker) {
+          markers.push(layer);
+        }
+      });
+    }
+    // 获取地图上的单独 markers
+    this.MAP_INSTANCE?.eachLayer((layer: L.Layer) => {
       if (layer instanceof L.Marker) {
         markers.push(layer);
       }
+    });
+    // 获取被隐藏的 markers
+    this.hiddenMarkers.forEach((marker) => {
+      markers.push(marker);
     });
     return markers;
   }
@@ -141,7 +156,7 @@ class MarkerService {
         );
         this.markerClusters.addLayer(marker);
         // 添加聚合组到地图
-        this.MAP_INSTANCE.addLayer(this.markerClusters);
+        this.MAP_INSTANCE?.addLayer(this.markerClusters);
         // marker.addTo(map)
         // 添加id到store中
         mapStore.addMarkerId(imageInfo.id);
@@ -356,7 +371,16 @@ class MarkerService {
   hiddenMarkerById(markerId: string) {
     const marker = this.getMarkerById(markerId);
     if (marker) {
-      marker.setOpacity(0);
+      const markerType = marker.options.type
+      const isImage = markerType === 'image' || markerType === 'temporary-image'
+      const isGroup = markerType === 'group' || markerType === 'temporary-group'
+
+      if (isImage) {
+        this.markerClusters.removeLayer(marker);
+        this.hiddenMarkers.set(markerId, marker);
+      } else if (isGroup) {
+        // this.MAP_INSTANCE.removeLayer(marker);
+      }
     }
   }
 
@@ -368,7 +392,27 @@ class MarkerService {
   showMarkerById(markerId: string) {
     const marker = this.getMarkerById(markerId);
     if (marker) {
-      marker.setOpacity(1);
+      const markerType = marker.options.type
+      const isImage = markerType === 'image' || markerType === 'temporary-image'
+      const isGroup = markerType === 'group' || markerType === 'temporary-group'
+
+      if (isImage) {
+        const layers = this.markerClusters.getLayers()
+        if (!layers.includes(marker)) {
+          this.markerClusters.addLayer(marker);
+          this.hiddenMarkers.delete(markerId);
+        }
+      } else if (isGroup) {
+        if (!this.MAP_INSTANCE?.hasLayer?.(marker)) {
+          marker.addTo(this.MAP_INSTANCE);
+        }
+      }
+    } else {
+      const hiddenMarker = this.hiddenMarkers.get(markerId);
+      if (hiddenMarker) {
+        this.markerClusters.addLayer(hiddenMarker);
+        this.hiddenMarkers.delete(markerId);
+      }
     }
   }
 
@@ -473,7 +517,7 @@ class MarkerService {
       }
     })
     // 没有再遍历地图上的节点
-    !foundMarker && this.MAP_INSTANCE.eachLayer?.(layer => {
+    !foundMarker && this.MAP_INSTANCE?.eachLayer?.(layer => {
       if (layer instanceof L.Marker && layer.options.id === markerId) {
         foundMarker = layer;
       }
@@ -609,7 +653,7 @@ class MarkerService {
    */
   isMarkerInView(marker: L.Marker) {
     // 获取地图的可视范围
-    const bounds = this.MAP_INSTANCE.getBounds();
+    const bounds = this.MAP_INSTANCE?.getBounds?.();
     // marker.getLatLng()获取marker的经纬度
     if (!marker) {
       return false;
@@ -699,6 +743,66 @@ class MarkerService {
     const groupInfo = getGroupInfoByGroupId(groupId);
     let newIcon = await this.createGroupMarkerIcon(groupInfo);
     groupMarker && groupMarker.setIcon(newIcon);
+  }
+
+  /**
+   * @description: 根据时间范围过滤marker
+   * @param {*} timeRange { min: number; max: number }
+   * @return {*}
+   */
+  filterMarkersByTimeRange(timeRange: { min: number; max: number }) {
+    const schemaStore = useSchemaStore()
+    const allMarkers = this.getAllMarkers()
+
+    allMarkers.forEach(marker => {
+      const markerId = marker.options.id
+      const markerType = marker.options.type
+
+      const isImage = markerType === 'image' || markerType === 'temporary-image'
+      const isGroup = markerType === 'group' || markerType === 'temporary-group'
+
+      if (isImage) {
+        const imageInfo = schemaStore.getSchema.imageInfo?.find(img => img.id === markerId)
+        const imageTime = imageInfo?.authorInfo?.DateTime
+
+        // 单图按自身拍摄时间过滤；没有有效时间时保持显示，避免误伤无时间元数据的图片。
+        if (imageTime && typeof imageTime === 'number' && !isNaN(imageTime)) {
+          if (imageTime >= timeRange.min && imageTime <= timeRange.max) {
+            this.showMarkerById(markerId)
+          } else {
+            this.hiddenMarkerById(markerId)
+          }
+        } else {
+          this.showMarkerById(markerId)
+        }
+      } else if (isGroup) {
+        // TODO: 分组展示不隐藏先
+        // const groupInfo = schemaStore.getSchema.groupInfo?.find(grp => grp.id === markerId)
+
+        // if (groupInfo?.groupNumbers?.length) {
+        //   // 分组的显示状态由分组内图片决定：只要存在一张时间落在范围内的图片，就保留该分组。
+        //   const groupImages = groupInfo.groupNumbers
+        //     .map(id => schemaStore.getSchema.imageInfo?.find(img => img.id === id))
+        //     .filter(img => img?.authorInfo?.DateTime)
+
+        //   const hasValidTimeImage = groupImages.some(img => {
+        //     const time = img.authorInfo.DateTime
+        //     return typeof time === 'number' && !isNaN(time) && time >= timeRange.min && time <= timeRange.max
+        //   })
+
+        //   if (hasValidTimeImage) {
+        //     this.showMarkerById(markerId)
+        //   } else if (groupImages.length === 0) {
+        //     // 分组内图片都没有可用时间信息时，默认继续显示，和单图的兜底策略保持一致。
+        //     this.showMarkerById(markerId)
+        //   } else {
+        //     this.hiddenMarkerById(markerId)
+        //   }
+        // } else {
+        //   this.showMarkerById(markerId)
+        // }
+      }
+    })
   }
 
   /**

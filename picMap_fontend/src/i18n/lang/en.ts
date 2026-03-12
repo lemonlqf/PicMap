@@ -141,6 +141,8 @@ export default {
   confirmDeleteBackup: 'Are you sure you want to delete this backup?',
   warning: 'Warning',
   deleteFailed: 'Delete failed',
+  reset: 'Reset',
+  timeline: 'Timeline',
 
   description: {
     ensureToDissolveGroup: 'Are you sure you want to disband the group? This group will be disbanded, and the pictures within the group will still be retained!',

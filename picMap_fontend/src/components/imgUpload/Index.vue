@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 23:57:31
+ * @LastEditTime: 2026-03-12 15:54:44
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -14,10 +14,13 @@
 -->
 <template>
   <div class="img-upload">
-<el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
+    <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
       action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary" :disabled="isLoading">{{ $t('uploadPicture')
-      }}<el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;"><Loading /></el-icon></el-button>
+      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary" :disabled="isLoading">
+        {{ $t('uploadPicture') }}
+        <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
+          <Loading />
+        </el-icon></el-button>
       <!-- <template #tip>
         <div class="el-upload__tip">请上传图片</div>
       </template> -->
@@ -29,8 +32,10 @@
         <h3 class="h3-title">{{ $t('uploadedPicture') }}：</h3>
         <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
           <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
-            <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px" :key="item.name"
-              @click="markerService.setViewByMarkerId(item?.id)" />
+            <el-tooltip :content="item.name" placement="top">
+              <img :src="item.blobUrl ?? item.url" alt="" height="50px" :key="item.name"
+                @click="markerService.setViewByMarkerId(item?.id)" />
+            </el-tooltip>
           </div>
         </el-scrollbar>
         <!-- 折叠、展开、清空已上传图片 -->
@@ -47,8 +52,10 @@
         <h3 class="h3-title">{{ $t('pictureToBeUploaded') }}：</h3>
         <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
           <div class="image-info">
-            <img :src="item.blobUrl ?? item.url" alt="" :title="item.name" height="50px"
-              @click="markerService.setViewByMarkerId(item?.id)" />
+            <el-tooltip :content="item.name" placement="top">
+              <img :src="item.blobUrl ?? item.url" alt="" height="50px"
+                @click="markerService.setViewByMarkerId(item?.id)" />
+            </el-tooltip>
             <h1>{{ $t('pictureName') }}:{{ item.name }}</h1>
             <h1>{{ $t('latitude') }}:{{ !item?.GPSInfo?.GPSLatitude ? $t('noData') : item?.GPSInfo?.GPSLatitude }}</h1>
             <h1>{{ $t('longitude') }}:{{ !item?.GPSInfo?.GPSLongitude ? $t('noData') : item?.GPSInfo?.GPSLongitude }}
@@ -76,9 +83,13 @@
     </el-scrollbar>
     <!-- 测试用，后续删除 -->
     <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
-      type="primary" :disabled="isUploading">{{ $t('batchUpload') }}<el-icon v-if="isUploading" class="is-loading" style="margin-left: 8px;"><Loading /></el-icon></el-button>
-    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll" type="danger" :disabled="isUploading">{{
-      $t('clearAll') }}</el-button>
+      type="primary" :disabled="isUploading">{{ $t('batchUpload') }}<el-icon v-if="isUploading" class="is-loading"
+        style="margin-left: 8px;">
+        <Loading />
+      </el-icon></el-button>
+    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll" type="danger"
+      :disabled="isUploading">{{
+        $t('clearAll') }}</el-button>
   </div>
   <!-- 定位弹框 -->
   <el-dialog :z-index="9999" v-model="locateDialogShow" :title="$t('setPictureLocation')" style="width: 440px;">
