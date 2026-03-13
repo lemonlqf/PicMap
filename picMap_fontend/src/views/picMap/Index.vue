@@ -2,43 +2,45 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-12 19:29:43
+ * @LastEditTime: 2026-03-13 22:39:52
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
 <template>
-  <!-- 地图 -->
-  <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" ref="mapRef"></Map>
-  <div :class="['fix-group switch-group', getAnimateClass('switch')]">
-    <!-- 瓦片选择器 -->
-    <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
-  </div>
-  <div class="buttons">
-    <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
-    <el-button :class="['button', getAnimateClass('location')]" :icon="MapLocation" @click="setMapCenter"
-      :title="$t('initializationCenter')" circle></el-button>
-    <el-button-group :class="['button', getAnimateClass('zoom')]">
-      <el-button type="" :title="$t('zoomUpMap')" @click="zoomUp" :icon="Plus" round />
-      <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
-    </el-button-group>
-  </div>
-  <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
+  <div class="home-page">
+   <!-- 地图 -->
+    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" ref="mapRef"></Map>
+    <div :class="['fix-group switch-group', getAnimateClass('switch')]">
+      <!-- 瓦片选择器 -->
+      <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
+    </div>
+    <div class="buttons">
+      <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
+      <el-button :class="['button', getAnimateClass('location')]" :icon="MapLocation" @click="setMapCenter"
+        :title="$t('initializationCenter')" circle></el-button>
+      <el-button-group :class="['button', getAnimateClass('zoom')]">
+        <el-button type="" :title="$t('zoomUpMap')" @click="zoomUp" :icon="Plus" round />
+        <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
+      </el-button-group>
+    </div>
+    <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
 
-  <!-- 上传按钮 -->
-  <div :class="['fix-group upload-group', getAnimateClass('upload')]">
-    <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
-  </div>
-  <!-- 图片详情抽屉 -->
-  <Drawer ref="drawerRef"></Drawer>
-  <!-- 鼠标右键菜单 -->
-  <contentMenu :map="map"></contentMenu>
-  <!-- 分组信息 -->
-  <div :class="['fix-group group-info-group', getAnimateClass('group')]">
-    <GroupInfo :map="map"></GroupInfo>
-  </div>
-  <!-- 时间轴 -->
-  <div :class="['time-line', getAnimateClass('timeline')]">
-    <TimeLine ref="timeLineRef" @change="timeChange" mode="day"></TimeLine>
+    <!-- 上传按钮 -->
+    <div :class="['fix-group upload-group', getAnimateClass('upload')]">
+      <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
+    </div>
+    <!-- 图片详情抽屉 -->
+    <Drawer ref="drawerRef"></Drawer>
+    <!-- 鼠标右键菜单 -->
+    <contentMenu :map="map"></contentMenu>
+    <!-- 分组信息 -->
+    <div :class="['fix-group group-info-group', getAnimateClass('group')]">
+      <GroupInfo :map="map"></GroupInfo>
+    </div>
+    <!-- 时间轴 -->
+    <div :class="['time-line', getAnimateClass('timeline')]">
+      <TimeLine ref="timeLineRef" @change="timeChange" :mode="TimeType.DAY" :data="timeLineData"></TimeLine>
+    </div>
   </div>
 </template>
 
@@ -60,6 +62,8 @@ import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 import Map from './Map.vue'
 import TimeLine from '@/components/timeLine/TimeLine.vue'
 import markerService from '@/services/marker'
+import { TimeType } from '@/utils/group'
+import type { TimeLineDataPoint } from '@/type/map'
 
 const schemaStore = useSchemaStore()
 let currentMapTile = ref()
@@ -73,6 +77,7 @@ const timeRanges = ref({
 
 const timeLineRef = ref()
 const minAndMaxTime = ref(timeRanges.value)
+const timeLineData = ref<TimeLineDataPoint[]>([])
 
 function timeChange(dataRange: { min: number; max: number }) {
   timeRanges.value = dataRange
@@ -127,17 +132,33 @@ function getAnimateClass(key: string) {
   return animateState[key]
 }
 
-function getAllImageTimeRanges() {
+// 获取所有图片的时间数据，构造成时间轴组件需要的格式
+function getAllImageTimeTimeLineData(): TimeLineDataPoint[] {
   const imageList = getGroupAndImageList()
-  if (!imageList) return
+  if (!imageList) return []
+  // 提取所有图片的时间戳，并过滤掉没有时间戳的图片
   const times = imageList.map((item: any) => {
     return item?.authorInfo?.DateTime
   }).filter((time: any) => time)
-  if (times.length === 0) return
-  const min = Math.min(...times)
-  const max = Math.max(...times)
-  minAndMaxTime.value = { min, max }
-  timeLineRef?.value?.resetTimeRange(minAndMaxTime.value)
+  if (times.length === 0) return []
+  const timeValueMap: Record<number, number> = {}
+  // 如果有一样的时间戳，就把value加1，表示在这个时间点有多张图片
+  times.forEach((time: string) => {
+    const timestamp = new Date(time).getTime()
+    if (timeValueMap[timestamp]) {
+      timeValueMap[timestamp] += 1
+    } else {
+      timeValueMap[timestamp] = 1
+    }
+  })
+  // 构造成时间轴组件需要的格式
+  const timeLineData: TimeLineDataPoint[] = Object.keys(timeValueMap).map(key => {
+    return {
+      timestamp: Number(key),
+      value: timeValueMap[Number(key)]
+    }
+  })
+  return timeLineData
 }
 
 /**
@@ -152,7 +173,7 @@ async function initSchema() {
     schemaStore.setSchema(JSON.parse(res.data))
     mapCenter.value = schema.mapInfo?.center ?? [30.2489634, 120.2052342]
     mapZoom.value = schema.mapInfo?.zoom ?? 10
-    getAllImageTimeRanges()
+    timeLineData.value = getAllImageTimeTimeLineData()
     const imagesIds = getAllImageIdInSchema()
     const groupIds = getAllGroupIdInSchema()
     // 将所有的图片id保存到uploadedImageIds中
@@ -223,6 +244,13 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.home-page {
+  height: 100vh;
+  width: 100vw; 
+  position: relative; 
+  overflow: hidden;
+}
+
 #map {
   height: 100vh;
   width: 100vw;
@@ -272,10 +300,6 @@ onMounted(() => {
   left: 20px;
   right: 40px;
   box-sizing: border-box;
-  // width: 90vw;
-  // padding: 0 0 0 20px;
-  // left: 50%;
-  // transform: translateX(-50%);
   z-index: 1000;
 }
 

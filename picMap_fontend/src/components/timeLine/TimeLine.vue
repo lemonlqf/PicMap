@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-11 17:04:59
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-12 19:26:56
+ * @LastEditTime: 2026-03-13 23:00:41
  * @FilePath: \PicMap\picMap_fontend\src\components\timeLine\TimeLine.vue
  * @Description: 
 -->
@@ -18,6 +18,7 @@
       <div class="time-line" ref="timeLineRef">
         <div ref="minSliderRef" class="min-slider slider-text">{{ getFormatterStr(dataRange.min) }}</div>
         <div ref="maxSliderRef" class="max-slider slider-text">{{ getFormatterStr(dataRange.max) }}</div>
+        <LineChart class="line-chart" :showArea="true" :line-type="LineType.SMOOTH" :data="dataList"></LineChart>
       </div>
       <!-- 重置按钮 -->
       <el-tooltip :content="$t('reset')">
@@ -37,16 +38,10 @@ import noUiSlider from 'nouislider'
 import { TimeType } from '@/utils/group';
 import TimeLineIcon from '@/assets/icon/时间轴.svg?component'
 import TimePrecision from '../drawer/components/TimePrecision.vue';
+import LineChart from './component/LineChart.vue';
+import { LineType, type TimeLineDataPoint } from '@/type/map';
 
 const props = defineProps({
-  // 时间范围：最小和最大时间戳
-  TimeRanges: {
-    type: Object as PropType<{ min: number; max: number }>,
-    default: () => ({
-      min: new Date('2000-01-01').getTime(),
-      max: new Date().getTime()
-    })
-  },
   // 时间精度模式（日、月、年）
   mode: {
     type: String as PropType<TimeType>,
@@ -56,13 +51,84 @@ const props = defineProps({
   step: {
     type: String as PropType<TimeType | undefined | number>,
     default: undefined // 可以传入具体的步长，或者使用预设的时间单位，单位ms
+  },
+  // 数据，用于渲染时间线上的折线图
+  data: {
+    type: Array as PropType<TimeLineDataPoint[]>,
+    default: () => []
   }
 })
 
-const minValue = ref(props.TimeRanges.min)
-const maxValue = ref(props.TimeRanges.max)
+// 实际使用的步长值
+const realStep = ref(props.step || props.mode)
 
-watch(() => props.TimeRanges, (newVal) => {
+// 不同时间单位对应的默认精度值（数据点数量）
+const modePrecision = {
+  [TimeType.DAY]: 300,
+  [TimeType.MONTH]: 100,
+  [TimeType.YEAR]: 40
+}
+
+// 根据step获取精度值
+function getPrecision() {
+  if (typeof realStep.value === 'number') {
+    return realStep.value
+  }
+  return modePrecision[realStep.value as TimeType] || 100
+}
+
+const dataList = computed(() => {
+  return formatterTime(props.data, getPrecision())
+})
+
+/**
+ * @description:
+ * @param {*} data
+ * @param {number} precision 精度
+ * @return {*}
+ */
+function formatterTime(data: TimeLineDataPoint[], precision: number | undefined = 100): number[] {
+  // 计算最大区间和最小区间，分100段，计算每段的数量，作为折线图的数据
+  if (data.length === 0) {
+    return []
+  }
+  const timestamps = data.map(item => item.timestamp)
+  const min = Math.min(...timestamps)
+  const max = Math.max(...timestamps)
+  const step = (max - min) / precision
+  const timeMap: Record<number, number> = {}
+  data.forEach(item => {
+    const index = Math.floor((item.timestamp - min) / step)
+    if (timeMap[index]) {
+      timeMap[index] += item.value
+    } else {
+      timeMap[index] = item.value
+    }
+  })
+  const result: number[] = []
+  for (let i = 0; i <= precision; i++) {
+    result.push(timeMap[i] || 0)
+  }
+  return result
+}
+
+const timeRanges = computed(() => {
+  if (props.data.length <= 1) {
+    return {
+      min: new Date('2000-01-01').getTime(),
+      max: new Date().getTime()
+    }
+  }
+  const timestamps = props.data.map(item => item.timestamp)
+  const min = Math.min(...timestamps)
+  const max = Math.max(...timestamps)
+  return { min, max }
+})
+
+const minValue = ref(timeRanges.value.min)
+const maxValue = ref(timeRanges.value.max)
+
+watch(() => timeRanges.value, (newVal) => {
   minValue.value = newVal.min
   maxValue.value = newVal.max
 }, { deep: true })
@@ -115,9 +181,6 @@ function calcSliderPosition() {
   minSliderRef.value && (minSliderRef.value.style.left = `${minLeft.value}px`)
 
 }
-
-// 实际使用的步长值
-const realStep = ref(props.step || props.mode)
 
 /**
  * 计算步长对应的毫秒数
@@ -297,6 +360,17 @@ defineExpose({
   height: 40px;
   align-items: center;
 
+  .line-chart {
+    position: absolute;
+    height: 100%;
+    width: 100%;
+    pointer-events: none; // 让线图不干扰滑块的交互
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+  }
+
   .icon {
     cursor: pointer;
     color: #606266;
@@ -345,9 +419,10 @@ defineExpose({
 
 .time-line {
   width: 100%;
-  height: 12px;
+  height: 40px;
   // margin-bottom: 10px;
-  background-color: rgba(255, 255, 255, 0.504);
+  // box-shadow: inset 0 0 5px rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.63);
 
   .slider-text {
     height: 1rem;
@@ -368,11 +443,11 @@ defineExpose({
 
 <style>
 .noUi-connect {
-  background: rgba(64, 160, 255, 0.9) !important;
+  background: rgba(64, 160, 255, 0.3) !important;
 }
 
 /* 滑块样式 */
 .noUi-horizontal .noUi-handle {
-  transform: scale(0.8) translateY(-10%);
+  transform: translateY(40%) scaleY(1.5) scaleX(.3);
 }
 </style>
