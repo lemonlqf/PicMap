@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 23:48:08
+ * @LastEditTime: 2026-03-12 15:30:32
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
@@ -140,6 +140,8 @@ export default {
   confirmDeleteBackup: '确定要删除此备份吗？',
   warning: '警告',
   deleteFailed: '删除失败',
+  reset: '重置',
+  timeline: '时间轴',
 
   description: {
     ensureToDissolveGroup: '确定要解散分组吗？该分组将会被解散，组内图片任然保留！',

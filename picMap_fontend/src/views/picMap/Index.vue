@@ -2,39 +2,45 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-04 20:52:39
+ * @LastEditTime: 2026-03-13 22:39:52
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
- * @Description: 
+ * @Description: 首页
 -->
 <template>
-  <!-- 地图 -->
-  <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" ref="mapRef"></Map>
-  <div v-show="!pureMode" class="fix-group switch-group">
-    <!-- 瓦片选择器 -->
-    <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
-  </div>
-  <div class="buttons">
-    <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
-    <el-button v-show="!pureMode" class="button" :icon="MapLocation" @click="setMapCenter"
-      :title="$t('initializationCenter')" circle></el-button>
-    <el-button-group v-show="!pureMode" class="button">
-      <el-button type="" :title="$t('zoomUpMap')" @click="zoomUp" :icon="Plus" round />
-      <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
-    </el-button-group>
-  </div>
-  <User @changeUser="init" v-show="!pureMode" class="user"></User>
+  <div class="home-page">
+   <!-- 地图 -->
+    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" ref="mapRef"></Map>
+    <div :class="['fix-group switch-group', getAnimateClass('switch')]">
+      <!-- 瓦片选择器 -->
+      <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
+    </div>
+    <div class="buttons">
+      <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
+      <el-button :class="['button', getAnimateClass('location')]" :icon="MapLocation" @click="setMapCenter"
+        :title="$t('initializationCenter')" circle></el-button>
+      <el-button-group :class="['button', getAnimateClass('zoom')]">
+        <el-button type="" :title="$t('zoomUpMap')" @click="zoomUp" :icon="Plus" round />
+        <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
+      </el-button-group>
+    </div>
+    <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
 
-  <!-- 上传按钮 -->
-  <div v-show="!pureMode" class="fix-group upload-group">
-    <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
-  </div>
-  <!-- 图片详情抽屉 -->
-  <Drawer ref="drawerRef"></Drawer>
-  <!-- 鼠标右键菜单 -->
-  <contentMenu :map="map"></contentMenu>
-  <!-- 分组信息 -->
-  <div v-show="!pureMode" class="fix-group group-info-group">
-    <GroupInfo :map="map"></GroupInfo>
+    <!-- 上传按钮 -->
+    <div :class="['fix-group upload-group', getAnimateClass('upload')]">
+      <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
+    </div>
+    <!-- 图片详情抽屉 -->
+    <Drawer ref="drawerRef"></Drawer>
+    <!-- 鼠标右键菜单 -->
+    <contentMenu :map="map"></contentMenu>
+    <!-- 分组信息 -->
+    <div :class="['fix-group group-info-group', getAnimateClass('group')]">
+      <GroupInfo :map="map"></GroupInfo>
+    </div>
+    <!-- 时间轴 -->
+    <div :class="['time-line', getAnimateClass('timeline')]">
+      <TimeLine ref="timeLineRef" @change="timeChange" :mode="TimeType.DAY" :data="timeLineData"></TimeLine>
+    </div>
   </div>
 </template>
 
@@ -54,12 +60,33 @@ import { useSchemaStore } from '@/store/schema'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 import Map from './Map.vue'
+import TimeLine from '@/components/timeLine/TimeLine.vue'
+import markerService from '@/services/marker'
+import { TimeType } from '@/utils/group'
+import type { TimeLineDataPoint } from '@/type/map'
 
 const schemaStore = useSchemaStore()
 let currentMapTile = ref()
 const mapCenter = ref([30.2489634, 120.2052342])
 const mapZoom = ref(10)
 const mapRef = ref()
+const timeRanges = ref({
+  min: new Date('2000-01-01').getTime(),
+  max: new Date().getTime()
+})
+
+const timeLineRef = ref()
+const minAndMaxTime = ref(timeRanges.value)
+const timeLineData = ref<TimeLineDataPoint[]>([])
+
+function timeChange(dataRange: { min: number; max: number }) {
+  timeRanges.value = dataRange
+  // console.log('父组件接收到时间范围了', timeRanges.value)
+  // 根据时间范围过滤marker
+  markerService.filterMarkersByTimeRange(timeRanges.value)
+  // 请求一下可见marker的图片
+  markerService.updateVisibleMarkers();
+}
 
 /**
  * @description: 切换地图瓦片
@@ -71,7 +98,68 @@ function changeMapTile() {
   })
 }
 
-const pureMode = ref(false)
+const pureMode = ref(true)
+
+const animateState = reactive<Record<string, string>>({
+  switch: 'animate__fadeIn',
+  location: 'animate__fadeIn',
+  zoom: 'animate__fadeIn',
+  user: 'animate__fadeIn',
+  upload: 'animate__fadeIn',
+  group: 'animate__fadeIn',
+  timeline: 'animate__fadeIn'
+})
+
+watch(pureMode, (newVal) => {
+  const animates = ['switch', 'location', 'zoom', 'user', 'upload', 'group', 'timeline']
+  if (newVal) {
+    animates.forEach(key => {
+      animateState[key] = 'animate__animated  animate__fadeIn'
+    })
+    setTimeout(() => {
+      animates.forEach(key => {
+        animateState[key] = ''
+      })
+    }, 300)
+  } else {
+    animates.forEach(key => {
+      animateState[key] = 'animate__animated animate__fadeOut no-pointer-events'
+    })
+  }
+})
+
+function getAnimateClass(key: string) {
+  return animateState[key]
+}
+
+// 获取所有图片的时间数据，构造成时间轴组件需要的格式
+function getAllImageTimeTimeLineData(): TimeLineDataPoint[] {
+  const imageList = getGroupAndImageList()
+  if (!imageList) return []
+  // 提取所有图片的时间戳，并过滤掉没有时间戳的图片
+  const times = imageList.map((item: any) => {
+    return item?.authorInfo?.DateTime
+  }).filter((time: any) => time)
+  if (times.length === 0) return []
+  const timeValueMap: Record<number, number> = {}
+  // 如果有一样的时间戳，就把value加1，表示在这个时间点有多张图片
+  times.forEach((time: string) => {
+    const timestamp = new Date(time).getTime()
+    if (timeValueMap[timestamp]) {
+      timeValueMap[timestamp] += 1
+    } else {
+      timeValueMap[timestamp] = 1
+    }
+  })
+  // 构造成时间轴组件需要的格式
+  const timeLineData: TimeLineDataPoint[] = Object.keys(timeValueMap).map(key => {
+    return {
+      timestamp: Number(key),
+      value: timeValueMap[Number(key)]
+    }
+  })
+  return timeLineData
+}
 
 /**
  * @description: 获取地图的schema
@@ -85,6 +173,7 @@ async function initSchema() {
     schemaStore.setSchema(JSON.parse(res.data))
     mapCenter.value = schema.mapInfo?.center ?? [30.2489634, 120.2052342]
     mapZoom.value = schema.mapInfo?.zoom ?? 10
+    timeLineData.value = getAllImageTimeTimeLineData()
     const imagesIds = getAllImageIdInSchema()
     const groupIds = getAllGroupIdInSchema()
     // 将所有的图片id保存到uploadedImageIds中
@@ -155,6 +244,13 @@ onMounted(() => {
 </script>
 
 <style lang="scss" scoped>
+.home-page {
+  height: 100vh;
+  width: 100vw; 
+  position: relative; 
+  overflow: hidden;
+}
+
 #map {
   height: 100vh;
   width: 100vw;
@@ -196,5 +292,18 @@ onMounted(() => {
   top: 17px;
   left: 225px;
   z-index: 1000;
+}
+
+.time-line {
+  position: absolute;
+  bottom: 20px;
+  left: 20px;
+  right: 40px;
+  box-sizing: border-box;
+  z-index: 1000;
+}
+
+.no-pointer-events {
+  pointer-events: none;
 }
 </style>

@@ -2,20 +2,24 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-24 21:09:15
- * @FilePath: \Code\picMap_fontend\src\components\drawer\components\Image.vue
+ * @LastEditTime: 2026-03-12 15:50:25
+ * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
 <template>
   <div class="img-box">
     <div class="download-button" @click="downloadImage">
-      <img src="@/assets/icon/下载.png" alt="" width="30px" :title="$t('downloadPicture')" />
+      <el-tooltip :content="$t('downloadPicture')" placement="top">
+        <img src="@/assets/icon/下载.png" alt="" width="30px" />
+      </el-tooltip>
     </div>
     <el-image :key="imageId" :alt="$t('pictureLoadFailed')" :src="url" :teleported="true"
       :preview-src-list="perview ? [url] : []" />
-    <div class="image-name" v-if="showName" :title="name">
-      {{ name }}
-    </div>
+    <el-tooltip v-if="showName" :content="name" placement="top">
+      <div class="image-name">
+        {{ name }}
+      </div>
+    </el-tooltip>
   </div>
 </template>
 

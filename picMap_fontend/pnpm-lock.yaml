@@ -11,6 +11,9 @@ importers:
       '@element-plus/icons-vue':
         specifier: ^2.3.2
         version: 2.3.2(vue@3.5.13(typescript@5.8.3))
+      animate.css:
+        specifier: ^4.1.1
+        version: 4.1.1
       axios:
         specifier: ^1.7.9
         version: 1.9.0
@@ -47,6 +50,9 @@ importers:
       moment:
         specifier: ^2.30.1
         version: 2.30.1
+      nouislider:
+        specifier: ^15.8.1
+        version: 15.8.1
       pinia:
         specifier: ^2.3.0
         version: 2.3.1(typescript@5.8.3)(vue@3.5.13(typescript@5.8.3))
@@ -584,6 +590,9 @@ packages:
   alien-signals@1.0.13:
     resolution: {integrity: sha512-OGj9yyTnJEttvzhTUWuscOvtqxq5vrhF7vL9oS0xJ2mK0ItPYP1/y+vCFebfxoEyAz0++1AIwJ5CMr+Fk3nDmg==}
 
+  animate.css@4.1.1:
+    resolution: {integrity: sha512-+mRmCTv6SbCmtYJCN4faJMNFVNN5EuCTTprDTAo7YzIGji2KADmakjVA3+8mVDkZ2Bf09vayB35lSQIex2+QaQ==}
+
   array-flatten@1.1.1:
     resolution: {integrity: sha512-PCVAQswWemu6UdxsDFFX/+gVeYqKAod3D3UVm91jHwynguOwAvYPhx8nNlM++NqRcK6CxxpUafjmhIdKiHibqg==}
 
@@ -982,6 +991,9 @@ packages:
 
   normalize-wheel-es@1.2.0:
     resolution: {integrity: sha512-Wj7+EJQ8mSuXr2iWfnujrimU35R2W4FAErEyTmJoJ7ucwTn2hOUSsRehMb5RSYkxXGTM7Y9QpvPmp++w5ftoJw==}
+
+  nouislider@15.8.1:
+    resolution: {integrity: sha512-93TweAi8kqntHJSPiSWQ1o/uZ29VWOmal9YKb6KKGGlCkugaNfAupT7o1qTHqdJvNQ7S0su5rO6qRFCjP8fxtw==}
 
   nth-check@2.1.1:
     resolution: {integrity: sha512-lqjrjmaOoAnWfMmBPL+XNnynZh2+swxiX3WUE0s4yEHI6m+AwrK2UZOimIRl3X/4QctVqS8AiZjFqyOGrMXb/w==}
@@ -1597,6 +1609,8 @@ snapshots:
 
   alien-signals@1.0.13: {}
 
+  animate.css@4.1.1: {}
+
   array-flatten@1.1.1: {}
 
   async-validator@4.2.5: {}
@@ -2028,6 +2042,8 @@ snapshots:
     optional: true
 
   normalize-wheel-es@1.2.0: {}
+
+  nouislider@15.8.1: {}
 
   nth-check@2.1.1:
     dependencies:

@@ -2,14 +2,14 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 18:21:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-09-13 18:19:20
- * @FilePath: \Code\picMap_fontend\src\utils\schema.ts
+ * @LastEditTime: 2026-03-12 17:01:50
+ * @FilePath: \PicMap\picMap_fontend\src\utils\schema.ts
  * @Description:
  */
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/http/index'
-import type { IGroupInfo, IImageInfo } from '@/type/schema'
+import type { IGroupInfo, IImageInfo, ISchema } from '@/type/schema'
 import schemaHttp from '@/http/modules/schema'
 
 type IGroupList = IGroupInfo & {
@@ -103,6 +103,35 @@ export function getAllGroupIdInSchema() {
   const res = schemaStore?.getSchema?.groupInfo?.map(item => item.id)
   return res
 }
+
+/**
+ * @description: 图片信息遍历器，调用这个来单次遍历schema中所有的图片信息，避免重复遍历，影响性能
+ * @param {ISchema} schema
+ * @param {function} callback
+ * @return {*}
+ */
+export function schemaImageInfoTraverse(schema: ISchema, callback: (item: IImageInfo) => void) {
+  if (!schema) return
+  const { imageInfo } = schema
+  imageInfo?.forEach?.((item: IImageInfo) => {
+    callback(item)
+  })
+}
+
+/**
+ * @description: 分组信息遍历器，调用这个来单次遍历schema中所有的分组信息，避免重复遍历，影响性能
+ * @param {ISchema} schema
+ * @param {function} callback
+ * @return {*}
+ */
+export function schemaGroupInfoTraverse(schema: ISchema, callback: (item: IGroupInfo) => void) {
+  if (!schema) return
+  const { groupInfo } = schema
+  groupInfo?.forEach?.((item: IGroupInfo) => {
+    callback(item)
+  })
+}
+
 
 /**
  * @description: 保存schema

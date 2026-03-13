@@ -7,3 +7,8 @@ body {
 img, svg {
   user-select: none;
 }
+
+:root {
+  --animate-duration: 300ms !important;
+  /* --animate-delay: 0.2s; */
+}
