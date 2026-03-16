@@ -33,7 +33,26 @@ const HEIC_CONVERT_QUALITY = 0.01
 const IMAGE_MAGICK_JPEG_QUALITY = 25
 // dcraw转换raw的质量参数，取值范围0-100，数值越大质量越好但文件越大，默认60是一个比较常见的选择
 const RAW_CONVERT_JPEG_QUALITY = 20
-const BACKEND_ROOT = nodePath.resolve(__dirname, '..', '..')
+function resolveBackendRoot() {
+  const candidates = [
+    process.env.PICMAP_BACKEND_ROOT,
+    nodePath.resolve(__dirname, '..', '..'),
+    nodePath.resolve(__dirname, '..'),
+    process.resourcesPath ? nodePath.join(process.resourcesPath, 'app', 'picMap_backend') : '',
+    process.resourcesPath ? nodePath.join(process.resourcesPath, 'picMap_backend') : '',
+    nodePath.join(process.cwd(), 'picMap_backend')
+  ].filter(Boolean)
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(nodePath.join(candidate, 'tools'))) {
+      return candidate
+    }
+  }
+
+  return candidates[0]
+}
+
+const BACKEND_ROOT = resolveBackendRoot()
 // 项目内置 ImageMagick 路径（优先使用便携版，避免依赖系统安装）。
 const EMBEDDED_MAGICK_WINDOWS = nodePath.join(BACKEND_ROOT, 'tools', 'imagemagick', 'magick.exe')
 const EMBEDDED_MAGICK_UNIX = nodePath.join(BACKEND_ROOT, 'tools', 'imagemagick', 'bin', 'magick')
@@ -341,8 +360,10 @@ async function convertRawToJpegBuffer(tempInputPath, originalFileName = '') {
     const detail = [
       'RAW convert failed by dcraw only',
       `input=${inputPath}`,
+      `backendRoot=${BACKEND_ROOT}`,
       `candidates=${commands.join(', ')}`,
       'hint=你可以设置环境变量 DCRAW_BIN 指向可用的 dcraw.exe',
+      'hint=你也可以设置环境变量 PICMAP_BACKEND_ROOT 指向 picMap_backend 目录',
       'hint=Windows 3221225781 常见于运行库缺失或二进制架构不匹配'
     ].join('; ')
     baseError.message = `${baseError.message}; ${detail}`
