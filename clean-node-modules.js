@@ -15,6 +15,8 @@ const __dirname = path.dirname(__filename);
 
 const packageJsonPath = path.join(__dirname, 'picMap_backend', 'package.json');
 const nodeModulesPath = path.join(__dirname, 'dist', 'win-unpacked', 'resources', 'app', 'picMap_backend', 'node_modules');
+const distLockPath = path.join(nodeModulesPath, '.package-lock.json');
+const sourceLockPath = path.join(__dirname, 'picMap_backend', 'node_modules', '.package-lock.json');
 
 if (!fs.existsSync(nodeModulesPath)) {
   console.log(nodeModulesPath, '目录不存在');
@@ -23,6 +25,49 @@ if (!fs.existsSync(nodeModulesPath)) {
 
 const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf-8'));
 const devDeps = new Set(Object.keys(packageJson.devDependencies || {}));
+
+function parseTopLevelPackageName(lockPackagePath) {
+  const parts = lockPackagePath.split('/');
+  if (parts[0] !== 'node_modules') return null;
+
+  // top-level scoped: node_modules/@scope/name
+  if (parts[1]?.startsWith('@')) {
+    return parts.length === 3 ? `${parts[1]}/${parts[2]}` : null;
+  }
+
+  // top-level unscoped: node_modules/name
+  return parts.length === 2 ? parts[1] : null;
+}
+
+function loadDevPackagesFromLockfile(lockPath) {
+  if (!fs.existsSync(lockPath)) return new Set();
+
+  try {
+    const lockJson = JSON.parse(fs.readFileSync(lockPath, 'utf-8'));
+    const packages = lockJson?.packages || {};
+    const devPkgs = new Set();
+
+    for (const [pkgPath, pkgMeta] of Object.entries(packages)) {
+      if (!pkgMeta || pkgMeta.dev !== true) continue;
+
+      const pkgName = parseTopLevelPackageName(pkgPath);
+      if (pkgName) {
+        devPkgs.add(pkgName);
+      }
+    }
+
+    return devPkgs;
+  } catch (error) {
+    console.warn(`读取 lockfile 失败: ${lockPath}`, error.message);
+    return new Set();
+  }
+}
+
+const devDepsFromLock = fs.existsSync(distLockPath)
+  ? loadDevPackagesFromLockfile(distLockPath)
+  : loadDevPackagesFromLockfile(sourceLockPath);
+
+const devPackagesToDelete = new Set([...devDeps, ...devDepsFromLock]);
 
 
 const allDeps = new Set([
@@ -53,7 +98,7 @@ for (const dir of dirs) {
       const fullName = `${dir}/${child}`; // e.g. @scope/name
 
       // If listed in devDependencies (either scoped name or unscoped), delete it
-      if (devDeps.has(fullName) || devDeps.has(child)) {
+      if (devPackagesToDelete.has(fullName) || devPackagesToDelete.has(child)) {
         fs.rmSync(childPath, { recursive: true, force: true });
         deletedCount++;
         continue;
@@ -79,7 +124,7 @@ for (const dir of dirs) {
   }
 
   // Non-scoped package: delete if it's listed in devDependencies
-  if (devDeps.has(dir)) {
+  if (devPackagesToDelete.has(dir)) {
     fs.rmSync(dirPath, { recursive: true, force: true });
     deletedCount++;
     continue;
@@ -90,5 +135,6 @@ for (const dir of dirs) {
 }
 
 console.log(`清理完成！`);
+console.log(`识别到开发依赖目录: ${devPackagesToDelete.size} 个`);
 console.log(`保留: ${keptCount} 个目录`);
 console.log(`删除: ${deletedCount} 个目录`);

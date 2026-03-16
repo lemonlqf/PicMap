@@ -24,6 +24,7 @@
       "main.js",
       "preload.js",
       "picMap_backend/dist/**",
+      "picMap_backend/tools/**",
       "picMap_backend/node_modules/**",
       "picMap_backend/package.json",
       "picMap_fontend/dist/**",
