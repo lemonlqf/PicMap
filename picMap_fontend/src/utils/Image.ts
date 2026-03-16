@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 23:11:47
+ * @LastEditTime: 2026-03-16 21:22:21
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -17,7 +17,6 @@ import markerService from '@/services/marker'
 import { ImageType, type IImageDetailInfo } from '@/type/image'
 import type { IHttpResponse } from '@/type/http'
 import i18n from '@/i18n/index'
-import heic2any from "heic2any";
 
 // 单位MB
 const LARGE_IMAGE_SIZE = 50
@@ -50,17 +49,17 @@ class ImageCacheManager {
     }
   }
 
-/**
- * 根据图片ID获取图片URL
- * @param {string} imageId - 图片的唯一标识符
- * @returns {string | undefined} 返回对应的图片URL，如果未找到则返回undefined
- */
+  /**
+   * 根据图片ID获取图片URL
+   * @param {string} imageId - 图片的唯一标识符
+   * @returns {string | undefined} 返回对应的图片URL，如果未找到则返回undefined
+   */
   getImageUrl(imageId: string) {
     try {
-    // 尝试从imageUrlsMap中获取指定imageId对应的URL
+      // 尝试从imageUrlsMap中获取指定imageId对应的URL
       return this.imageUrlsMap.get(imageId)
     } catch {
-    // 如果获取过程中发生错误，捕获异常并在控制台输出错误信息
+      // 如果获取过程中发生错误，捕获异常并在控制台输出错误信息
       console.error('error in ImageCacheManager getImageUrl')
     }
   }
@@ -74,12 +73,12 @@ class ImageCacheManager {
     }
   }
 
-/**
- * @description: 删除图片URL
- * @param {string} imageId - 图片的唯一标识符
- * @returns {boolean} 返回删除操作是否成功，如果发生错误则返回false
- * @return {*}
- */ 
+  /**
+   * @description: 删除图片URL
+   * @param {string} imageId - 图片的唯一标识符
+   * @returns {boolean} 返回删除操作是否成功，如果发生错误则返回false
+   * @return {*}
+   */
   deleteImageUrl(imageId: string) {
     try {
       return this.imageUrlsMap.delete(imageId)
@@ -230,13 +229,14 @@ function canUpload(imageInfo: IImageDetailInfo): boolean {
   const hasUrl = !!imageInfo.url
   const hasGPS = !!imageInfo.GPSInfo
 
+  // 仅允许“有图片内容 + 有GPS信息”的图片进入上传流程
   return hasUrl && hasGPS
 }
 
 function imageSizeunderLimit(url: any) {
   let size = 0
   if (typeof url === 'string' && url.startsWith('data:')) {
-    // base64
+    // base64 场景下按字符长度估算原始字节数
     size = base64Size(url)
   }
   // 100MB = 100 * 1024 * 1024
@@ -247,7 +247,7 @@ function imageSizeunderLimit(url: any) {
 function base64Size(base64: string): number {
   // 去掉 data:image/png;base64, 头部
   const base64Str = base64.split(',')[1] || ''
-  // 1 字节 = 8 bit，base64 每 4 个字符代表 3 字节
+  // 1 字节 = 8 bit，base64 每 4 个字符约代表 3 字节（用于体积预估）
   return Math.floor(base64Str.length * 3 / 4)
 }
 
@@ -359,19 +359,15 @@ export async function getBlob(file: File, type: ImageType): Promise<Blob> {
 }
 
 async function convertHeicToBlob(file: File): Promise<Blob> {
-  const res = await heic2any({
-    blob: file,
-    toType: 'image/jpeg',
-  }) as Blob
-  return res
-}
+  const res = await imageHttp.getJPGImage(file)
+  if (res instanceof Blob) {
+    // 正常路径：后端直接返回二进制 Blob
+    return res
+  }
 
-export async function convertHeicToJpeg(file: File): Promise<File> {
-  const res = await heic2any({
-    blob: file,
-    toType: 'image/jpeg',
-  }) as Blob
-  return new File([res], file.name.replace(/\.heic$/i, '.jpg'), { type: 'image/jpeg' })
+  // 兼容异常情况下返回的非 Blob 数据（例如响应被中间层改写）
+  const blob = new Blob([res as any], { type: 'image/jpeg' })
+  return blob
 }
 
 // TypeScript: File -> 缩略图 Blob
@@ -379,7 +375,8 @@ export async function createThumbnailFromBlob(
   inputBlob: Blob,
   opts: { maxW?: number; maxH?: number; type?: string; quality?: number } = {}
 ): Promise<Blob> {
-  const { maxW = 1024, maxH = 1024, type = 'image/jpeg', quality = 0.9 } = opts
+  // 默认仅缩小不过放大，quality 取值范围 [0,1]
+  const { maxW = 1024, maxH = 1024, type = 'image/jpeg', quality = 1 } = opts
   const safeQuality = Math.min(1, Math.max(0, quality))
 
   const bitmap = await createImageBitmap(inputBlob)

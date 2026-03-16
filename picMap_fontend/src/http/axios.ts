@@ -41,6 +41,11 @@ http.interceptors.request.use(
         const params = new URLSearchParams(config.data || '');
         params.set('currentUserId', currentUserId);
         config.data = params.toString();
+      } else if (config.data instanceof FormData) {
+        // multipart/form-data
+        if (!config.data.has('currentUserId')) {
+          config.data.append('currentUserId', currentUserId)
+        }
       } else {
         // 普通 JSON
         config.data = config.data || {};
