@@ -69,4 +69,10 @@ export enum ImageType {
   WEBP = 'image/webp',
   HEIC = 'image/heic',
   HEIF = 'image/heif',
+  RAW = 'image/x-raw',
+  DNG = 'image/x-adobe-dng',
+  CR2 = 'image/x-canon-cr2',
+  NEF = 'image/x-nikon-nef',
+  ORF = 'image/x-olympus-orf',
+  RW2 = 'image/x-panasonic-rw2',
 }

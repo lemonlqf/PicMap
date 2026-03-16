@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 20:54:00
+ * @LastEditTime: 2026-03-16 22:58:11
  * @FilePath: \PicMap\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -31,15 +31,19 @@ const RAW_EXTENSIONS = ['.raw', '.dng', '.arw', '.cr2', '.nef', '.orf', '.rw2']
 const HEIC_CONVERT_QUALITY = 0.01
 // imageMagick转换HEIC的质量参数，取值范围0-100，数值越大质量越好但文件越大，默认80是一个比较常见的选择
 const IMAGE_MAGICK_JPEG_QUALITY = 25
+// dcraw转换raw的质量参数，取值范围0-100，数值越大质量越好但文件越大，默认60是一个比较常见的选择
+const RAW_CONVERT_JPEG_QUALITY = 20
 const BACKEND_ROOT = nodePath.resolve(__dirname, '..', '..')
 // 项目内置 ImageMagick 路径（优先使用便携版，避免依赖系统安装）。
 const EMBEDDED_MAGICK_WINDOWS = nodePath.join(BACKEND_ROOT, 'tools', 'imagemagick', 'magick.exe')
 const EMBEDDED_MAGICK_UNIX = nodePath.join(BACKEND_ROOT, 'tools', 'imagemagick', 'bin', 'magick')
+const EMBEDDED_DCRAW_WINDOWS = nodePath.join(BACKEND_ROOT, 'tools', 'dcraw', 'dcraw.exe')
+const EMBEDDED_DCRAW_UNIX = nodePath.join(BACKEND_ROOT, 'tools', 'dcraw', 'dcraw')
 
-function execFileAsync(command, args, timeout = 20000) {
+function execFileAsync(command, args, timeout = 20000, cwd = undefined) {
   return new Promise((resolve, reject) => {
     // 统一封装子进程调用，便于后续加超时、日志和错误处理。
-    execFile(command, args, { timeout }, (error, stdout, stderr) => {
+    execFile(command, args, { timeout, cwd }, (error, stdout, stderr) => {
       if (error) {
         error.stderr = stderr
         reject(error)
@@ -73,6 +77,151 @@ function getImageMagickCommandCandidates() {
     if (cmd === 'magick') return true
     return fs.existsSync(cmd)
   })
+}
+
+function getDcrawCommandCandidates() {
+  const candidates = []
+
+  if (process.env.DCRAW_BIN) {
+    candidates.push(process.env.DCRAW_BIN)
+  }
+
+  if (process.platform === 'win32') {
+    candidates.push(EMBEDDED_DCRAW_WINDOWS)
+    candidates.push('dcraw.exe')
+  } else {
+    candidates.push(EMBEDDED_DCRAW_UNIX)
+  }
+
+  candidates.push('dcraw')
+
+  // 去重后仅保留可执行项，避免重复重试同一命令。
+  return [...new Set(candidates)].filter(cmd => {
+    if (cmd === 'dcraw' || cmd === 'dcraw.exe') return true
+    return fs.existsSync(cmd)
+  })
+}
+
+function isEnoentError(error) {
+  return error && (error.code === 'ENOENT' || error.errno === -4058)
+}
+
+function isWindowsDcrawCrash(error) {
+  return process.platform === 'win32' && Number(error?.code) === 3221225781
+}
+
+async function prepareTempInputWithExtension(inputPath, originalFileName) {
+  if (!originalFileName) {
+    return { path: inputPath, cleanup: async () => {} }
+  }
+
+  const safeOriginalName = nodePath.basename(originalFileName)
+  const originalExt = nodePath.extname(safeOriginalName).toLowerCase()
+  if (!originalExt) {
+    return { path: inputPath, cleanup: async () => {} }
+  }
+
+  // 为每次转换创建独立临时目录，防止同名文件并发冲突。
+  const inputWorkDir = await fs.promises.mkdtemp(nodePath.join(os.tmpdir(), 'picmap_input_'))
+  const copiedPath = nodePath.join(inputWorkDir, safeOriginalName)
+  // 使用“原始文件名+扩展名”复制输入，提升 dcraw 对格式的识别成功率。
+  await fs.promises.copyFile(inputPath, copiedPath)
+
+  return {
+    path: copiedPath,
+    cleanup: async () => {
+      await fs.promises.rm(inputWorkDir, { recursive: true, force: true }).catch(() => {})
+    }
+  }
+}
+
+/**
+ * @description: 使用 dcraw 提取缩略图到缓冲区
+ * @param {*} command
+ * @param {*} inputPath
+ * @return {*}
+ */
+async function runDcrawExtractThumbnailToBuffer(command, inputPath) {
+  const workDir = nodePath.dirname(inputPath)
+  const inputName = nodePath.basename(inputPath)
+  const baseName = nodePath.basename(inputName, nodePath.extname(inputName))
+
+  try {
+    // 关键：在输入文件所在目录执行，dcraw 使用相对文件名时才能命中目标文件。
+    await execFileAsync(command, ['-e', inputName], 30000, workDir)
+
+    const thumbJpgPath = nodePath.join(workDir, `${baseName}.thumb.jpg`)
+    const thumbPpmPath = nodePath.join(workDir, `${baseName}.thumb.ppm`)
+
+    if (fs.existsSync(thumbJpgPath)) {
+      return await fs.promises.readFile(thumbJpgPath)
+    }
+
+    if (fs.existsSync(thumbPpmPath)) {
+      const ppmBuffer = await fs.promises.readFile(thumbPpmPath)
+      return await sharp(ppmBuffer)
+        .jpeg({ quality: RAW_CONVERT_JPEG_QUALITY })
+        .toBuffer()
+    }
+
+    // 不同机型输出后缀可能不同，兜底扫描 .thumb.*。
+    const outputCandidates = glob.sync(`${workDir}/${baseName}.thumb.*`)
+    if (outputCandidates.length === 0) {
+      throw new Error('dcraw -e succeeded but no thumbnail file generated')
+    }
+
+    const outputPath = outputCandidates[0]
+    const ext = nodePath.extname(outputPath).toLowerCase()
+    const outputBuffer = await fs.promises.readFile(outputPath)
+    // 如果是 PPM 格式，需额外转换为 JPEG；如果已经是 JPEG 了，直接返回。
+    if (ext === '.ppm') {
+      return await sharp(outputBuffer)
+        .jpeg({ quality: RAW_CONVERT_JPEG_QUALITY })
+        .toBuffer()
+    }
+    return outputBuffer
+  } finally {
+    const generatedFiles = glob.sync(`${workDir}/${baseName}.thumb.*`)
+    await Promise.allSettled(generatedFiles.map(file => fs.promises.rm(file, { force: true })))
+  }
+}
+
+/**
+ * @description: 完整解码 RAW 到 JPEG，适用于没有内嵌缩略图或缩略图提取失败的情况，处理时间较长。
+ * @param {*} command
+ * @param {*} inputPath
+ * @return {*}
+ */
+async function runDcrawDecodeToJpegBuffer(command, inputPath) {
+  const workDir = nodePath.dirname(inputPath)
+  const inputName = nodePath.basename(inputPath)
+  const baseName = nodePath.basename(inputName, nodePath.extname(inputName))
+
+  try {
+    // 提取缩略图失败时，走完整解码路径输出 PPM/PGM。
+    await execFileAsync(command, ['-w', '-q', '3', '-6', inputName], 120000, workDir)
+
+    const outputCandidates = [
+      ...glob.sync(`${workDir}/${baseName}.ppm`),
+      ...glob.sync(`${workDir}/${baseName}.pgm`),
+    ]
+
+    const outputPath = outputCandidates[0]
+    if (!outputPath) {
+      throw new Error('dcraw decode succeeded but no PPM/PGM file generated')
+    }
+
+    const outputBuffer = await fs.promises.readFile(outputPath)
+    return await sharp(outputBuffer)
+      .jpeg({ quality: RAW_CONVERT_JPEG_QUALITY })
+      .toBuffer()
+  } finally {
+    const generatedFiles = [
+      ...glob.sync(`${workDir}/${baseName}.ppm`),
+      ...glob.sync(`${workDir}/${baseName}.pgm`),
+    ]
+    await Promise.allSettled(generatedFiles.map(file => fs.promises.rm(file, { force: true })))
+  }
 }
 
 /**
@@ -143,6 +292,63 @@ async function convertHeicToJpegBuffer(tempInputPath) {
       quality: HEIC_CONVERT_QUALITY
     })
     return Buffer.from(outputBuffer)
+  }
+}
+
+async function convertRawToJpegBuffer(tempInputPath, originalFileName = '') {
+  // 将 formidable 的临时文件转换为“带原始扩展名”的输入，避免 dcraw 识别失败。
+  const preparedInput = await prepareTempInputWithExtension(tempInputPath, originalFileName)
+  const inputPath = preparedInput.path
+  const commands = getDcrawCommandCandidates()
+  let lastError
+  let firstNonEnoentError
+
+  if (commands.length === 0) {
+    throw new Error(`dcraw not found, expected at ${EMBEDDED_DCRAW_WINDOWS} or ${EMBEDDED_DCRAW_UNIX}`)
+  }
+
+  try {
+    for (const command of commands) {
+      try {
+        // 第一优先级：直接提取内嵌缩略图，速度最快。
+        return await runDcrawExtractThumbnailToBuffer(command, inputPath)
+      } catch (error) {
+        lastError = error
+        if (isWindowsDcrawCrash(error)) {
+          console.warn('dcraw.exe 进程异常退出(3221225781)，可能是缺少运行库或二进制不兼容，将继续尝试其它 dcraw 候选。')
+        }
+        if (!isEnoentError(error) && !firstNonEnoentError) {
+          firstNonEnoentError = error
+        }
+      }
+
+      try {
+        // 第二优先级：完整解码 RAW，再压缩为 JPEG。
+        return await runDcrawDecodeToJpegBuffer(command, inputPath)
+      } catch (error) {
+        lastError = error
+        if (isWindowsDcrawCrash(error)) {
+          console.warn('dcraw.exe 进程异常退出(3221225781)，可能是缺少运行库或二进制不兼容，将继续尝试其它 dcraw 候选。')
+        }
+        if (!isEnoentError(error) && !firstNonEnoentError) {
+          firstNonEnoentError = error
+        }
+      }
+    }
+
+    // 优先抛出最有诊断价值的错误，附带候选命令与环境提示。
+    const baseError = firstNonEnoentError || lastError || new Error('dcraw failed')
+    const detail = [
+      'RAW convert failed by dcraw only',
+      `input=${inputPath}`,
+      `candidates=${commands.join(', ')}`,
+      'hint=你可以设置环境变量 DCRAW_BIN 指向可用的 dcraw.exe',
+      'hint=Windows 3221225781 常见于运行库缺失或二进制架构不匹配'
+    ].join('; ')
+    baseError.message = `${baseError.message}; ${detail}`
+    throw baseError
+  } finally {
+    await preparedInput.cleanup()
   }
 }
 
@@ -244,6 +450,7 @@ module.exports = {
   isHeicImage,
   isRawImage,
   convertHeicToJpegBuffer,
+  convertRawToJpegBuffer,
   THUMBNAIL_PREFIX,
   getImageIdWithoutExtension
 }

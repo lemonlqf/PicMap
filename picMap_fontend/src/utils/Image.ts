@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-16 21:22:21
+ * @LastEditTime: 2026-03-16 22:53:16
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -19,7 +19,15 @@ import type { IHttpResponse } from '@/type/http'
 import i18n from '@/i18n/index'
 
 // 单位MB
-const LARGE_IMAGE_SIZE = 50
+const LARGE_IMAGE_SIZE = 100
+const RAW_IMAGE_TYPES = new Set<string>([
+  ImageType.RAW,
+  ImageType.DNG,
+  ImageType.CR2,
+  ImageType.NEF,
+  ImageType.ORF,
+  ImageType.RW2,
+])
 
 /**
  * @description: 图片缓存管理器, 单例模式
@@ -310,7 +318,21 @@ export function getImageTypeByName(name: string) {
       return ImageType.HEIC
     case 'heif':
       return ImageType.HEIF
+    case 'raw':
+    case 'dng':
+    case 'arw':
+    case 'cr2':
+    case 'nef':
+    case 'orf':
+    case 'rw2':
+      return ImageType.RAW
   }
+}
+
+function isRawImageType(type?: string) {
+  if (!type) return false
+  if (RAW_IMAGE_TYPES.has(type)) return true
+  return ['image/x-canon-cr2', 'image/x-nikon-nef', 'image/x-olympus-orf', 'image/x-panasonic-rw2'].includes(type)
 }
 
 export function fileToBlobUrl(file: File | Blob): string {
@@ -318,7 +340,7 @@ export function fileToBlobUrl(file: File | Blob): string {
 }
 
 /**
- * @description: 获取图片的blobUrl，支持HEIC格式的图片
+ * @description: 获取图片的blobUrl，支持HEIC/RAW格式的图片
  * @param {File} file
  * @param {ImageType} type
  * @return {*}
@@ -335,30 +357,41 @@ export async function getBlobUrl(file: File, type: ImageType): Promise<string> {
       break;
     case ImageType.HEIC:
     case ImageType.HEIF:
-      // HEIC格式的图片需要特殊处理，转换为JPEG格式
-      const blob = await convertHeicToBlob(file);
+    case ImageType.RAW:
+    case ImageType.DNG:
+    case ImageType.CR2:
+    case ImageType.NEF:
+    case ImageType.ORF:
+    case ImageType.RW2:
+      // HEIC/RAW格式的图片需要特殊处理，转换为JPEG格式
+      const blob = await convertSpecialImageToBlob(file);
       blobUrl = await fileToBlobUrl(blob);
       break
     default:
+      if (isRawImageType(type)) {
+        const blob = await convertSpecialImageToBlob(file)
+        blobUrl = await fileToBlobUrl(blob)
+        break
+      }
       throw new Error('不支持的图片类型')
   }
   return blobUrl
 }
 
 /**
- * @description: 获取图片的blob，支持HEIC格式的图片
+ * @description: 获取图片的blob，支持HEIC/RAW格式的图片
  * @param {File} file
  * @param {ImageType} type
  * @return {*}
  */
 export async function getBlob(file: File, type: ImageType): Promise<Blob> {
-  if (type === ImageType.HEIC || type === ImageType.HEIF) {
-    return await convertHeicToBlob(file)
+  if (type === ImageType.HEIC || type === ImageType.HEIF || isRawImageType(type)) {
+    return await convertSpecialImageToBlob(file)
   }
   return file
 }
 
-async function convertHeicToBlob(file: File): Promise<Blob> {
+async function convertSpecialImageToBlob(file: File): Promise<Blob> {
   const res = await imageHttp.getJPGImage(file)
   if (res instanceof Blob) {
     // 正常路径：后端直接返回二进制 Blob

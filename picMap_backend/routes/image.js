@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 18:19:58
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-16 21:12:24
+ * @LastEditTime: 2026-03-16 22:06:18
  * @FilePath: \PicMap\picMap_backend\routes\image.js
  * @Description: 图片相关接口
  * - 图片上传、获取、删除等操作
@@ -15,7 +15,7 @@ const { IncomingForm } = require('formidable')
 const { getSchemaDirPath, getSchemaJSONPath, getImageFilePath, } = require('../public/globalVariable')
 const express = require('express')
 const router = express.Router()
-const { getImageFileById, getSmallImageFileById, THUMBNAIL_PREFIX, generateThumbnail, getImageId, getThumbnailId, isHeicImage, isRawImage, convertHeicToJpegBuffer } = require('../utils/image/image.js')
+const { getImageFileById, getSmallImageFileById, THUMBNAIL_PREFIX, generateThumbnail, getImageId, getThumbnailId, isHeicImage, isRawImage, convertHeicToJpegBuffer, convertRawToJpegBuffer } = require('../utils/image/image.js')
 const glob = require('glob')
 const nodePath = require('node:path')
 
@@ -58,11 +58,9 @@ router.post('/getJPGImage', async function (req, res, next) {
         }
       }
 
-      const fileBuffer = await fs.promises.readFile(tempInputPath)
-
       if (isRawImage(fileName, mimeType)) {
-        // RAW 暂不转换，直接回传原始二进制
-        res.type('application/octet-stream').send(fileBuffer)
+        const outputBuffer = await convertRawToJpegBuffer(tempInputPath, fileName)
+        res.type('image/jpeg').send(outputBuffer)
         return
       }
 

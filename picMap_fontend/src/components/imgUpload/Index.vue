@@ -156,6 +156,19 @@ const acceptType = [
   ImageType.WEBP,
   ImageType.HEIC,
   ImageType.HEIF,
+  ImageType.RAW,
+  ImageType.DNG,
+  ImageType.CR2,
+  ImageType.NEF,
+  ImageType.ORF,
+  ImageType.RW2,
+  '.raw',
+  '.dng',
+  '.arw',
+  '.cr2',
+  '.nef',
+  '.orf',
+  '.rw2',
 ]
 
 const imageUrls = ref<any>({})
@@ -226,8 +239,17 @@ watch(
               // 保存到imageUrlsMap中，后续图片详情展示使用
               addImageUrl(imageName, blobUrl)
               data = { ...res1, ...res2, url, blobUrl }
-              // 如果是这几个类型的图片，还需要生成缩略图，用于后端保存一下，因为后端需要用到缩略图进行图片展示，如果没有的话，后端就只能每次都重新生成一次，性能会比较差
-              if (type === ImageType.HEIC || type === ImageType.HEIF) {
+              // HEIC/RAW 经过服务端转换后都需要保存缩略图，避免后端反复现算。
+              if (
+                type === ImageType.HEIC ||
+                type === ImageType.HEIF ||
+                type === ImageType.RAW ||
+                type === ImageType.DNG ||
+                type === ImageType.CR2 ||
+                type === ImageType.NEF ||
+                type === ImageType.ORF ||
+                type === ImageType.RW2
+              ) {
                 const thumbnail = await createThumbnailFromBlob(blob)
                 const thumbnailUrl = await readFileAsDataURL(thumbnail)
                 data.thumbnailUrl = thumbnailUrl
