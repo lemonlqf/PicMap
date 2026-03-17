@@ -150,6 +150,8 @@ export async function saveSchema() {
     delete item.url
     // 删除blobUrl
     delete item.blobUrl
+    // 删除缩略图url
+    delete item.thumbnailUrl
   })
   const res = await schemaHttp.setSchema({ schema: JSON.stringify(schema) })
   return res

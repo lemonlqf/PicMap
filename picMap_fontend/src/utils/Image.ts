@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-16 22:53:16
+ * @LastEditTime: 2026-03-17 17:20:09
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -22,11 +22,16 @@ import i18n from '@/i18n/index'
 const LARGE_IMAGE_SIZE = 100
 const RAW_IMAGE_TYPES = new Set<string>([
   ImageType.RAW,
-  ImageType.DNG,
-  ImageType.CR2,
-  ImageType.NEF,
-  ImageType.ORF,
-  ImageType.RW2,
+  ImageType.RAW_ADOBE_DNG,
+  ImageType.RAW_CANON_CR2,
+  ImageType.RAW_CANON_CR3,
+  ImageType.RAW_NIKON_NEF,
+  ImageType.RAW_OLYMPUS_ORF,
+  ImageType.RAW_SONY_ARW,
+  ImageType.RAW_FUJIFILM_RAF,
+  ImageType.RAW_PANASONIC_RW2,
+  ImageType.RAW_EPSON_ERF,
+  ImageType.RAW_GOPRO_GPR
 ])
 
 /**
@@ -303,6 +308,7 @@ export function isImageExistInImageInfo(imageId: string) {
  * @return {*}
  */
 export function getImageTypeByName(name: string) {
+  // 获取文件后缀，转小写
   const suffix = name.split('.').pop()?.toLowerCase()
   switch (suffix) {
     case 'jpg':
@@ -319,20 +325,37 @@ export function getImageTypeByName(name: string) {
     case 'heif':
       return ImageType.HEIF
     case 'raw':
-    case 'dng':
-    case 'arw':
-    case 'cr2':
-    case 'nef':
-    case 'orf':
-    case 'rw2':
       return ImageType.RAW
+    case 'dng':
+      return ImageType.RAW_ADOBE_DNG
+    case 'arw':
+      return ImageType.RAW_SONY_ARW
+    case 'cr2':
+      return ImageType.RAW_CANON_CR2
+    case 'cr3':
+      return ImageType.RAW_CANON_CR3
+    case 'nef':
+      return ImageType.RAW_NIKON_NEF
+    case 'orf':
+      return ImageType.RAW_OLYMPUS_ORF
+    case 'rw2':
+      return ImageType.RAW_PANASONIC_RW2
+    case 'raf':
+      return ImageType.RAW_FUJIFILM_RAF
+    case 'erf':
+      return ImageType.RAW_EPSON_ERF
+    case 'gpr':
+      return ImageType.RAW_GOPRO_GPR
+    default:
+      return 'jpg'
   }
 }
 
 function isRawImageType(type?: string) {
   if (!type) return false
+  // type转小写
+  type = type.toLowerCase()
   if (RAW_IMAGE_TYPES.has(type)) return true
-  return ['image/x-canon-cr2', 'image/x-nikon-nef', 'image/x-olympus-orf', 'image/x-panasonic-rw2'].includes(type)
 }
 
 export function fileToBlobUrl(file: File | Blob): string {
@@ -358,21 +381,20 @@ export async function getBlobUrl(file: File, type: ImageType): Promise<string> {
     case ImageType.HEIC:
     case ImageType.HEIF:
     case ImageType.RAW:
-    case ImageType.DNG:
-    case ImageType.CR2:
-    case ImageType.NEF:
-    case ImageType.ORF:
-    case ImageType.RW2:
+    case ImageType.RAW:
+    case ImageType.RAW_ADOBE_DNG:
+    case ImageType.RAW_CANON_CR2:
+    case ImageType.RAW_CANON_CR3:
+    case ImageType.RAW_NIKON_NEF:
+    case ImageType.RAW_OLYMPUS_ORF:
+    case ImageType.RAW_SONY_ARW:
+    case ImageType.RAW_FUJIFILM_RAF:
+    case ImageType.RAW_PANASONIC_RW2:
       // HEIC/RAW格式的图片需要特殊处理，转换为JPEG格式
       const blob = await convertSpecialImageToBlob(file);
       blobUrl = await fileToBlobUrl(blob);
       break
     default:
-      if (isRawImageType(type)) {
-        const blob = await convertSpecialImageToBlob(file)
-        blobUrl = await fileToBlobUrl(blob)
-        break
-      }
       throw new Error('不支持的图片类型')
   }
   return blobUrl

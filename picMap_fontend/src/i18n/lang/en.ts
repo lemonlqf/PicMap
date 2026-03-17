@@ -175,7 +175,8 @@ export default {
     setUrlToPreview: 'Please add a valid tile url to preview here',
     largeSize: 'pictrue is too big, Over ',
     uploadFailed: 'Upload filed!',
-    parsePictureInfoFailed: 'Parse picture info failed!'
+    parsePictureInfoFailed: 'Parse picture info failed!',
+    parsePictureFailed: 'Parse picture failed!'
   },
   placeholder: {
     selectGroup: 'Plaese select group'

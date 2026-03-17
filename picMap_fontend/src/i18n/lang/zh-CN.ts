@@ -174,7 +174,8 @@ export default {
     setUrlToPreview: '请添加有效瓦片地址,在此处预览',
     largeSize: '图片尺寸过大, 超过 ',
     uploadFailed: '上传失败!',
-    parsePictureInfoFailed: '解析图片信息失败!'
+    parsePictureInfoFailed: '解析图片信息失败!',
+    parsePictureFailed: '解析图片失败!'
   },
   placeholder: {
     selectGroup: '请选择分组'

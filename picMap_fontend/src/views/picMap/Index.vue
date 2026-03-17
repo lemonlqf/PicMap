@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-13 22:39:52
+ * @LastEditTime: 2026-03-17 19:25:52
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
@@ -298,7 +298,7 @@ onMounted(() => {
   position: absolute;
   bottom: 20px;
   left: 20px;
-  right: 40px;
+  right: 50vw;
   box-sizing: border-box;
   z-index: 1000;
 }

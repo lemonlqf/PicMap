@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-16 22:58:11
+ * @LastEditTime: 2026-03-17 17:16:01
  * @FilePath: \PicMap\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -25,8 +25,32 @@ const THUMBNAIL_PREFIX = '_THUMBNAIL_'
 const HEIC_TYPES = ['image/heic', 'image/heif', 'image/x-heic']
 const HEIC_EXTENSIONS = ['.heic', '.heif']
 // RAW图片格式
-const RAW_TYPES = ['image/x-raw', 'image/x-adobe-dng', 'image/x-canon-cr2', 'image/x-nikon-nef', 'image/x-olympus-orf', 'image/x-panasonic-rw2']
-const RAW_EXTENSIONS = ['.raw', '.dng', '.arw', '.cr2', '.nef', '.orf', '.rw2']
+const RAW_TYPES = [
+  'image/x-raw',
+  'image/x-adobe-dng',
+  'image/x-canon-cr2',
+  'image/x-nikon-nef',
+  'image/x-olympus-orf',
+  'image/x-panasonic-rw2',
+  'image/x-sony-arw',
+  'image/x-fuji-raf',
+  'image/x-canon-cr3',
+  'image/erf',
+  'image/x-gopro-gpr'
+]
+const RAW_EXTENSIONS = [
+  '.raw',
+  '.dng',
+  '.arw',
+  '.cr2',
+  '.nef',
+  '.orf',
+  '.rw2',
+  '.cr3',
+  '.raf',
+  '.erf',
+  '.gpr'
+]
 // heicConvert默认转换质量较高，文件较大，这里设置一个较低的质量，转换速度会更快，且用于缩略图展示足够了
 const HEIC_CONVERT_QUALITY = 0.01
 // imageMagick转换HEIC的质量参数，取值范围0-100，数值越大质量越好但文件越大，默认80是一个比较常见的选择
@@ -58,6 +82,7 @@ const EMBEDDED_MAGICK_WINDOWS = nodePath.join(BACKEND_ROOT, 'tools', 'imagemagic
 const EMBEDDED_MAGICK_UNIX = nodePath.join(BACKEND_ROOT, 'tools', 'imagemagick', 'bin', 'magick')
 const EMBEDDED_DCRAW_WINDOWS = nodePath.join(BACKEND_ROOT, 'tools', 'dcraw', 'dcraw.exe')
 const EMBEDDED_DCRAW_UNIX = nodePath.join(BACKEND_ROOT, 'tools', 'dcraw', 'dcraw')
+const EMBEDDED_DCRAW_EMU_WINDOWS = nodePath.join(BACKEND_ROOT, 'tools', 'libraw', 'dcraw_emu.exe')
 
 function execFileAsync(command, args, timeout = 20000, cwd = undefined) {
   return new Promise((resolve, reject) => {
@@ -98,6 +123,10 @@ function getImageMagickCommandCandidates() {
   })
 }
 
+/**
+ * @description: 获取 dcraw 命令的候选列表，优先级为：环境变量指定 > 项目内置 > 系统 PATH
+ * @return {*}
+ */
 function getDcrawCommandCandidates() {
   const candidates = []
 
@@ -121,6 +150,26 @@ function getDcrawCommandCandidates() {
   })
 }
 
+/**
+ * @description: 获取 dcraw_emu 命令的候选列表，优先级为：环境变量指定 > 项目内置
+ * @return {*}
+ */
+function getDcrawEmuCommandCandidates() {
+  const candidates = []
+
+  if (process.env.DCRAW_EMU_BIN) {
+    candidates.push(process.env.DCRAW_EMU_BIN)
+  }
+
+  if (process.platform === 'win32') {
+    candidates.push(EMBEDDED_DCRAW_EMU_WINDOWS)
+  }
+
+  return candidates.filter(cmd => {
+    return fs.existsSync(cmd)
+  })
+}
+
 function isEnoentError(error) {
   return error && (error.code === 'ENOENT' || error.errno === -4058)
 }
@@ -131,13 +180,13 @@ function isWindowsDcrawCrash(error) {
 
 async function prepareTempInputWithExtension(inputPath, originalFileName) {
   if (!originalFileName) {
-    return { path: inputPath, cleanup: async () => {} }
+    return { path: inputPath, cleanup: async () => { } }
   }
 
   const safeOriginalName = nodePath.basename(originalFileName)
   const originalExt = nodePath.extname(safeOriginalName).toLowerCase()
   if (!originalExt) {
-    return { path: inputPath, cleanup: async () => {} }
+    return { path: inputPath, cleanup: async () => { } }
   }
 
   // 为每次转换创建独立临时目录，防止同名文件并发冲突。
@@ -149,7 +198,7 @@ async function prepareTempInputWithExtension(inputPath, originalFileName) {
   return {
     path: copiedPath,
     cleanup: async () => {
-      await fs.promises.rm(inputWorkDir, { recursive: true, force: true }).catch(() => {})
+      await fs.promises.rm(inputWorkDir, { recursive: true, force: true }).catch(() => { })
     }
   }
 }
@@ -243,6 +292,32 @@ async function runDcrawDecodeToJpegBuffer(command, inputPath) {
   }
 }
 
+async function runDcrawEmuToJpegBuffer(dcrawEmuCommand, magickCommand, inputPath) {
+  const workDir = nodePath.dirname(inputPath)
+  const inputName = nodePath.basename(inputPath)
+  const baseName = nodePath.basename(inputName, nodePath.extname(inputName))
+
+  try {
+    // 使用 dcraw_emu 将 RAW 转换为 TIFF
+    await execFileAsync(dcrawEmuCommand, ['-T', inputName], 120000, workDir)
+
+    const tiffCandidates = glob.sync(`${workDir}/${baseName}*.tiff`)
+    const tiffFile = tiffCandidates.find(f => fs.existsSync(f))
+    if (!tiffFile) {
+      throw new Error('dcraw_emu succeeded but no TIFF file generated')
+    }
+
+    // 使用 ImageMagick 将 TIFF 转换为 JPEG
+    const tiffBuffer = await fs.promises.readFile(tiffFile)
+    return await sharp(tiffBuffer)
+      .jpeg({ quality: RAW_CONVERT_JPEG_QUALITY })
+      .toBuffer()
+  } finally {
+    const generatedFiles = glob.sync(`${workDir}/${baseName}*.tiff`)
+    await Promise.allSettled(generatedFiles.map(file => fs.promises.rm(file, { force: true })))
+  }
+}
+
 /**
  * @description: 使用 ImageMagick 将 HEIC 转换为 JPEG
  * @param {*} inputPath
@@ -271,7 +346,7 @@ async function convertHeicByImageMagick(inputPath) {
     throw lastError || new Error('ImageMagick not available')
   } finally {
     // 清理临时文件，避免磁盘空间泄漏。
-    await fs.promises.rm(outputPath, { force: true }).catch(() => {})
+    await fs.promises.rm(outputPath, { force: true }).catch(() => { })
   }
 }
 
@@ -315,10 +390,18 @@ async function convertHeicToJpegBuffer(tempInputPath) {
 }
 
 async function convertRawToJpegBuffer(tempInputPath, originalFileName = '') {
-  // 将 formidable 的临时文件转换为“带原始扩展名”的输入，避免 dcraw 识别失败。
+  // 将 formidable 的临时文件转换为"带原始扩展名"的输入，避免 dcraw 识别失败。
   const preparedInput = await prepareTempInputWithExtension(tempInputPath, originalFileName)
   const inputPath = preparedInput.path
+
+  // 尝试 dcraw 提取缩略图的命令
   const commands = getDcrawCommandCandidates()
+
+  // 尝试 dcraw_emu 将raw转换为tiff
+  const dcrawEmuCommands = getDcrawEmuCommandCandidates()
+  // 尝试 ImageMagick 转换的命令列表（仅在使用 dcraw_emu 时需要）。
+  const magickCommands = getImageMagickCommandCandidates()
+
   let lastError
   let firstNonEnoentError
 
@@ -327,23 +410,10 @@ async function convertRawToJpegBuffer(tempInputPath, originalFileName = '') {
   }
 
   try {
+    // 第一优先级：尝试使用 dcraw 提取内嵌缩略图（速度最快）。
     for (const command of commands) {
       try {
-        // 第一优先级：直接提取内嵌缩略图，速度最快。
         return await runDcrawExtractThumbnailToBuffer(command, inputPath)
-      } catch (error) {
-        lastError = error
-        if (isWindowsDcrawCrash(error)) {
-          console.warn('dcraw.exe 进程异常退出(3221225781)，可能是缺少运行库或二进制不兼容，将继续尝试其它 dcraw 候选。')
-        }
-        if (!isEnoentError(error) && !firstNonEnoentError) {
-          firstNonEnoentError = error
-        }
-      }
-
-      try {
-        // 第二优先级：完整解码 RAW，再压缩为 JPEG。
-        return await runDcrawDecodeToJpegBuffer(command, inputPath)
       } catch (error) {
         lastError = error
         if (isWindowsDcrawCrash(error)) {
@@ -355,14 +425,32 @@ async function convertRawToJpegBuffer(tempInputPath, originalFileName = '') {
       }
     }
 
+    // 第二优先级：使用 dcraw_emu 转换为 TIFF，再使用 ImageMagick 转换为 JPEG。
+    for (const dcrawEmuCommand of dcrawEmuCommands) {
+      for (const magickCommand of magickCommands) {
+        try {
+          console.log(`尝试使用 dcraw_emu 转换: ${dcrawEmuCommand}`)
+          return await runDcrawEmuToJpegBuffer(dcrawEmuCommand, magickCommand, inputPath)
+        } catch (error) {
+          lastError = error
+          console.warn(`dcraw_emu 转换失败: ${error.message}`)
+          if (!isEnoentError(error) && !firstNonEnoentError) {
+            firstNonEnoentError = error
+          }
+        }
+      }
+    }
+
     // 优先抛出最有诊断价值的错误，附带候选命令与环境提示。
     const baseError = firstNonEnoentError || lastError || new Error('dcraw failed')
     const detail = [
-      'RAW convert failed by dcraw only',
+      'RAW convert failed',
       `input=${inputPath}`,
       `backendRoot=${BACKEND_ROOT}`,
-      `candidates=${commands.join(', ')}`,
+      `dcrawCandidates=${commands.join(', ')}`,
+      `dcrawEmuCandidates=${dcrawEmuCommands.join(', ')}`,
       'hint=你可以设置环境变量 DCRAW_BIN 指向可用的 dcraw.exe',
+      'hint=你可以设置环境变量 DCRAW_EMU_BIN 指向可用的 dcraw_emu.exe',
       'hint=你也可以设置环境变量 PICMAP_BACKEND_ROOT 指向 picMap_backend 目录',
       'hint=Windows 3221225781 常见于运行库缺失或二进制架构不匹配'
     ].join('; ')

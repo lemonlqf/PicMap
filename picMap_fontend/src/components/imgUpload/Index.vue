@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-16 20:18:51
+ * @LastEditTime: 2026-03-17 19:01:21
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -26,7 +26,7 @@
       </template> -->
     </el-upload>
     <!-- 上传到表单中图片数据 -->
-    <el-scrollbar max-height="75vh">
+    <el-scrollbar max-height="70vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <!-- 重复的图片 -->
         <h3 class="h3-title">{{ $t('uploadedPicture') }}：</h3>
@@ -157,18 +157,45 @@ const acceptType = [
   ImageType.HEIC,
   ImageType.HEIF,
   ImageType.RAW,
-  ImageType.DNG,
-  ImageType.CR2,
-  ImageType.NEF,
-  ImageType.ORF,
-  ImageType.RW2,
+  ImageType.RAW_ADOBE_DNG,
+  ImageType.RAW_CANON_CR2,
+  ImageType.RAW_CANON_CR3,
+  ImageType.RAW_NIKON_NEF,
+  ImageType.RAW_OLYMPUS_ORF,
+  ImageType.RAW_SONY_ARW,
+  ImageType.RAW_FUJIFILM_RAF,
+  ImageType.RAW_PANASONIC_RW2,
+  ImageType.RAW_EPSON_ERF,
+  // 可能不是image/xxx的格式
   '.raw',
   '.dng',
   '.arw',
   '.cr2',
+  '.cr3',
   '.nef',
   '.orf',
   '.rw2',
+  '.raf',
+  '.erf',
+  // 后端转换暂时不支持gopro的RAW格式，后续如果支持了再添加
+  // '.gpr'
+]
+
+// 需要生成缩略图的图片格式，后续经过测试如果有其他格式也需要生成缩略图再添加
+const needThumbnailType = [
+  ImageType.HEIC,
+  ImageType.HEIF,
+  ImageType.RAW,
+  ImageType.RAW_ADOBE_DNG,
+  ImageType.RAW_CANON_CR2,
+  ImageType.RAW_CANON_CR3,
+  ImageType.RAW_NIKON_NEF,
+  ImageType.RAW_OLYMPUS_ORF,
+  ImageType.RAW_SONY_ARW,
+  ImageType.RAW_FUJIFILM_RAF,
+  ImageType.RAW_PANASONIC_RW2,
+  ImageType.RAW_EPSON_ERF,
+  ImageType.RAW_GOPRO_GPR,
 ]
 
 const imageUrls = ref<any>({})
@@ -220,11 +247,6 @@ watch(
             const res1 = getFileInfoByFile(file)
             // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
             const res2 = await setMoreInfoByExifReader(file)
-            // 如果exifReader解析失败的话，给个提示解析失败了，不能上传
-            if (!res2) {
-              ElMessage.warning(`${imageName} ${t('description.parsePictureInfoFailed')}`)
-              continue
-            }
             const existUrl = imageUrls.value[imageName] || getImageUrl(imageName)
             // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
             if (!existUrl) {
@@ -232,6 +254,7 @@ watch(
               const url = await readFileAsDataURL(file);
               const type = file.type || getImageTypeByName(file.name)
               console.log('file.type', type, newValue[i])
+              // 对于正常类型图片直接生成blob，对于HEIC/RAW等特殊格式的图片需要先后端转换成jpg格式后再生成blob
               const blob = await getBlob(file, type);
               // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
               const blobUrl = await fileToBlobUrl(blob)
@@ -241,14 +264,7 @@ watch(
               data = { ...res1, ...res2, url, blobUrl }
               // HEIC/RAW 经过服务端转换后都需要保存缩略图，避免后端反复现算。
               if (
-                type === ImageType.HEIC ||
-                type === ImageType.HEIF ||
-                type === ImageType.RAW ||
-                type === ImageType.DNG ||
-                type === ImageType.CR2 ||
-                type === ImageType.NEF ||
-                type === ImageType.ORF ||
-                type === ImageType.RW2
+                needThumbnailType.includes(type as ImageType)
               ) {
                 const thumbnail = await createThumbnailFromBlob(blob)
                 const thumbnailUrl = await readFileAsDataURL(thumbnail)
@@ -268,8 +284,8 @@ watch(
         }
       }
     } catch (error) {
-      console.error('解析图片信息失败', error)
-      ElMessage.error(t('description.parsePictureInfoFailed'))
+      console.error('解析图片失败', error)
+      ElMessage.error(t('description.parsePictureFailed') + error)
     } finally {
       isLoading.value = false
     }
@@ -339,7 +355,13 @@ async function setMoreInfoByExifReader(file: File, name?: string) {
 
     return { GPSInfo, imageInfo, cameraInfo, authorInfo }
   } catch (error) {
-    return null
+    console.error('exifReader解析失败', error)
+    return {
+      imageInfo: {},
+      GPSInfo: {},
+      cameraInfo: {},
+      authorInfo: {}
+    }
   }
 }
 
@@ -414,9 +436,11 @@ function getCameraInfo(info) {
  */
 function getImageInfo(info, file) {
   const exif = info.exif
+  const width = exif?.PixelXDimension?.value || exif?.ImageWidth?.value
+  const height = exif?.PixelYDimension?.value || exif?.ImageLength?.value
   return {
     // 分辨率
-    Resolution: `${exif?.PixelYDimension?.value} x ${exif?.PixelXDimension?.value}`,
+    Resolution: `${height} x ${width}`,
     // 亮度
     BrightnessValue: exif?.BrightnessValue?.value,
     // 大小
