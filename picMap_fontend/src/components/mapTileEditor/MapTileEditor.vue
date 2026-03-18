@@ -16,7 +16,7 @@
           <template v-for="item in tileInfoList" :key="item.id">
             <MapTileCard :can-edit="!item?.isDefault" :active="activeTileList.includes(item.id)"
               @activeChange="tileActiveChange" class="card" :url="item.url" :name="item.name" :image="item.image"
-              :tileId="item.id"></MapTileCard>
+              :tileId="item.id" :is-default="defaultTileId === item.id"></MapTileCard>
           </template>
           <div class="add" @click="addMapTile">
             <AddIcon width="70"></AddIcon>
@@ -55,6 +55,11 @@ const tileInfoList = computed<IMapTile[]>(() => {
 const activeTileList = computed<string[]>(() => {
   const schemaStore = useSchemaStore()
   return schemaStore.getSchema?.mapInfo?.activeTiles ?? []
+})
+
+const defaultTileId = computed<string>(() => {
+  const appSchemaStore = useAppStore()
+  return appSchemaStore.getAppSchema?.mapInfo?.defaultTileId ?? ''
 })
 
 async function tileActiveChange(arg: any) {

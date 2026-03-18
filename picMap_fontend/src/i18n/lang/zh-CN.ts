@@ -172,6 +172,7 @@ export default {
     canNotCreateUserWhenEdit: '请先退出编辑再新建用户',
     confirmDeleteUser: '确定要删除用户吗？该用户的所有的图片也会被删除，不可恢复！',
     setUrlToPreview: '请添加有效瓦片地址,在此处预览',
+    setAsDefault: '设为默认瓦片',
     largeSize: '图片尺寸过大, 超过 ',
     uploadFailed: '上传失败!',
     parsePictureInfoFailed: '解析图片信息失败!',

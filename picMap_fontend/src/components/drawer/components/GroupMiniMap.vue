@@ -47,7 +47,7 @@ const markers: L.Marker[] = []
 
 /**
  * 获取当前地图瓦片URL
- * 优先使用用户配置的瓦片，其次使用默认瓦片
+ * 优先使用默认瓦片（defaultTileId），其次使用激活的瓦片
  * @returns 瓦片URL字符串
  */
 function getCurrentTileUrl(): String {
@@ -55,14 +55,26 @@ function getCurrentTileUrl(): String {
   const activeTiles = schemaStore.getSchema?.mapInfo?.activeTiles ?? []
   // 获取用户自定义瓦片（从appStore获取）
   const customTiles = appStore.getAppSchema?.mapInfo?.mapTiles ?? []
+  // 获取默认瓦片ID
+  const defaultTileId = appStore.getAppSchema?.mapInfo?.defaultTileId ?? ''
   // 获取默认瓦片
   const defaultTiles = getDefaultMapTile()
 
-  // 合并所有瓦片并查找当前激活的瓦片
+  // 合并所有瓦片
   const allTiles = [...defaultTiles, ...customTiles]
+
+  // 优先使用 defaultTileId 对应的瓦片
+  if (defaultTileId && activeTiles.includes(defaultTileId)) {
+    const defaultTile = allTiles.find(tile => tile.id === defaultTileId)
+    if (defaultTile) {
+      return defaultTile.url
+    }
+  }
+
+  // 其次使用激活的瓦片中第一个
   const currentTile = allTiles.find(tile => activeTiles.includes(tile.id))
 
-  // 返回瓦片URL，默认使用高德矢量图
+  // 返回瓦片URL，默认使用高德卫星图
   return currentTile?.url as string || defaultTiles[0]?.url
 }
 

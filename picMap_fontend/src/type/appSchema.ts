@@ -18,6 +18,7 @@ export type IAppSchema = {
   userInfos: IUserInfo[],
   mapInfo: {
     mapTiles: IMapTile[]
+    defaultTileId?: string
   }
 }
 

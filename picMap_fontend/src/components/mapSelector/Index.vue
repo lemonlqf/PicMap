@@ -28,6 +28,11 @@ const defaultMapTile = getDefaultMapTile()
 const value = defineModel({})
 const currentName = ref(defaultMapTile[0].name)
 
+const defaultTileId = computed<string>(() => {
+  const appSchemaStore = useAppStore()
+  return appSchemaStore.getAppSchema?.mapInfo?.defaultTileId ?? ''
+})
+
 const tileInfoList = computed<IMapTile[]>(() => {
   const appSchemaStore = useAppStore()
   const schemaStore = useSchemaStore()
@@ -36,20 +41,26 @@ const tileInfoList = computed<IMapTile[]>(() => {
   // 只展示生效的瓦片
   const activeTileId = cloneDeep(schemaStore.getSchema?.mapInfo?.activeTiles ?? [])
   
-  const res = [...defaultMapTile, ...customTileInfos].filter(item => {
+  const allTiles = [...defaultMapTile, ...customTileInfos]
+  const res = allTiles.filter(item => {
     return activeTileId.includes(item.id)
   })
   // 如果没有启用就默认使用第一个
   if (res.length === 0) {
     res.push(defaultMapTile[0])
   }
-  currentName.value = res[0].name
+  // 优先使用 defaultTileId 对应的瓦片
+  const defaultTile = res.find(item => item.id === defaultTileId.value)
+  const defaultMap = defaultTile || res[0]
+  currentName.value = defaultMap.name
+  value.value = defaultMap
   return res
 })
 
 
 watch(() => tileInfoList.value, (newValue) => {
-  value.value = newValue[0]
+  const defaultTile = newValue.find(item => item.id === defaultTileId.value)
+  value.value = defaultTile || newValue[0]
 }, {deep: true})
 
 function changeMapTile(item) {

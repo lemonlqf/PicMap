@@ -11,6 +11,9 @@
     <!-- 预览，允许操作 -->
     <div class="preview" ref="mapRef">
       <el-switch class="active-button" v-model="active"></el-switch>
+      <div class="default-button" :class="{ 'is-default': isDefault }" @click.stop="setAsDefault(props.tileId)">
+        <MapLocation />
+      </div>
       <span class="tips">{{ $t('description.setUrlToPreview') }}</span>
     </div>
     <div class="content">
@@ -47,7 +50,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import ImageUpload from '@/components/imgUpload2/ImageUpload.vue'
-import { Delete, Edit, Back } from '@element-plus/icons-vue'
+import { Delete, Edit, Back, Star, MapLocation } from '@element-plus/icons-vue'
 import L from 'leaflet'
 import type { IMapTile } from '@/components/mapSelector/defaultMap';
 import { ElMessage } from 'element-plus';
@@ -78,6 +81,10 @@ const props = defineProps({
     default: true
   },
   active: {
+    type: Boolean,
+    default: false
+  },
+  isDefault: {
     type: Boolean,
     default: false
   },
@@ -184,6 +191,12 @@ async function deleteTile(tileId: string) {
   editAppSchemaAttrAndSave('mapInfo.mapTiles', customTileInfos)
 }
 
+async function setAsDefault(tileId: string) {
+  const appSchemaStore = useAppStore()
+  editAppSchemaAttrAndSave('mapInfo.defaultTileId', tileId)
+  ElMessage.success(t('description.setAsDefault'))
+}
+
 
 onMounted(() => {
   initMap()
@@ -225,6 +238,43 @@ onMounted(() => {
 
       .el-switch.is-checked .el-switch__core {
         background: rgb(43, 130, 243);
+      }
+
+      .default-button {
+        z-index: 998;
+        position: absolute;
+        top: 10px;
+        left: 10px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        background-color: rgba(255, 255, 255, 0.85);
+        cursor: pointer;
+        transition: all 0.2s ease;
+        color: #909399;
+
+        &:hover {
+          transform: scale(1.1);
+          background-color: rgba(255, 255, 255, 1);
+          box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+        }
+
+        svg {
+          width: 14px;
+          height: 14px;
+        }
+      }
+
+      .default-button.is-default {
+        background-color: #e6a23c;
+        color: white;
+
+        &:hover {
+          background-color: #f0c78a;
+        }
       }
     }
 

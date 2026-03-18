@@ -21,7 +21,8 @@ export type IMapInfo = {
   maxZoom: number,
   minZoom: number,
   zoom: number,
-  activeTiles: string[]
+  activeTiles: string[],
+  defaultTileId?: string
 }
 
 export type IGroupInfo = {
