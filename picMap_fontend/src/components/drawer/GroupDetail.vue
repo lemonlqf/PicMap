@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-04 23:19:41
+ * @LastEditTime: 2026-03-19 10:19:55
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 分组详情组件
  *   - 展示分组中的图片列表
@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { computed, watch, ref, onMounted } from 'vue';
 import GroupLayout from './components/GroupLayout.vue';
-import GroupMiniMap from './components/GroupMiniMap.vue';
+import GroupMiniMap from '../map/Map.vue';
 import { getSchemaInfoById } from '@/utils/schema';
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getGroupInfoByGroupId } from '@/utils/group';

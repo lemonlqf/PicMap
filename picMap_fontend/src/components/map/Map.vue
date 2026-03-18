@@ -1,9 +1,9 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-18 13:40:25
+ * @LastEditTime: 2026-03-19 10:15:50
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupMiniMap.vue
- * @Description: 分组小地图组件
+ * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
  *   - 与主地图使用相同的瓦片
  *   - 点击marker显示图片详情
@@ -11,6 +11,7 @@
 -->
 <template>
   <div class="group-mini-map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }">
+    <!-- 全屏按钮 -->
     <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
       <el-icon :size="16">
         <Close v-if="isFullscreen"></Close>
@@ -33,12 +34,22 @@ import IconHTMLFactory, { IconType } from '@/utils/iconHTML';
 import { useAppStore } from '@/store/appSchema';
 import { useSchemaStore } from '@/store/schema';
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap';
+import trackService from '@/services/track';
 
 /**
  * 组件props：图片ID列表
  */
 const props = defineProps<{
-  imageIds: string[]
+  // 图片id列表，用于在地图上显示对应的marker
+  imageIds: {
+    type: string[],
+    default: () => []
+  },
+  // 轨迹id列表，用于在地图上显示对应的轨迹（如果需要）
+  trackIds: {
+    type: string[],
+    default: () => []
+  }
 }>()
 
 /**
