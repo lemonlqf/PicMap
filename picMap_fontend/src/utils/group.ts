@@ -322,7 +322,7 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
   const myIcon = L.divIcon({
     // 传值使用
     imageUrls,
-    html: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls),
+    html: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupInfo.groupNumbers?.length ?? 0),
     iconSize: MARKER_CONSTANT.GROUP_MARKER_SIZE,
     iconAnchor: [MARKER_CONSTANT.GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
   })

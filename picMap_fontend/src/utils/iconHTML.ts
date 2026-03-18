@@ -18,7 +18,7 @@ export enum IconType {
 type IconCreateMap = {
   [IconType.NoImage]: (text: string) => HTMLElement;
   [IconType.SingleImage]: (imgUrl: string) => HTMLElement;
-  [IconType.MultiImage]: (imgUrls: string[]) => HTMLElement;
+  [IconType.MultiImage]: (imgUrls: string[], totalCount: number) => HTMLElement;
   [IconType.NoImageGroup]: (text: string) => HTMLElement;
 };
 
@@ -67,7 +67,7 @@ export default class IconHTMLFactory {
   }
 
   // 创建多张图片的图标
-  static createMultiImageIcon(imgUrls: string[]) {
+  static createMultiImageIcon(imgUrls: string[], totalCount: number = 0) {
     if (!imgUrls || imgUrls.length === 0) {
       return this.createNoGroupIcon("暂无图片");
     }
@@ -82,6 +82,12 @@ export default class IconHTMLFactory {
       img.src = imgUrls[i];
       div.className = "image-icon";
       div.appendChild(img);
+    }
+    if (totalCount > 0) {
+      const badge = document.createElement("div");
+      badge.className = "group-count-badge";
+      badge.textContent = totalCount > 99 ? '99+' : String(totalCount);
+      div.appendChild(badge);
     }
     return div;
   }
