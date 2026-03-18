@@ -8,8 +8,12 @@
 -->
 <template>
   <div ref="itemRef" :class="['flex-box', { 'flex-box-fold-up': !expand }]" @click="markerService.setViewByMarkerId(groupInfo.id)">
-    <div>
+    <div class="left-area">
       <img v-show="expand" src="@/assets/icon/三横线.png" width="15px" height="10px" alt="">
+      <el-icon v-show="expand" class="visibility-icon" @click.stop="handleVisibleChange" :size="16">
+        <View v-if="groupInfo.visible !== false" />
+        <Hide v-else />
+      </el-icon>
       <el-tooltip :content="groupInfo.name" placement="top">
         <span :class="['group-name', { 'group-name-fold-up': !expand }]">
           {{ GPSInfoLegality(groupInfo?.GPSInfo) ?
@@ -18,27 +22,31 @@
         </span>
       </el-tooltip>
     </div>
-    <el-popover popper-style="padding: 0px" width="fit-content">
-      <GroupContentMenu :group-id="groupInfo.id">
-      </GroupContentMenu>
-      <template #reference>
-        <div v-show="expand" class="right-box">
-          <span v-if="!showEdit" class="number">{{ groupNumbersNumber }}</span>
-          <img v-else class="edit-image" src="@/assets/icon/三点.png" width="15px" height="15pxx" alt="">
-        </div>
-      </template>
-    </el-popover>
+    <div class="right-area">
+      <el-popover popper-style="padding: 0px" width="fit-content">
+        <GroupContentMenu :group-id="groupInfo.id">
+        </GroupContentMenu>
+        <template #reference>
+          <div class="right-box" :style="{ opacity: expand && showEdit ? 1 : 0 }">
+            <img class="edit-image" src="@/assets/icon/三点.png" width="15px" height="15pxx" alt="">
+          </div>
+        </template>
+      </el-popover>
+    </div>
   </div>
 </template>
 
 <script lang="ts" setup>
 import type { IGroupInfo } from '@/type/schema';
 import type { PropType } from 'vue';
-import { onMounted, ref } from 'vue'
+import { onMounted, ref } from 'vue';
 import { computed } from 'vue';
 import { GPSInfoLegality } from '@/utils/map';
 import GroupContentMenu from '@/components/contentMenu/component/GroupContentMenu.vue'
 import markerService from '@/services/marker'
+import { useSchemaStore } from '@/store/schema';
+import { saveSchema } from '@/utils/schema';
+import { View, Hide } from '@element-plus/icons-vue';
 const props = defineProps({
   groupInfo: {
     type: Object as PropType<IGroupInfo>,
@@ -56,6 +64,24 @@ const groupNumbersNumber = computed(() => {
 
 const showEdit = ref(false)
 const itemRef = ref()
+const schemaStore = useSchemaStore()
+
+function handleVisibleChange() {
+  const visible = props.groupInfo.visible !== false
+  const groupList = schemaStore.getGroupInfo
+  const group = groupList.find(g => g.id === props.groupInfo.id)
+  if (group) {
+    group.visible = !visible
+    schemaStore.setGroupInfo(groupList)
+    saveSchema()
+    
+    if (!visible) {
+      markerService.showMarkerById(props.groupInfo.id)
+    } else {
+      markerService.hiddenMarkerById(props.groupInfo.id)
+    }
+  }
+}
 
 onMounted(() => {
   itemRef.value.addEventListener('mouseover', () => {
@@ -65,7 +91,6 @@ onMounted(() => {
     showEdit.value = false
   })
 })
-
 
 
 </script>
@@ -79,23 +104,15 @@ onMounted(() => {
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
+  transition: background-color 0.2s ease;
 
   &:hover {
     background-color: rgba(236, 237, 238, 1);
-
-    // .right-box {
-    //   .number {
-    //     display: none;
-    //   }
-
-    //   .edit-image {
-    //     display: inline-block;
-    //   }
   }
 
   img {
     opacity: 0.8;
-    margin-right: 8px;
+    cursor: move;
   }
 
   .number {
@@ -105,18 +122,50 @@ onMounted(() => {
   }
 }
 
+.left-area {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.visibility-icon {
+  cursor: pointer;
+  color: #909399;
+  transition: color 0.2s;
+  
+  &:hover {
+    color: #409eff;
+  }
+}
+
+.right-area {
+  display: flex;
+  align-items: center;
+}
+
+.right-box {
+  display: flex;
+  align-items: center;
+  width: 20px;
+  justify-content: center;
+  transition: opacity 0.2s ease;
+}
+
 .group-name {
   font-size: 14px;
   display: inline-block;
-  max-width: 130px;
+  max-width: 70px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   vertical-align: middle;
 }
 
+.group-name-fold-up {
+  max-width: 60px;
+}
+
 .edit-image {
-  // display: none;
   transform: translateX(9px);
 }
 </style>

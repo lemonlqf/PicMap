@@ -351,6 +351,7 @@ export async function createNewGroupToSchema(newGroupFromInfo: ICreateGroupInfoD
     id: newId,
     GPSInfo,
     groupNumbers: groupNumbers ?? [],
+    visible: true,
   }
   groupInfo.unshift(newGroupInfo)
   schemaStore.setSchemaAttr('groupInfo', groupInfo)

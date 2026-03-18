@@ -196,7 +196,15 @@ class MarkerService {
       riseOnHover: true,
       id: groupInfo.id,
     });
-    marker.addTo(map);
+    
+    // 根据 visible 字段决定是否显示
+    if (groupInfo.visible === false) {
+      // 不添加到地图上，存入 hiddenMarkers
+      this.hiddenMarkers.set(groupInfo.id, marker);
+    } else {
+      marker.addTo(map);
+    }
+    
     // 因为涉及到异步请求数据了，所以这里需要手动添加一下鼠标事件
     this.markerMouseListener(marker);
     // 添加到store中
@@ -382,6 +390,8 @@ class MarkerService {
         this.MAP_INSTANCE.removeLayer(marker);
         this.hiddenMarkers.set(markerId, marker);
       }
+    } else {
+      console.warn('Marker not found when hiding:', markerId);
     }
   }
 
@@ -411,8 +421,18 @@ class MarkerService {
     } else {
       const hiddenMarker = this.hiddenMarkers.get(markerId);
       if (hiddenMarker) {
-        this.markerClusters.addLayer(hiddenMarker);
+        const markerType = hiddenMarker.options.type
+        const isImage = markerType === 'image' || markerType === 'temporary-image'
+        const isGroup = markerType === 'group' || markerType === 'temporary-group'
+        
+        if (isImage) {
+          this.markerClusters.addLayer(hiddenMarker);
+        } else if (isGroup) {
+          hiddenMarker.addTo(this.MAP_INSTANCE);
+        }
         this.hiddenMarkers.delete(markerId);
+      } else {
+        console.warn('Marker not found in map or hiddenMarkers:', markerId);
       }
     }
   }
