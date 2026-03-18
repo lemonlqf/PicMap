@@ -1,7 +1,7 @@
 /*
 * @Author: your name
 * @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2026-03-17 18:43:31
+ * @LastEditTime: 2026-03-18 11:20:06
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
  * @Description: 地图marker服务，提供marker的创建、删除、更新等功能
@@ -363,12 +363,12 @@ class MarkerService {
   }
 
   /**
-   * @description: 隐藏marker
+   * @description: 隐藏marker,默认不隐藏分组marker
    * @param {*} markerId
-   * @param {*} map
+   * @param {*} hiddenGroupMarker 是否隐藏分组marker，可以通过传入false来保留分组marker
    * @return {*}
    */
-  hiddenMarkerById(markerId: string) {
+  hiddenMarkerById(markerId: string, hiddenGroupMarker: boolean = true) {
     const marker = this.getMarkerById(markerId);
     if (marker) {
       const markerType = marker.options.type
@@ -378,8 +378,9 @@ class MarkerService {
       if (isImage) {
         this.markerClusters.removeLayer(marker);
         this.hiddenMarkers.set(markerId, marker);
-      } else if (isGroup) {
-        // this.MAP_INSTANCE.removeLayer(marker);
+      } else if (isGroup && hiddenGroupMarker) {
+        this.MAP_INSTANCE.removeLayer(marker);
+        this.hiddenMarkers.set(markerId, marker);
       }
     }
   }
@@ -770,7 +771,8 @@ class MarkerService {
           if (imageTime >= timeRange.min && imageTime <= timeRange.max) {
             this.showMarkerById(markerId)
           } else {
-            this.hiddenMarkerById(markerId)
+            // 按照时间筛选的话，不隐藏分组
+            this.hiddenMarkerById(markerId, false)
           }
         } else {
           this.showMarkerById(markerId)

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-11 16:40:55
+ * @LastEditTime: 2026-03-18 13:52:07
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupLayout.vue
  * @Description: 分组布局组件
  *   - 按时间分组展示图片
@@ -104,7 +104,7 @@ function handleImageClick(e: MouseEvent, id: string) {
   padding: 0 20px 20px 20px;
 
   .button-box {
-    z-index: 99;
+    z-index: 1;
     position: sticky;
     top: 8px;
     margin-top: 10px;

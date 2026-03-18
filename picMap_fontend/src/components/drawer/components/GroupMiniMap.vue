@@ -1,7 +1,7 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-04 23:24:15
+ * @LastEditTime: 2026-03-18 13:40:25
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupMiniMap.vue
  * @Description: 分组小地图组件
  *   - 使用Leaflet展示分组中图片的位置
@@ -10,13 +10,22 @@
  *   - hover时有大地图marker相同的动效
 -->
 <template>
-  <div class="group-mini-map" ref="mapContainer"></div>
+  <div class="group-mini-map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }">
+    <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
+      <el-icon :size="16">
+        <Close v-if="isFullscreen"></Close>
+        <FullScreen v-else></FullScreen>
+      </el-icon>
+    </button>
+  </div>
 </template>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { ElIcon } from 'element-plus';
+import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getImageUrlById } from '@/utils/Image';
 import { MARKER_CONSTANT, imageMarkerTranslateY } from '@/utils/constant'
@@ -42,8 +51,18 @@ const emit = defineEmits<{
 const appStore = useAppStore()
 const schemaStore = useSchemaStore()
 const mapContainer = ref<HTMLElement>()
+const isFullscreen = ref(false)
 let map: L.Map | null = null
 const markers: L.Marker[] = []
+
+function toggleFullscreen() {
+  isFullscreen.value = !isFullscreen.value
+  if (isFullscreen.value) {
+    setTimeout(() => {
+      map?.invalidateSize()
+    }, 100)
+  }
+}
 
 /**
  * 获取当前地图瓦片URL
@@ -89,7 +108,7 @@ async function initMap() {
   map = L.map(mapContainer.value, {
     zoomControl: false,      // 隐藏缩放控件
     attributionControl: false, // 隐藏归属信息
-    minZoom: 1,
+    minZoom: 3,
     maxZoom: 18
   })
 
@@ -266,6 +285,7 @@ onMounted(() => {
 
 // 组件卸载时清理地图实例
 onUnmounted(() => {
+  isFullscreen.value = false
   if (map) {
     map.remove()
     map = null
@@ -275,7 +295,47 @@ onUnmounted(() => {
 
 <style scoped>
 .group-mini-map {
+  background-color: rgba(0, 0, 0, 0.9);
   width: 100%;
   height: 100%;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.group-mini-map.is-fullscreen {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 9999;
+}
+
+.fullscreen-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  width: 28px;
+  height: 28px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.fullscreen-btn:hover {
+  background: #fff;
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.fullscreen-btn:active {
+  transform: scale(0.95);
 }
 </style>
