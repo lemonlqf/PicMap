@@ -1,8 +1,8 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-19 10:15:50
- * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupMiniMap.vue
+ * @LastEditTime: 2026-03-19 14:52:31
+ * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
  *   - 与主地图使用相同的瓦片
@@ -10,7 +10,7 @@
  *   - hover时有大地图marker相同的动效
 -->
 <template>
-  <div class="group-mini-map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }">
+  <div class="map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }">
     <!-- 全屏按钮 -->
     <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
       <el-icon :size="16">
@@ -22,14 +22,14 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue';
+import { ref, onMounted, onUnmounted, watch, type PropType, nextTick } from 'vue';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { ElIcon } from 'element-plus';
 import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getImageUrlById } from '@/utils/Image';
-import { MARKER_CONSTANT, imageMarkerTranslateY } from '@/utils/constant'
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, imageMarkerTranslateY } from '@/utils/constant'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML';
 import { useAppStore } from '@/store/appSchema';
 import { useSchemaStore } from '@/store/schema';
@@ -39,18 +39,18 @@ import trackService from '@/services/track';
 /**
  * 组件props：图片ID列表
  */
-const props = defineProps<{
+const props = defineProps({
   // 图片id列表，用于在地图上显示对应的marker
   imageIds: {
-    type: string[],
+    type: Object as PropType<string[]>,
     default: () => []
   },
   // 轨迹id列表，用于在地图上显示对应的轨迹（如果需要）
   trackIds: {
-    type: string[],
+    type: Object as PropType<string[]>,
     default: () => []
   }
-}>()
+})
 
 /**
  * 组件事件：marker点击事件
@@ -73,6 +73,10 @@ function toggleFullscreen() {
       map?.invalidateSize()
     }, 100)
   }
+}
+
+function getMapInstance(): L.Map | null {
+  return map
 }
 
 /**
@@ -131,6 +135,18 @@ async function initMap() {
 
   // 初始化标记
   await updateMarkers()
+
+  // 修复地图在隐藏容器中初始化时瓦片不加载的问题
+  invalidateMapSize()
+}
+
+/**
+ * 用于在地图容器显示后调用
+ */
+function invalidateMapSize() {
+  setTimeout(() => {
+    map?.invalidateSize()
+  }, 100)
 }
 
 /**
@@ -281,12 +297,32 @@ async function updateMarkers() {
       [Math.max(...lats), Math.max(...lngs)]
     ])
     map.fitBounds(bounds, { padding: [50, 50] })
+  } else {
+    // 如果没有有效图片，设置默认视图
+    nextTick(() => {
+      map?.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+    })
   }
+}
+
+/**
+ * @description: 更新轨迹显示
+ * @return {*}
+ */
+async function updateTracks() {
+  if (!map) return
+
+  // TODO: 根据props.trackIds获取轨迹数据，并在地图上显示轨迹
 }
 
 // 监听图片ID变化，更新标记
 watch(() => props.imageIds, () => {
   updateMarkers()
+}, { deep: true })
+
+// 监听轨迹ID变化，更新轨迹显示
+watch(() => props.trackIds, () => {
+  updateTracks()
 }, { deep: true })
 
 // 组件挂载时初始化地图
@@ -302,10 +338,15 @@ onUnmounted(() => {
     map = null
   }
 })
+
+defineExpose({
+  invalidateMapSize,
+  getMapInstance
+})
 </script>
 
 <style scoped>
-.group-mini-map {
+.map {
   background-color: rgba(0, 0, 0, 0.9);
   width: 100%;
   height: 100%;
@@ -313,7 +354,7 @@ onUnmounted(() => {
   transition: all 0.3s ease;
 }
 
-.group-mini-map.is-fullscreen {
+.map.is-fullscreen {
   position: fixed;
   top: 0;
   left: 0;

@@ -82,6 +82,8 @@ export default {
   addGroup: 'Add group',
   uploadedPicture: 'Uploaded picture',
   uploadPicture: 'Upload picture',
+  uploadTrack: 'Upload track',
+  selectFile: 'Select file',
   fold: 'Fold',
   expand: 'Expand',
   pictureToBeUploaded: 'Picture to be uploaded',

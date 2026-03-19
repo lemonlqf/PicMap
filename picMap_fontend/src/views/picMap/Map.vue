@@ -12,6 +12,7 @@ import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdI
 import {
   hiddenImageInfoDrawerMapClick,
 } from '@/utils/map'
+import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant'
 
 let map: L.map = null
 
@@ -29,11 +30,11 @@ const props = defineProps({
   },
   mapZoom: {
     type: Number,
-    default: 10
+    default: DEFAULT_ZOOM
   },
   mapCenter: {
     type: Array,
-    default: () => [30.2489634, 120.2052342]
+    default: () => DEFAULT_CENTER
   }
 })
 

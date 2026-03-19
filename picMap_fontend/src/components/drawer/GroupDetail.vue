@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-19 10:19:55
+ * @LastEditTime: 2026-03-19 11:32:49
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 分组详情组件
  *   - 展示分组中的图片列表
@@ -13,7 +13,7 @@
   <div class="flex-box">
     <!-- 小地图：使用与主地图相同的瓦片 -->
     <div class="img-map">
-      <GroupMiniMap :image-ids="groupNumbers" @marker-click="handleMarkerClick" />
+      <MapComponent :image-ids="groupNumbers" @marker-click="handleMarkerClick" />
     </div>
     <!-- 图片列表 -->
     <el-scrollbar style="width: 100%" :max-height="height">
@@ -35,7 +35,7 @@
 <script setup lang="ts">
 import { computed, watch, ref, onMounted } from 'vue';
 import GroupLayout from './components/GroupLayout.vue';
-import GroupMiniMap from '../map/Map.vue';
+import MapComponent from '@/components/map/Map.vue'
 import { getSchemaInfoById } from '@/utils/schema';
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getGroupInfoByGroupId } from '@/utils/group';
