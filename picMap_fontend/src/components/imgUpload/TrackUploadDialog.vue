@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-19 17:00:25
+ * @LastEditTime: 2026-03-21 10:35:42
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\TrackUploadDialog.vue
  * @Description: 
 -->
@@ -28,8 +28,10 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { Document } from '@element-plus/icons-vue'
+import { ElMessage } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import trackService from '@/services/track'
+import { updateTrackSchema } from '@/utils/track'
 import mapService from '@/services/map'
 import MapComponent from '@/components/map/Map.vue'
 
@@ -80,8 +82,23 @@ function cancel() {
   trackService.deleteTracksInMap(trackMapRef.value?.getMapInstance())
 }
 
-function submitTrackUpload() {
-  // 提交轨迹上传
+async function submitTrackUpload() {
+  if (!uploadFormData.value.trackFile) {
+    ElMessage.warning(t('description.selectFileFirst'))
+    return
+  }
+  try {
+    const res = await trackService.uploadTrack(uploadFormData.value.trackFile)
+    if (res.code === 200) {
+      await updateTrackSchema(res.data.fileName)
+      ElMessage.success(t('description.trackUploadedSuccess'))
+      dialogVisible.value = false
+      cancel()
+    }
+  } catch (error) {
+    console.error('上传轨迹失败:', error)
+    ElMessage.error(t('description.uploadFailed'))
+  }
 }
 </script>
 
@@ -104,7 +121,7 @@ function submitTrackUpload() {
 }
 
 .track-map-container {
-  height: 500px;
+  height: 300px;
   margin-top: 15px;
 }
 </style>

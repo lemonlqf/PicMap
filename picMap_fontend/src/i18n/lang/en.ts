@@ -178,6 +178,8 @@ export default {
     setAsDefault: 'Set as default tile',
     largeSize: 'pictrue is too big, Over ',
     uploadFailed: 'Upload filed!',
+    selectFileFirst: 'Please select a file first!',
+    trackUploadedSuccess: 'Track uploaded successfully!',
     parsePictureInfoFailed: 'Parse picture info failed!',
     parsePictureFailed: 'Parse picture failed!'
   },

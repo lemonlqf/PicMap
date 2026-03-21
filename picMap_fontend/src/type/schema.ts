@@ -14,6 +14,11 @@ export type ISchema = {
   mapInfo: IMapInfo,
   groupInfo: IGroupInfo[],
   imageInfo: IImageInfo[],
+  trackInfo?: ITrackInfo[],
+}
+
+export type ITrackInfo = {
+  id: string,
 }
 
 export type IMapInfo = {

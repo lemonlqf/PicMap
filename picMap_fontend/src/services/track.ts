@@ -9,6 +9,7 @@
 import 'leaflet-gpx';
 import L from "leaflet";
 import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02';
+import trackApi from '@/http/modules/track';
 
 const defaultOptions = {}
 
@@ -123,6 +124,11 @@ class TrackService {
         this.trackInstances.delete(trackInstance.getTrackId());
       }
     });
+  }
+
+  async uploadTrack(file: File) {
+    const res = await trackApi.uploadTrack(file)
+    return res
   }
 }
 

@@ -177,6 +177,8 @@ export default {
     setAsDefault: '设为默认瓦片',
     largeSize: '图片尺寸过大, 超过 ',
     uploadFailed: '上传失败!',
+    selectFileFirst: '请先选择文件！',
+    trackUploadedSuccess: '轨迹上传成功！',
     parsePictureInfoFailed: '解析图片信息失败!',
     parsePictureFailed: '解析图片失败!'
   },
