@@ -1,7 +1,7 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-19 14:52:31
+ * @LastEditTime: 2026-03-22 23:17:51
  * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
@@ -68,11 +68,10 @@ const markers: L.Marker[] = []
 
 function toggleFullscreen() {
   isFullscreen.value = !isFullscreen.value
-  if (isFullscreen.value) {
-    setTimeout(() => {
-      map?.invalidateSize()
-    }, 100)
-  }
+  setTimeout(() => {
+    map?.invalidateSize()
+    fitAllBounds()
+  }, 100)
 }
 
 function getMapInstance(): L.Map | null {
@@ -147,6 +146,38 @@ function invalidateMapSize() {
   setTimeout(() => {
     map?.invalidateSize()
   }, 100)
+}
+
+/**
+ * 适配所有图层（标记和轨迹）的边界
+ * 使所有内容都在地图可视区域内显示
+ */
+function fitAllBounds() {
+  if (!map) return
+  // 先使地图尺寸生效，确保边界计算正确
+  map.invalidateSize()
+  const allBounds: L.LatLngBoundsExpression[] = []
+
+  // 获取所有marker的边界
+  markers.forEach(marker => {
+    const latlng = marker.getLatLng()
+    allBounds.push([latlng.lat, latlng.lng])
+  })
+
+  // 获取地图上可见的轨迹的边界
+  trackService.getInstances().forEach(instance => {
+    const trackLayer = instance.getTrackLayer()
+    if (trackLayer && map?.hasLayer(trackLayer)) {
+      console.log('fitAllBounds found track layer:', trackLayer)
+      allBounds.push(trackLayer.getBounds())
+    }
+  })
+
+  console.log('fitAllBounds allBounds count:', allBounds.length)
+  if (allBounds.length > 0) {
+    const bounds = L.latLngBounds(allBounds)
+    map.fitBounds(bounds, { padding: [50, 50] })
+  }
 }
 
 /**
@@ -341,7 +372,8 @@ onUnmounted(() => {
 
 defineExpose({
   invalidateMapSize,
-  getMapInstance
+  getMapInstance,
+  fitAllBounds
 })
 </script>
 

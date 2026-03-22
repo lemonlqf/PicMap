@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:08
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 23:55:50
+ * @LastEditTime: 2026-03-22 22:10:46
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\en.ts
  * @Description: 
  */
@@ -31,6 +31,10 @@ export default {
   deleteUser: 'Delete user',
   delete: 'Delete',
   deleteSuccess: 'Delete success',
+  distance: 'Distance',
+  startTime: 'Start time',
+  endTime: 'End time',
+  actions: 'Actions',
   setGroup: 'Set group',
   fixPosition: 'Fix position',
   createUser: 'Create user',
@@ -181,7 +185,13 @@ export default {
     selectFileFirst: 'Please select a file first!',
     trackUploadedSuccess: 'Track uploaded successfully!',
     parsePictureInfoFailed: 'Parse picture info failed!',
-    parsePictureFailed: 'Parse picture failed!'
+    parsePictureFailed: 'Parse picture failed!',
+    loadTrackFailed: 'Failed to load track!',
+    deleteSuccess: 'Deleted successfully!',
+    deleteFailed: 'Delete failed!',
+    trackExistConfirm: 'Same name track file already exists. Do you want to overwrite?',
+    warning: 'Warning',
+    searchPlaceholder: 'Search name or time'
   },
   placeholder: {
     selectGroup: 'Plaese select group'

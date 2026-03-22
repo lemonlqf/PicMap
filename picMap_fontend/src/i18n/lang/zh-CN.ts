@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-12 15:30:32
+ * @LastEditTime: 2026-03-22 22:10:18
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
@@ -31,6 +31,10 @@ export default {
   deleteUser: '删除用户',
   delete: '删除',
   deleteSuccess: '删除成功',
+  distance: '距离',
+  startTime: '开始时间',
+  endTime: '结束时间',
+  actions: '操作',
   setGroup: '设置分组',
   fixPosition: '确定位置',
   createUser: '创建新用户',
@@ -180,7 +184,13 @@ export default {
     selectFileFirst: '请先选择文件！',
     trackUploadedSuccess: '轨迹上传成功！',
     parsePictureInfoFailed: '解析图片信息失败!',
-    parsePictureFailed: '解析图片失败!'
+    parsePictureFailed: '解析图片失败!',
+    loadTrackFailed: '加载轨迹失败!',
+    deleteSuccess: '删除成功!',
+    deleteFailed: '删除失败!',
+    trackExistConfirm: '已存在同名文件，是否覆盖上传？',
+    warning: '警告',
+    searchPlaceholder: '搜索名称或时间'
   },
   placeholder: {
     selectGroup: '请选择分组'
