@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-19 11:05:40
+ * @LastEditTime: 2026-03-23 10:41:26
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -26,8 +26,8 @@
       </el-upload>
     </div>
     <!-- 上传轨迹按钮 -->
-    <el-button class="upload-track-button" type="primary" @click="trackUploadDialogShow = true">
-      {{ $t('uploadTrack') }}
+    <el-button :title="$t('trackManagement')" class="upload-track-button" circle type="primary" @click="trackUploadDialogShow = true">
+      <TrackIcon style="height: 20px; width: 20px; color: white"/>
     </el-button>
     <!-- 上传到表单中图片数据 -->
     <el-scrollbar max-height="70vh">
@@ -104,12 +104,13 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, computed, reactive, onMounted } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
+import TrackIcon from '@/assets/icon/轨迹.svg?component'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlobUrl, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
@@ -123,7 +124,6 @@ import type { IGPSInfo } from '@/type/schema'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 import markerService from '@/services/marker'
-import mapService from '@/services/map'
 
 const { t } = useI18n()
 
@@ -643,7 +643,6 @@ defineExpose({
     position: absolute;
     top: 10px;
     left: 220px;
-    width: 70px;
   }
 }
 

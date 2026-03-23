@@ -87,6 +87,7 @@ export default {
   uploadedPicture: 'Uploaded picture',
   uploadPicture: 'Upload picture',
   uploadTrack: 'Upload track',
+  trackManagement: 'Track management',
   selectFile: 'Select file',
   fold: 'Fold',
   expand: 'Expand',

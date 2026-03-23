@@ -2,12 +2,12 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-22 23:05:48
+ * @LastEditTime: 2026-03-23 12:56:57
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\TrackUploadDialog.vue
  * @Description: 轨迹上传弹窗组件
 -->
 <template>
-  <el-dialog :z-index="9999" v-model="dialogVisible" :title="$t('uploadTrack')" width="80vw" height="80vh">
+  <el-dialog :append-to-body="true" :z-index="9999" v-model="dialogVisible" :title="$t('uploadTrack')" width="80vw" height="80vh">
     <div class="track-upload-content">
       <div class="input-search-box">
         <!-- 搜索框 -->
@@ -20,14 +20,14 @@
         </el-upload>
       </div>
       <div class="content-box">
-        <div class="table" :style="{ height: '50vh' }">
+        <div class="table">
           <!-- 轨迹信息表格，支持单选 highlight-current-row -->
-          <el-table :data="filteredTableData" highlight-current-row show-overflow-tooltip
+          <el-table :data="filteredTableData" highlight-current-row show-overflow-tooltip height="50vh"
             @current-change="handleRowChange" ref="tableRef" :row-style="{ height: '35px' }" :row-class-name="tableRowClassName">
             <el-table-column prop="name" :label="$t('name')" width="150" />
-            <el-table-column prop="distance" :label="$t('distance')" width="100" :formatter="formatDistance" />
-            <el-table-column prop="startTime" :label="$t('startTime')" width="160" :formatter="formatDate" />
-            <el-table-column prop="endTime" :label="$t('endTime')" width="160" :formatter="formatDate" />
+            <el-table-column prop="distance" :label="$t('distance')" width="100" />
+            <el-table-column prop="startTime" :label="$t('startTime')" width="160" />
+            <el-table-column prop="endTime" :label="$t('endTime')" width="160" />
             <el-table-column :label="$t('actions')" width="80">
               <template #default="{ row }">
                 <!-- 未上传的行显示上传按钮，已上传的行显示删除按钮 -->
@@ -53,11 +53,13 @@ import { Document } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import trackService from '@/services/track'
-import { updateTrackSchema, deleteTrackFromSchema } from '@/utils/track'
+import { updateTrackSchema, deleteTrackFromSchema, formatTrackInfo, formatDistance } from '@/utils/track'
+import { formatDate } from '@/utils/date'
 import mapService from '@/services/map'
 import trackApi from '@/http/modules/track'
 import MapComponent from '@/components/map/Map.vue'
 import { useSchemaStore } from '@/store/schema'
+import type { ITrackInfo } from '@/type/schema'
 
 const { t } = useI18n()
 const schemaStore = useSchemaStore()
@@ -103,13 +105,8 @@ watch(dialogVisible, (val) => {
  */
 function loadTableDataFromSchema() {
   const trackInfoList = schemaStore.getSchema.trackInfo || []
-  tableData.value = trackInfoList.map((trackInfo: any) => ({
-    id: trackInfo.id,
-    trackId: trackInfo.id,
-    name: trackInfo.name || trackInfo.id,
-    distance: trackInfo.distance || 0,
-    startTime: trackInfo.startTime ? new Date(trackInfo.startTime) : new Date(),
-    endTime: trackInfo.endTime ? new Date(trackInfo.endTime) : new Date(),
+  tableData.value = trackInfoList.map((trackInfo: ITrackInfo) => ({
+    ...formatTrackInfo(trackInfo),
     uploaded: true,
     file: null
   }))
@@ -129,13 +126,13 @@ function loadTableDataFromSchema() {
 // 表格数据类型定义
 type TrackData = {
   id: string
-  trackId: string
   name: string
-  distance: number
-  startTime: Date
-  endTime: Date
+  distance: string
+  startTime: string
+  endTime: string
   uploaded: boolean
   file: File | null
+  [key: string]: any
 }
 
 // 表格数据
@@ -144,23 +141,6 @@ const tableData = ref<TrackData[]>([])
 // 表格行样式类名，当前选中行更显眼
 function tableRowClassName({ row }: { row: TrackData }) {
   return currentRow.value?.id === row.id ? 'current-row-highlight' : ''
-}
-
-/**
- * @description: 格式化距离显示，将米转换为千米
- */
-function formatDistance(row: any, column: any, cellValue: number) {
-  if (cellValue === null || cellValue === undefined) return '-'
-  return (cellValue / 1000).toFixed(2) + ' km'
-}
-
-/**
- * @description: 格式化日期显示
- */
-function formatDate(row: any, column: any, cellValue: Date) {
-  if (!cellValue) return '-'
-  const date = cellValue instanceof Date ? cellValue : new Date(cellValue)
-  return date.toLocaleString()
 }
 
 /**
@@ -185,13 +165,13 @@ async function loadTrackToMap(row: TrackData) {
       return
     }
 
-    console.log('loadTrackToMap row.trackId:', row.trackId, 'mapInstance:', mapInstance)
+    console.log('loadTrackToMap row.id:', row.id, 'mapInstance:', mapInstance)
 
     // 不清除轨迹实例，而是隐藏原来有的轨迹实例
     trackService.hideAllTracks(mapInstance)
 
     // 根据id获取轨迹实例，如果有的话，将轨迹实例添加到地图上，如果没有实例的话则请求后端
-    const existingInstance = trackService.getTrackInstanceById(row.trackId)
+    const existingInstance = trackService.getTrackInstanceById(row.id)
     console.log('existingInstance:', existingInstance)
     if (existingInstance) {
       console.log('calling existingInstance.addMap with mapInstance:', mapInstance)
@@ -204,11 +184,11 @@ async function loadTrackToMap(row: TrackData) {
     }
 
     // 从后端获取轨迹文件
-    const res = await trackApi.getTrack(row.trackId)
+    const res = await trackApi.getTrack(row.id)
     if (res.code === 200 && res.data.fileContent) {
       const gpxContent = res.data.fileContent
       const blob = new Blob([gpxContent], { type: 'application/gpx+xml' })
-      const fileName = row.trackId.includes('.gpx') ? row.trackId : `${row.trackId}.gpx`
+      const fileName = row.id.includes('.gpx') ? row.id : `${row.id}.gpx`
       const file = new File([blob], fileName, { type: 'application/gpx+xml' })
       const trackInstance = trackService.activeTrack(file, mapInstance)
       // 等待轨迹信息加载完成后适配边界
@@ -232,10 +212,10 @@ async function handleTrackFileChange(file: any) {
   if (file.raw) {
     const mapInstance = trackMapRef.value?.getMapInstance()
     const trackInstance = trackService.activeTrack(file.raw, mapInstance)
-    const trackId = trackInstance.getTrackId()
+    const id = trackInstance.getTrackId()
 
     // 检查schema中是否已存在该轨迹
-    const existingTrack = schemaStore.getSchema.trackInfo?.find((track: any) => track.id === trackId)
+    const existingTrack = schemaStore.getSchema.trackInfo?.find((track: any) => track.id === id)
 
     // 如果已存在，提示用户确认
     if (existingTrack) {
@@ -251,13 +231,13 @@ async function handleTrackFileChange(file: any) {
         )
       } catch {
         // 用户取消选择，从trackService中移除该实例
-        trackService.deleteTrack(trackId)
+        trackService.deleteTrack(id)
         return
       }
     }
 
     // 检查该trackId是否已在表格中存在（针对已上传的行）
-    const existingRow = tableData.value.find(item => item.trackId === trackId && item.uploaded)
+    const existingRow = tableData.value.find(item => item.id === id && item.uploaded)
 
     if (existingRow) {
       // 如果已存在，用新文件数据更新该行
@@ -269,16 +249,15 @@ async function handleTrackFileChange(file: any) {
       })
     } else {
       // 如果不存在，创建新行
-      const rowId = `${trackId}_${Date.now()}`
+      const rowId = `${id}`
       const newRow: TrackData = {
         id: rowId,
         name: file.name,
-        distance: 0,
-        startTime: new Date(),
-        endTime: new Date(),
+        distance: '-',
+        startTime: '-',
+        endTime: '-',
         uploaded: false,
         file: file.raw,
-        trackId: trackId
       }
       tableData.value.unshift(newRow)
       currentRow.value = newRow
@@ -289,12 +268,12 @@ async function handleTrackFileChange(file: any) {
 
     // 等待轨迹信息加载完成后更新表格数据和适配边界
     trackInstance.onTrackInfoReady((trackInfo: any) => {
-      const row = existingRow || tableData.value.find(item => item.trackId === trackId && !item.uploaded)
+      const row = existingRow || tableData.value.find(item => item.id === id && !item.uploaded)
       if (row) {
-        row.name = trackInfo.name || trackId
-        row.distance = trackInfo.distance || 0
-        row.startTime = trackInfo.startTime ? new Date(trackInfo.startTime) : new Date()
-        row.endTime = trackInfo.endTime ? new Date(trackInfo.endTime) : new Date()
+        row.name = trackInfo.name || id
+        row.distance = formatDistance(trackInfo.distance) || '-'
+        row.startTime = trackInfo.startTime ? formatDate(trackInfo.startTime) : '-'
+        row.endTime = trackInfo.endTime ? formatDate(trackInfo.endTime) : '-'
       }
       // 轨迹信息加载完成后适配边界
       setTimeout(() => {
@@ -338,7 +317,7 @@ async function uploadRow(row: TrackData) {
     const res = await trackService.uploadTrack(row.file)
     if (res.code === 200) {
       // 更新schema中的轨迹信息
-      await updateTrackSchema(row.trackId)
+      await updateTrackSchema(row.id)
       row.uploaded = true
       row.file = null
       // 从上传列表中移除已上传的文件
@@ -357,7 +336,7 @@ async function uploadRow(row: TrackData) {
 async function deleteRow(row: TrackData) {
   try {
     // 从schema和后端删除轨迹
-    await deleteTrackFromSchema(row.trackId)
+    await deleteTrackFromSchema(row.id)
     tableData.value = tableData.value.filter(item => item.id !== row.id)
     // 如果删除的是选中行，选中新的第一行
     if (currentRow.value?.id === row.id && tableData.value.length > 0) {

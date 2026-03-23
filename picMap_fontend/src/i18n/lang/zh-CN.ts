@@ -85,6 +85,7 @@ export default {
   uploadedPicture: '已上传图片',
   uploadPicture: '点击上传图片',
   uploadTrack: '上传轨迹',
+  trackManagement: '轨迹管理',
   selectFile: '选择文件',
   fold: '折叠',
   expand: '展开',

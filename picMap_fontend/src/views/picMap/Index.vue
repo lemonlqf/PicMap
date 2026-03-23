@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-19 11:14:41
+ * @LastEditTime: 2026-03-23 10:50:54
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
@@ -23,6 +23,7 @@
         <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
       </el-button-group>
     </div>
+    <!-- 用户 -->
     <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
 
     <!-- 上传按钮 -->
@@ -261,12 +262,12 @@ onMounted(() => {
   position: absolute;
   left: 20px;
   top: 20px;
-  z-index: 1000;
+  z-index: 800;
 }
 
 .fix-group {
   position: fixed;
-  z-index: 1000;
+  z-index: 800;
 }
 
 .switch-group {
@@ -293,7 +294,7 @@ onMounted(() => {
   position: absolute;
   top: 17px;
   left: 225px;
-  z-index: 1000;
+  z-index: 801;
 }
 
 .time-line {

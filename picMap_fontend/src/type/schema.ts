@@ -19,6 +19,23 @@ export type ISchema = {
 
 export type ITrackInfo = {
   id: string,
+  name?: string,
+  distance?: number,
+  startTime?: string,
+  endTime?: string,
+  movingTime?: number,
+  totalTime?: number,
+  movingPace?: number,
+  movingSpeed?: number,
+  totalSpeed?: number,
+  elevationMin?: number,
+  elevationMax?: number,
+  elevationGain?: number,
+  elevationLoss?: number,
+  speedMax?: number,
+  averageHr?: number,
+  averageCadence?: number,
+  averageTemp?: number
 }
 
 export type IMapInfo = {
