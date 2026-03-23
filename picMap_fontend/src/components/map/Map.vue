@@ -1,7 +1,7 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-23 17:25:32
+ * @LastEditTime: 2026-03-23 21:57:23
  * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
@@ -66,13 +66,45 @@ const mapContainer = ref<HTMLElement>()
 const isFullscreen = ref(false)
 let map: L.Map | null = null
 const markers: L.Marker[] = []
+let normalViewState: { center: L.LatLng; zoom: number } | null = null
+
+function afterResizeTransition(callback: () => void) {
+  // 与 .map 的 0.3s transition 对齐，避免在尺寸动画中间计算边界。
+  setTimeout(() => {
+    nextTick(() => {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(callback)
+      })
+    })
+  }, 100)
+}
 
 function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value
-  setTimeout(() => {
-    map?.invalidateSize()
-    fitAllBounds()
-  }, 100)
+  if (!map) return
+
+  if (!isFullscreen.value) {
+    normalViewState = {
+      center: map.getCenter(),
+      zoom: map.getZoom()
+    }
+    isFullscreen.value = true
+    afterResizeTransition(() => {
+      map?.invalidateSize()
+      fitAllBounds()
+    })
+    return
+  }
+
+  isFullscreen.value = false
+  afterResizeTransition(() => {
+    if (!map) return
+    map.invalidateSize()
+    if (normalViewState) {
+      map.setView(normalViewState.center, normalViewState.zoom, { animate: false })
+    } else {
+      fitAllBounds()
+    }
+  })
 }
 
 function getMapInstance(): L.Map | null {
@@ -169,7 +201,7 @@ function fitAllBounds() {
 
   // 获取地图上可见的轨迹的边界
   trackService.getInstances().forEach(instance => {
-    const trackLayer = instance.getTrackLayer()
+    const trackLayer = instance.getTrackLayer(map)
     if (trackLayer && map?.hasLayer(trackLayer)) {
       console.log('fitAllBounds found track layer:', trackLayer)
       allBounds.push(trackLayer.getBounds())
@@ -342,7 +374,7 @@ async function updateTracks() {
 
   // 先隐藏不在目标列表中的轨迹
   trackService.getInstances().forEach(instance => {
-    const trackLayer = instance.getTrackLayer()
+    const trackLayer = instance.getTrackLayer(map)
     if (!trackLayer) return
     const isTarget = normalizedTargetIds.includes(normalizeTrackId(instance.getTrackId()))
     if (!isTarget && map?.hasLayer(trackLayer)) {
@@ -420,6 +452,7 @@ onMounted(() => {
 onUnmounted(() => {
   isFullscreen.value = false
   if (map) {
+    trackService.deleteTracksInMap(map)
     map.remove()
     map = null
   }
@@ -438,7 +471,7 @@ defineExpose({
   width: 100%;
   height: 100%;
   position: relative;
-  transition: all 0.3s ease;
+  transition: all 0.1s ease;
 }
 
 .map.is-fullscreen {
