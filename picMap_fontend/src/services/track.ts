@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-18 16:11:31
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-22 23:49:52
+ * @LastEditTime: 2026-03-23 21:35:18
  * @FilePath: \PicMap\picMap_fontend\src\services\track.ts
  * @Description: 轨迹图层服务，管理轨迹的加载、显示、删除等操作
  */
@@ -11,7 +11,35 @@ import L from "leaflet";
 import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02';
 import trackApi from '@/http/modules/track';
 
-const defaultOptions = {}
+const startIconUrl = new URL('../assets/icon/起点.png', import.meta.url).href;
+const endIconUrl = new URL('../assets/icon/终点.png', import.meta.url).href;
+
+const startIcon = L.icon({
+  className: "track-marker-icon track-marker-start",
+  iconUrl: startIconUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [0, -33],
+  shadowSize: [41, 41],
+  shadowAnchor: [13, 41]
+});
+
+const endIcon = L.icon({
+  className: "track-marker-icon track-marker-end",
+  iconUrl: endIconUrl,
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [0, -33],
+  shadowSize: [41, 41],
+  shadowAnchor: [13, 41]
+});
+
+const defaultOptions = {
+  markers: {
+    startIcon,
+    endIcon,
+  }
+}
 
 /**
  * 轨迹服务类
@@ -227,6 +255,28 @@ class TrackInstance {
   // 待处理的回调函数（在轨迹信息加载完成前调用）
   private pendingCallbacks: ((trackInfo: any) => void)[] = [];
 
+  private hashTrackId(seed: string) {
+    let hash = 0;
+    for (let i = 0; i < seed.length; i++) {
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
+      hash |= 0;
+    }
+    return Math.abs(hash);
+  }
+
+  // 多条轨迹起终点重叠时，做极小偏移避免完全遮挡。
+  private disambiguateEdgeMarker(point: L.Marker, pointType: 'start' | 'end') {
+    const origin = point.getLatLng();
+    const slotCount = 12;
+    const slot = this.hashTrackId(`${this.trackId}-${pointType}`) % slotCount;
+    const angle = (Math.PI * 2 * slot) / slotCount;
+    const radius = pointType === 'start' ? 0.00002 : 0.000026;
+    const lat = origin.lat + radius * Math.sin(angle);
+    const lng = origin.lng + radius * Math.cos(angle);
+    point.setLatLng(L.latLng(lat, lng));
+    point.setZIndexOffset(1000 + slot + (pointType === 'end' ? 100 : 0));
+  }
+
   constructor(file: File, maps: L.Map[] = [], options: any = defaultOptions) {
 
     this.trackId = file.name;
@@ -237,6 +287,13 @@ class TrackInstance {
       // 将WGS84坐标转换为GCJ02坐标
       const convertedGpx = this.convertGpxCoordinates(fileContent);
       this.trackLayer = new L.GPX(convertedGpx, options);
+
+      this.trackLayer.on('addpoint', (e: any) => {
+        if (!e?.point || (e.point_type !== 'start' && e.point_type !== 'end')) {
+          return;
+        }
+        this.disambiguateEdgeMarker(e.point, e.point_type);
+      });
 
       // 轨迹图层添加到地图时触发
       this.trackLayer.on('add', () => {
@@ -295,7 +352,7 @@ class TrackInstance {
    * @description: 将轨迹图层添加到指定地图
    * @param {L.Map} map - 地图实例
    */
-addMap(map: L.Map) {
+  addMap(map: L.Map) {
     if (!map) {
       console.error('addMap called with undefined map')
       return
