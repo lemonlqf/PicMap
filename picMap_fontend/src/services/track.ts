@@ -41,6 +41,8 @@ const defaultOptions = {
   }
 }
 
+const TRACK_INSTANCE_GC_DELAY_MS = 2000;
+
 /**
  * 轨迹服务类
  * 负责管理所有轨迹实例，提供轨迹的激活、显示、隐藏、删除等功能
@@ -48,10 +50,34 @@ const defaultOptions = {
 class TrackService {
   // 存储所有轨迹实例，key为轨迹ID（文件名）
   private trackInstances: Map<string, TrackInstance>;
+  // 待销毁的实例定时器，避免地图快速切换导致重复创建
+  private destroyTimers: Map<string, ReturnType<typeof setTimeout>>;
 
 
   constructor() {
     this.trackInstances = new Map();
+    this.destroyTimers = new Map();
+  }
+
+  private clearDestroyTimer(trackId: string) {
+    const timer = this.destroyTimers.get(trackId);
+    if (timer) {
+      clearTimeout(timer);
+      this.destroyTimers.delete(trackId);
+    }
+  }
+
+  private scheduleDestroy(trackId: string) {
+    this.clearDestroyTimer(trackId);
+    const timer = setTimeout(() => {
+      const trackInstance = this.trackInstances.get(trackId);
+      // 只有在没有任何地图引用时才真正销毁
+      if (trackInstance && trackInstance.getMapInstances().length === 0) {
+        this.trackInstances.delete(trackId);
+      }
+      this.destroyTimers.delete(trackId);
+    }, TRACK_INSTANCE_GC_DELAY_MS);
+    this.destroyTimers.set(trackId, timer);
   }
 
   /**
@@ -74,6 +100,7 @@ class TrackService {
   activeTrack(file: File, map?: L.Map, options: any = defaultOptions): TrackInstance {
     let trackInstance = this.trackInstances.get(file.name);
     if (trackInstance) {
+      this.clearDestroyTimer(file.name);
       // 如果轨迹已存在，直接添加到地图
       if (map) {
         trackInstance.addMap(map);
@@ -94,12 +121,17 @@ class TrackService {
   hideTrack(trackId: string, map?: L.Map) {
     const trackInstance = this.trackInstances.get(trackId);
     if (trackInstance) {
-      const trackLayer = trackInstance.getTrackLayer();
-      if (trackLayer && map?.hasLayer?.(trackLayer)) {
-        map.removeLayer(trackLayer);
+      if (map) {
+        const trackLayer = trackInstance.getTrackLayer(map);
+        if (trackLayer && map.hasLayer?.(trackLayer)) {
+          map.removeLayer(trackLayer);
+        }
       } else {
         trackInstance.getMapInstances().forEach(map => {
-          map.removeLayer(trackLayer);
+          const trackLayer = trackInstance.getTrackLayer(map);
+          if (trackLayer && map.hasLayer?.(trackLayer)) {
+            map.removeLayer(trackLayer);
+          }
         });
       }
     }
@@ -111,16 +143,12 @@ class TrackService {
    */
   hideAllTracks(map: L.Map) {
     this.getInstances().forEach(trackInstance => {
-      const trackLayer = trackInstance.getTrackLayer();
+      const trackLayer = trackInstance.getTrackLayer(map);
       if (trackLayer && map?.hasLayer?.(trackLayer)) {
         map.removeLayer(trackLayer);
       }
       // 如果轨迹实例内部的mapInstances中有这个地图，也要从中移除
-      const mapInstances = trackInstance.getMapInstances();
-      const index = mapInstances.indexOf(map);
-      if (index !== -1) {
-        mapInstances.splice(index, 1);
-      }
+      trackInstance.removeMap(map);
     });
   }
 
@@ -132,12 +160,11 @@ class TrackService {
   showTrack(trackId: string, map?: L.Map) {
     const trackInstance = this.trackInstances.get(trackId);
     if (trackInstance) {
-      const trackLayer = trackInstance.getTrackLayer();
       if (map) {
-        map.addLayer(trackLayer);
+        trackInstance.addMap(map);
       } else {
         trackInstance.getMapInstances().forEach(map => {
-          map.addLayer(trackLayer);
+          trackInstance.addMap(map);
         })
       }
     }
@@ -148,11 +175,11 @@ class TrackService {
    * @param {string} trackId - 轨迹ID
    */
   deleteTrack(trackId: string) {
+    this.clearDestroyTimer(trackId);
     const trackInstance = this.trackInstances.get(trackId);
     if (trackInstance) {
-      const trackLayer = trackInstance.getTrackLayer();
-      trackInstance.getMapInstances().forEach(map => {
-        map.removeLayer(trackLayer);
+      trackInstance.getMapInstances().slice().forEach(map => {
+        trackInstance.removeMap(map);
       });
       this.trackInstances.delete(trackId);
     }
@@ -162,10 +189,11 @@ class TrackService {
    * @description: 删除所有轨迹，清空所有地图上的轨迹图层并清空实例
    */
   deleteAllTracks() {
+    this.destroyTimers.forEach((timer) => clearTimeout(timer));
+    this.destroyTimers.clear();
     this.getInstances().forEach(trackInstance => {
-      const trackLayer = trackInstance.getTrackLayer();
-      trackInstance.getMapInstances().forEach(map => {
-        map.removeLayer(trackLayer);
+      trackInstance.getMapInstances().slice().forEach(map => {
+        trackInstance.removeMap(map);
       });
     });
     this.trackInstances.clear();
@@ -178,13 +206,14 @@ class TrackService {
    */
   deleteTracksInMap(map: L.Map) {
     this.getInstances().forEach(trackInstance => {
-      const trackLayer = trackInstance.getTrackLayer();
+      const trackLayer = trackInstance.getTrackLayer(map);
       if (trackLayer && map.hasLayer?.(trackLayer)) {
         map.removeLayer(trackLayer);
       }
-      // 如果轨迹不在任何地图上，从实例中删除
+      trackInstance.removeMap(map);
+      // 两个地图都移除后，延迟销毁，避免快速切换时重复创建实例
       if (trackInstance.getMapInstances().length === 0) {
-        this.trackInstances.delete(trackInstance.getTrackId());
+        this.scheduleDestroy(trackInstance.getTrackId());
       }
     });
   }
@@ -246,14 +275,18 @@ class TrackInstance {
 
   // 轨迹ID，使用文件名
   private trackId: string;
-  // 轨迹图层实例
-  private trackLayer: L.GPX;
+  // 默认轨迹图层实例（兼容旧接口）
+  private trackLayer: L.GPX | undefined;
+  // 每个地图维护独立图层，避免同一图层在不同地图间互相影响
+  private layerByMap: WeakMap<L.Map, L.GPX> = new WeakMap();
   // 轨迹统计信息
   private trackInfo: Partial<TrackInfo> = {};
   // 地图实例数组
   private mapInstances: L.Map[] = [];
   // 待处理的回调函数（在轨迹信息加载完成前调用）
   private pendingCallbacks: ((trackInfo: any) => void)[] = [];
+  private options: any;
+  private convertedGpx = '';
 
   private hashTrackId(seed: string) {
     let hash = 0;
@@ -280,46 +313,54 @@ class TrackInstance {
   constructor(file: File, maps: L.Map[] = [], options: any = defaultOptions) {
 
     this.trackId = file.name;
+    this.options = options;
     this.mapInstances.push(...maps.filter((map): map is L.Map => !!map));
 
     // 异步读取并解析GPX文件
     this.readFileAsText(file).then((fileContent) => {
       // 将WGS84坐标转换为GCJ02坐标
-      const convertedGpx = this.convertGpxCoordinates(fileContent);
-      this.trackLayer = new L.GPX(convertedGpx, options);
-
-      this.trackLayer.on('addpoint', (e: any) => {
-        if (!e?.point || (e.point_type !== 'start' && e.point_type !== 'end')) {
-          return;
-        }
-        this.disambiguateEdgeMarker(e.point, e.point_type);
-      });
-
-      // 轨迹图层添加到地图时触发
-      this.trackLayer.on('add', () => {
-        this.setTrackInfo(this.trackLayer);
-        // 触发自定义事件，通知轨迹信息已加载
-        this.trackLayer.fire('trackInfoLoaded', { trackInfo: this.trackInfo });
-        console.log('轨迹图层已添加到地图', this.trackInfo);
-      });
-
-      // 鼠标悬停时显示轨迹信息
-      this.trackLayer.on("mouseover", () => {
-        const info = this.getTrackInfo();
-        const infoStr = JSON.stringify(info);
-        console.log('鼠标悬停在轨迹上，显示轨迹信息', infoStr);
-      });
+      this.convertedGpx = this.convertGpxCoordinates(fileContent);
 
       // 添加到已存在的地图
       this.mapInstances.forEach(map => {
-        map && this.trackLayer.addTo(map);
+        if (map) {
+          this.addMap(map);
+        }
       });
 
-      // 处理所有待处理的回调
-      this.pendingCallbacks.forEach(cb => cb(this.trackInfo));
-      this.pendingCallbacks = [];
-
     })
+  }
+
+  private createLayerForMap() {
+    const layer = new L.GPX(this.convertedGpx, this.options);
+
+    layer.on('addpoint', (e: any) => {
+      if (!e?.point || (e.point_type !== 'start' && e.point_type !== 'end')) {
+        return;
+      }
+      this.disambiguateEdgeMarker(e.point, e.point_type);
+    });
+
+    // 首次加载到地图时提取轨迹信息，并释放等待队列
+    layer.on('add', () => {
+      if (!this.trackInfo.name) {
+        this.setTrackInfo(layer);
+        this.pendingCallbacks.forEach(cb => cb(this.trackInfo));
+        this.pendingCallbacks = [];
+      }
+      console.log('轨迹图层已添加到地图', this.trackInfo);
+    });
+
+    layer.on('mouseover', () => {
+      const info = this.getTrackInfo();
+      const infoStr = JSON.stringify(info);
+      console.log('鼠标悬停在轨迹上，显示轨迹信息', infoStr);
+    });
+
+    if (!this.trackLayer) {
+      this.trackLayer = layer;
+    }
+    return layer;
   }
 
   /**
@@ -360,14 +401,19 @@ class TrackInstance {
     if (!this.mapInstances.includes(map)) {
       this.mapInstances.push(map);
     }
-    // 轨迹图层是异步创建的，未就绪时先仅记录地图，待构造流程自动 addTo
-    if (!this.trackLayer) {
+    // 轨迹内容尚未就绪时先仅记录地图，待构造流程自动 addTo
+    if (!this.convertedGpx) {
       return
     }
-    if (!map.hasLayer(this.trackLayer)) {
-      map.addLayer(this.trackLayer);
-      // 手动触发add事件以便更新轨迹信息
-      this.trackLayer.fire('add');
+
+    let layer = this.layerByMap.get(map);
+    if (!layer) {
+      layer = this.createLayerForMap();
+      this.layerByMap.set(map, layer);
+    }
+
+    if (!map.hasLayer(layer)) {
+      map.addLayer(layer);
     }
   }
 
@@ -383,8 +429,24 @@ class TrackInstance {
    * @description: 获取轨迹图层实例
    * @return {L.GPX}
    */
-  getTrackLayer() {
+  getTrackLayer(map?: L.Map) {
+    if (map) {
+      return this.layerByMap.get(map);
+    }
     return this.trackLayer;
+  }
+
+  removeMap(map: L.Map) {
+    const layer = this.layerByMap.get(map);
+    if (layer && map.hasLayer(layer)) {
+      map.removeLayer(layer);
+    }
+    this.layerByMap.delete(map);
+
+    const index = this.mapInstances.indexOf(map);
+    if (index !== -1) {
+      this.mapInstances.splice(index, 1);
+    }
   }
 
   /**
@@ -412,13 +474,8 @@ class TrackInstance {
     if (this.trackInfo && this.trackInfo.name) {
       // 轨迹信息已加载，直接执行回调
       callback(this.trackInfo);
-    } else if (this.trackLayer) {
-      // 等待轨迹信息加载完成事件
-      this.trackLayer.once('trackInfoLoaded', (e: any) => {
-        callback(e.trackInfo);
-      });
     } else {
-      // 轨迹图层还未创建，加入待处理队列
+      // 轨迹信息尚未就绪，加入待处理队列
       this.pendingCallbacks.push(callback);
     }
   }
