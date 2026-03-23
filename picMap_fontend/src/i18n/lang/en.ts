@@ -190,6 +190,8 @@ export default {
     loadTrackFailed: 'Failed to load track!',
     deleteSuccess: 'Deleted successfully!',
     deleteFailed: 'Delete failed!',
+    updateSuccess: 'Updated successfully!',
+    updateFailed: 'Update failed!',
     trackExistConfirm: 'Same name track file already exists. Do you want to overwrite?',
     warning: 'Warning',
     searchPlaceholder: 'Search name or time'

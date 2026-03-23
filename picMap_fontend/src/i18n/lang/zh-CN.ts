@@ -189,6 +189,8 @@ export default {
     loadTrackFailed: '加载轨迹失败!',
     deleteSuccess: '删除成功!',
     deleteFailed: '删除失败!',
+    updateSuccess: '更新成功!',
+    updateFailed: '更新失败!',
     trackExistConfirm: '已存在同名文件，是否覆盖上传？',
     warning: '警告',
     searchPlaceholder: '搜索名称或时间'

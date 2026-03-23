@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 10:41:26
+ * @LastEditTime: 2026-03-23 16:24:24
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -116,7 +116,7 @@ import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
-import TrackUploadDialog from './TrackUploadDialog.vue'
+import TrackUploadDialog from '../trackUpload/TrackUploadDialog.vue'
 import LocateDialog from './LocateDialog.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import { ImageType } from '@/type/image'

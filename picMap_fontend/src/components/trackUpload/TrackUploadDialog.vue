@@ -2,12 +2,13 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 12:56:57
- * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\TrackUploadDialog.vue
+ * @LastEditTime: 2026-03-23 16:24:11
+ * @FilePath: \PicMap\picMap_fontend\src\components\trackUpload\TrackUploadDialog.vue
  * @Description: 轨迹上传弹窗组件
 -->
 <template>
-  <el-dialog :append-to-body="true" :z-index="9999" v-model="dialogVisible" :title="$t('uploadTrack')" width="80vw" height="80vh">
+  <el-dialog :append-to-body="true" :z-index="1000" v-model="dialogVisible" :title="$t('uploadTrack')" width="80vw"
+    height="80vh">
     <div class="track-upload-content">
       <div class="input-search-box">
         <!-- 搜索框 -->
@@ -20,24 +21,9 @@
         </el-upload>
       </div>
       <div class="content-box">
-        <div class="table">
-          <!-- 轨迹信息表格，支持单选 highlight-current-row -->
-          <el-table :data="filteredTableData" highlight-current-row show-overflow-tooltip height="50vh"
-            @current-change="handleRowChange" ref="tableRef" :row-style="{ height: '35px' }" :row-class-name="tableRowClassName">
-            <el-table-column prop="name" :label="$t('name')" width="150" />
-            <el-table-column prop="distance" :label="$t('distance')" width="100" />
-            <el-table-column prop="startTime" :label="$t('startTime')" width="160" />
-            <el-table-column prop="endTime" :label="$t('endTime')" width="160" />
-            <el-table-column :label="$t('actions')" width="80">
-              <template #default="{ row }">
-                <!-- 未上传的行显示上传按钮，已上传的行显示删除按钮 -->
-                <el-button v-if="!row.uploaded" type="primary" size="small" @click="uploadRow(row)">{{ $t('upload')
-                  }}</el-button>
-                <el-button v-else type="danger" size="small" @click="deleteRow(row)">{{ $t('delete') }}</el-button>
-              </template>
-            </el-table-column>
-          </el-table>
-        </div>
+        <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
+          :current-row-id="currentRow?.id" @row-change="handleRowChange" @group-change="handleGroupChange"
+          @upload-row="uploadRow" @delete-row="deleteRow" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef"></MapComponent>
@@ -58,8 +44,10 @@ import { formatDate } from '@/utils/date'
 import mapService from '@/services/map'
 import trackApi from '@/http/modules/track'
 import MapComponent from '@/components/map/Map.vue'
+import TrackUploadTable from './TrackUploadTable.vue'
 import { useSchemaStore } from '@/store/schema'
 import type { ITrackInfo } from '@/type/schema'
+import { getGroupIdAndNameLists, updateGroupInfoToSchema } from '@/utils/group'
 
 const { t } = useI18n()
 const schemaStore = useSchemaStore()
@@ -77,6 +65,11 @@ const currentRow = ref<TrackData | null>(null)
 const tableRef = ref<any>(null)
 // 搜索关键词
 const searchKeyword = ref('')
+
+const groupList = computed(() => {
+  const res = getGroupIdAndNameLists();
+  return res
+})
 
 // 过滤后的表格数据
 const filteredTableData = computed(() => {
@@ -105,11 +98,21 @@ watch(dialogVisible, (val) => {
  */
 function loadTableDataFromSchema() {
   const trackInfoList = schemaStore.getSchema.trackInfo || []
-  tableData.value = trackInfoList.map((trackInfo: ITrackInfo) => ({
-    ...formatTrackInfo(trackInfo),
-    uploaded: true,
-    file: null
-  }))
+  const groupInfoList = schemaStore.getGroupInfo
+  tableData.value = trackInfoList.map((trackInfo: ITrackInfo) => {
+    const groupIds: string[] = []
+    groupInfoList.forEach(group => {
+      if (group.trackNumbers?.includes(trackInfo.id)) {
+        groupIds.push(group.id)
+      }
+    })
+    return {
+      ...formatTrackInfo(trackInfo),
+      uploaded: true,
+      file: null,
+      groupIds
+    }
+  })
   // 如果有数据，自动选中第一行并加载轨迹到地图
   if (tableData.value.length > 0) {
     nextTick(() => {
@@ -137,11 +140,6 @@ type TrackData = {
 
 // 表格数据
 const tableData = ref<TrackData[]>([])
-
-// 表格行样式类名，当前选中行更显眼
-function tableRowClassName({ row }: { row: TrackData }) {
-  return currentRow.value?.id === row.id ? 'current-row-highlight' : ''
-}
 
 /**
  * @description: 处理表格行选中事件，选中已上传的轨迹时加载到地图
@@ -354,6 +352,36 @@ async function deleteRow(row: TrackData) {
 }
 
 /**
+ * @description: 处理轨迹分组变化
+ */
+async function handleGroupChange(row: TrackData) {
+  try {
+    const groupInfoList = schemaStore.getGroupInfo
+    const selectedGroupIds = row.groupIds || []
+
+    for (const group of groupInfoList) {
+      const hasTrack = group.trackNumbers?.includes(row.id) || false
+      const isSelected = selectedGroupIds.includes(group.id)
+
+      if (hasTrack && !isSelected) {
+        group.trackNumbers = group.trackNumbers?.filter(id => id !== row.id) || []
+        await updateGroupInfoToSchema(group.id, group)
+      } else if (!hasTrack && isSelected) {
+        if (!group.trackNumbers) {
+          group.trackNumbers = []
+        }
+        group.trackNumbers.push(row.id)
+        await updateGroupInfoToSchema(group.id, group)
+      }
+    }
+    ElMessage.success(t('description.updateSuccess'))
+  } catch (error) {
+    console.error('更新轨迹分组失败:', error)
+    ElMessage.error(t('description.updateFailed'))
+  }
+}
+
+/**
  * @description: 关闭弹窗，重置状态
  */
 function cancel() {
@@ -375,27 +403,36 @@ function cancel() {
   display: flex;
   flex-direction: column;
   height: 100%;
-  /* width: 100%; */
+  min-height: 0;
 }
 
 .input-search-box {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 20px;
+  margin-bottom: 10px;
 }
 
 .content-box {
   display: flex;
   gap: 20px;
   flex: 1;
+  min-height: 0;
 }
 
 .table {
-  /* flex: 1; */
+  flex: 0 0 58%;
+  min-width: 560px;
   overflow-y: auto;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 8px;
 }
 
 .search-input {
-  margin-bottom: 10px;
+  margin-bottom: 0;
   width: 300px;
 }
 
@@ -411,14 +448,35 @@ function cancel() {
 }
 
 .track-map-container {
-  flex: 1;
+  flex: 1 1 42%;
+  min-width: 320px;
   overflow: hidden;
-  height: 48vh;
-  margin-top: 15px;
+  height: 54vh;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  background: #fff;
 }
 
 :deep(.current-row-highlight>td) {
   background-color: #66b1ff !important;
   color: #fff !important;
 }
+
+@media (max-width: 1280px) {
+  .content-box {
+    flex-direction: column;
+  }
+
+  .table,
+  .track-map-container {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .track-map-container {
+    height: 42vh;
+    margin-top: 0;
+  }
+}
+
 </style>

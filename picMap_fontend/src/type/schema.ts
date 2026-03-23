@@ -52,6 +52,7 @@ export type IGroupInfo = {
   id: string,
   GPSInfo: IGPSInfo,
   groupNumbers?: string[],
+  trackNumbers?: string[],
   visible?: boolean,
 }
 
