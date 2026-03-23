@@ -1,7 +1,7 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-22 23:17:51
+ * @LastEditTime: 2026-03-23 17:25:32
  * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
@@ -35,6 +35,7 @@ import { useAppStore } from '@/store/appSchema';
 import { useSchemaStore } from '@/store/schema';
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap';
 import trackService from '@/services/track';
+import trackApi from '@/http/modules/track';
 
 /**
  * 组件props：图片ID列表
@@ -135,6 +136,8 @@ async function initMap() {
   // 初始化标记
   await updateMarkers()
 
+  await updateTracks()
+
   // 修复地图在隐藏容器中初始化时瓦片不加载的问题
   invalidateMapSize()
 }
@@ -176,7 +179,10 @@ function fitAllBounds() {
   console.log('fitAllBounds allBounds count:', allBounds.length)
   if (allBounds.length > 0) {
     const bounds = L.latLngBounds(allBounds)
-    map.fitBounds(bounds, { padding: [50, 50] })
+    map.fitBounds(bounds, { padding: [10, 10] })
+  } else {
+    // 如果没有任何标记或轨迹，则使用默认中心和缩放级别
+    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
   }
 }
 
@@ -319,21 +325,9 @@ async function updateMarkers() {
     markers.push(marker)
   }
 
-  // 自动调整视图范围以显示所有图片
-  if (validImages.length > 0) {
-    const lats = validImages.map(img => img.lat)
-    const lngs = validImages.map(img => img.lng)
-    const bounds = L.latLngBounds([
-      [Math.min(...lats), Math.min(...lngs)],
-      [Math.max(...lats), Math.max(...lngs)]
-    ])
-    map.fitBounds(bounds, { padding: [50, 50] })
-  } else {
-    // 如果没有有效图片，设置默认视图
-    nextTick(() => {
-      map?.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
-    })
-  }
+  setTimeout(() => {
+    fitAllBounds()
+  }, 100)
 }
 
 /**
@@ -343,7 +337,68 @@ async function updateMarkers() {
 async function updateTracks() {
   if (!map) return
 
-  // TODO: 根据props.trackIds获取轨迹数据，并在地图上显示轨迹
+  const targetTrackIds = props.trackIds || []
+  const normalizedTargetIds = targetTrackIds.map(id => normalizeTrackId(id))
+
+  // 先隐藏不在目标列表中的轨迹
+  trackService.getInstances().forEach(instance => {
+    const trackLayer = instance.getTrackLayer()
+    if (!trackLayer) return
+    const isTarget = normalizedTargetIds.includes(normalizeTrackId(instance.getTrackId()))
+    if (!isTarget && map?.hasLayer(trackLayer)) {
+      map.removeLayer(trackLayer)
+    }
+  })
+
+  // 再确保目标轨迹都已加载并显示到当前地图
+  for (const trackId of targetTrackIds) {
+    const instance = await ensureTrackLoaded(trackId)
+    if (instance) {
+      instance.addMap(map)
+    }
+  }
+
+  setTimeout(() => {
+    fitAllBounds()
+  }, 100)
+}
+
+function normalizeTrackId(trackId: string) {
+  return trackId.replace(/\.gpx$/i, '').toLowerCase()
+}
+
+function getTrackInstance(trackId: string) {
+  const direct = trackService.getTrackInstanceById(trackId)
+  if (direct) return direct
+
+  const withSuffix = `${normalizeTrackId(trackId)}.gpx`
+  const bySuffix = trackService.getTrackInstanceById(withSuffix)
+  if (bySuffix) return bySuffix
+
+  const normalized = normalizeTrackId(trackId)
+  return trackService.getInstances().find(instance => normalizeTrackId(instance.getTrackId()) === normalized)
+}
+
+async function ensureTrackLoaded(trackId: string) {
+  const existing = getTrackInstance(trackId)
+  if (existing) return existing
+
+  try {
+    const res = await trackApi.getTrack(trackId)
+    const payload = (res as any)?.data?.code !== undefined ? (res as any).data : res
+    const fileContent = payload?.data?.fileContent || payload?.fileContent
+    if (!fileContent) {
+      return undefined
+    }
+    const fileName = trackId.includes('.gpx') ? trackId : `${trackId}.gpx`
+    const file = new File([new Blob([fileContent], { type: 'application/gpx+xml' })], fileName, {
+      type: 'application/gpx+xml'
+    })
+    return trackService.activeTrack(file)
+  } catch (error) {
+    console.error('加载轨迹失败:', trackId, error)
+    return undefined
+  }
 }
 
 // 监听图片ID变化，更新标记
@@ -354,7 +409,7 @@ watch(() => props.imageIds, () => {
 // 监听轨迹ID变化，更新轨迹显示
 watch(() => props.trackIds, () => {
   updateTracks()
-}, { deep: true })
+}, { deep: true, immediate: true })
 
 // 组件挂载时初始化地图
 onMounted(() => {

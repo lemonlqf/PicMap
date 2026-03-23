@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-19 11:32:49
+ * @LastEditTime: 2026-03-23 16:31:44
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\GroupDetail.vue
  * @Description: 分组详情组件
  *   - 展示分组中的图片列表
@@ -13,7 +13,7 @@
   <div class="flex-box">
     <!-- 小地图：使用与主地图相同的瓦片 -->
     <div class="img-map">
-      <MapComponent :image-ids="groupNumbers" @marker-click="handleMarkerClick" />
+      <MapComponent :image-ids="groupNumbers" :track-ids="trackNumbers" @marker-click="handleMarkerClick" />
     </div>
     <!-- 图片列表 -->
     <el-scrollbar style="width: 100%" :max-height="height">
@@ -68,10 +68,17 @@ const imageInfo = ref()
 const groupNumbers = computed(() => {
   const markerId = props.groupId
   const groupNumbers = getGroupInfoByGroupId(markerId)?.groupNumbers ?? []
-  if (groupNumbers.length === 0) {
-    eventBus.emit('drawer-hidden')
-  }
+  // if (groupNumbers.length === 0) {
+  //   eventBus.emit('drawer-hidden')
+  // }
   return groupNumbers
+})
+
+const trackNumbers = computed(() => {
+  const markerId = props.groupId
+  const trackNumbers = getGroupInfoByGroupId(markerId)?.trackNumbers ?? []
+  console.log('trackNumbers', trackNumbers)
+  return trackNumbers
 })
 
 /**

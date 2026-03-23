@@ -26,7 +26,7 @@
           @upload-row="uploadRow" @delete-row="deleteRow" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
-          <MapComponent ref="trackMapRef"></MapComponent>
+          <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
         </div>
       </div>
     </div>
@@ -35,14 +35,11 @@
 
 <script lang="ts" setup>
 import { ref, watch, nextTick, computed } from 'vue'
-import { Document } from '@element-plus/icons-vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import trackService from '@/services/track'
 import { updateTrackSchema, deleteTrackFromSchema, formatTrackInfo, formatDistance } from '@/utils/track'
 import { formatDate } from '@/utils/date'
-import mapService from '@/services/map'
-import trackApi from '@/http/modules/track'
 import MapComponent from '@/components/map/Map.vue'
 import TrackUploadTable from './TrackUploadTable.vue'
 import { useSchemaStore } from '@/store/schema'
@@ -61,6 +58,8 @@ const trackFileList = ref<any[]>([])
 const trackMapRef = ref<any>(null)
 // 当前选中的行数据
 const currentRow = ref<TrackData | null>(null)
+// 当前地图应显示的轨迹ID
+const activeTrackIds = ref<string[]>([])
 // 表格组件引用
 const tableRef = ref<any>(null)
 // 搜索关键词
@@ -118,11 +117,11 @@ function loadTableDataFromSchema() {
     nextTick(() => {
       const firstRow = tableData.value[0]
       currentRow.value = firstRow
+      activeTrackIds.value = [firstRow.id]
       tableRef.value?.setCurrentRow(firstRow)
-      if (firstRow.uploaded) {
-        loadTrackToMap(firstRow)
-      }
     })
+  } else {
+    activeTrackIds.value = []
   }
 }
 
@@ -146,61 +145,8 @@ const tableData = ref<TrackData[]>([])
  */
 async function handleRowChange(row: TrackData | null) {
   currentRow.value = row
-  // 当选中行有文件（未上传）或者已上传时，都在地图上显示轨迹
-  if (row && (row.file || row.uploaded)) {
-    await loadTrackToMap(row)
-  }
-}
-
-/**
- * @description: 从后端加载轨迹文件并在地图上显示
- */
-async function loadTrackToMap(row: TrackData) {
-  try {
-    const mapInstance = trackMapRef.value?.getMapInstance()
-    if (!mapInstance) {
-      console.error('mapInstance is undefined or null')
-      return
-    }
-
-    console.log('loadTrackToMap row.id:', row.id, 'mapInstance:', mapInstance)
-
-    // 不清除轨迹实例，而是隐藏原来有的轨迹实例
-    trackService.hideAllTracks(mapInstance)
-
-    // 根据id获取轨迹实例，如果有的话，将轨迹实例添加到地图上，如果没有实例的话则请求后端
-    const existingInstance = trackService.getTrackInstanceById(row.id)
-    console.log('existingInstance:', existingInstance)
-    if (existingInstance) {
-      console.log('calling existingInstance.addMap with mapInstance:', mapInstance)
-      existingInstance.addMap(mapInstance)
-      setTimeout(() => {
-        trackMapRef.value?.fitAllBounds()
-        mapInstance.invalidateSize()
-      }, 100)
-      return
-    }
-
-    // 从后端获取轨迹文件
-    const res = await trackApi.getTrack(row.id)
-    if (res.code === 200 && res.data.fileContent) {
-      const gpxContent = res.data.fileContent
-      const blob = new Blob([gpxContent], { type: 'application/gpx+xml' })
-      const fileName = row.id.includes('.gpx') ? row.id : `${row.id}.gpx`
-      const file = new File([blob], fileName, { type: 'application/gpx+xml' })
-      const trackInstance = trackService.activeTrack(file, mapInstance)
-      // 等待轨迹信息加载完成后适配边界
-      trackInstance.onTrackInfoReady(() => {
-        setTimeout(() => {
-          trackMapRef.value?.fitAllBounds()
-          mapInstance.invalidateSize()
-        }, 100)
-      })
-    }
-  } catch (error) {
-    console.error('加载轨迹失败:', error)
-    ElMessage.error(t('description.loadTrackFailed'))
-  }
+  // 仅通过trackIds驱动地图轨迹显示
+  activeTrackIds.value = row && (row.file || row.uploaded) ? [row.id] : []
 }
 
 /**
@@ -208,8 +154,7 @@ async function loadTrackToMap(row: TrackData) {
  */
 async function handleTrackFileChange(file: any) {
   if (file.raw) {
-    const mapInstance = trackMapRef.value?.getMapInstance()
-    const trackInstance = trackService.activeTrack(file.raw, mapInstance)
+    const trackInstance = trackService.activeTrack(file.raw)
     const id = trackInstance.getTrackId()
 
     // 检查schema中是否已存在该轨迹
@@ -259,9 +204,14 @@ async function handleTrackFileChange(file: any) {
       }
       tableData.value.unshift(newRow)
       currentRow.value = newRow
+      activeTrackIds.value = [newRow.id]
       nextTick(() => {
         tableRef.value?.setCurrentRow(newRow)
       })
+    }
+
+    if (existingRow) {
+      activeTrackIds.value = [existingRow.id]
     }
 
     // 等待轨迹信息加载完成后更新表格数据和适配边界
@@ -276,7 +226,7 @@ async function handleTrackFileChange(file: any) {
       // 轨迹信息加载完成后适配边界
       setTimeout(() => {
         trackMapRef.value?.fitAllBounds()
-        mapInstance?.invalidateSize()
+        trackMapRef.value?.getMapInstance()?.invalidateSize()
       }, 100)
     })
   }
@@ -294,9 +244,12 @@ function handleFileRemove(file: any) {
     if (wasSelected && tableData.value.length > 0) {
       const newSelectedRow = tableData.value[0]
       currentRow.value = newSelectedRow
+      activeTrackIds.value = [newSelectedRow.id]
       nextTick(() => {
         tableRef.value?.setCurrentRow(newSelectedRow)
       })
+    } else if (wasSelected) {
+      activeTrackIds.value = []
     }
   }
 }
@@ -340,9 +293,12 @@ async function deleteRow(row: TrackData) {
     if (currentRow.value?.id === row.id && tableData.value.length > 0) {
       const newSelectedRow = tableData.value[0]
       currentRow.value = newSelectedRow
+      activeTrackIds.value = [newSelectedRow.id]
       nextTick(() => {
         tableRef.value?.setCurrentRow(newSelectedRow)
       })
+    } else if (currentRow.value?.id === row.id) {
+      activeTrackIds.value = []
     }
     ElMessage.success(t('description.deleteSuccess'))
   } catch (error) {
@@ -388,11 +344,7 @@ function cancel() {
   dialogVisible.value = false
   trackFileList.value = []
   searchKeyword.value = ''
-  // 清空弹窗地图上的所有轨迹（保留实例）
-  const mapInstance = trackMapRef.value?.getMapInstance()
-  if (mapInstance) {
-    trackService.hideAllTracks(mapInstance)
-  }
+  activeTrackIds.value = []
   // 只保留已上传的数据
   tableData.value = tableData.value.filter(row => row.uploaded)
 }
