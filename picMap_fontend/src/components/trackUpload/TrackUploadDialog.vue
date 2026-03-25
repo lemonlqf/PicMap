@@ -2,13 +2,13 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-25 17:17:46
+ * @LastEditTime: 2026-03-25 19:10:04
  * @FilePath: \PicMap\picMap_fontend\src\components\trackUpload\TrackUploadDialog.vue
  * @Description: 轨迹上传弹窗组件
 -->
 <template>
   <el-dialog :append-to-body="true" :z-index="1000" v-model="dialogVisible" :title="$t('uploadTrack')" width="80vw"
-    height="80vh">
+    height="80vh" :before-close="handleBeforeClose">
     <div class="track-upload-content">
       <div class="input-search-box">
         <!-- 搜索框 -->
@@ -384,14 +384,39 @@ async function handleColorChange(row: TrackData) {
 }
 
 /**
- * @description: 关闭弹窗，重置状态
+ * @description: 关闭弹窗前检查是否有未上传的数据
  */
-function cancel() {
-  dialogVisible.value = false
+async function handleBeforeClose(done: () => void) {
+  const hasUnuploadedData = tableData.value.some(row => !row.uploaded)
+  if (hasUnuploadedData) {
+    try {
+      await ElMessageBox.confirm(
+        t('description.closeUploadTrackConfirm'),
+        t('description.warning'),
+        {
+          confirmButtonText: t('confirm'),
+          cancelButtonText: t('cancel'),
+          type: 'warning'
+        }
+      )
+      resetState()
+      done()
+    } catch {
+      // 用户取消，阻止关闭
+    }
+  } else {
+    resetState()
+    done()
+  }
+}
+
+/**
+ * @description: 重置弹窗状态
+ */
+function resetState() {
   trackFileList.value = []
   searchKeyword.value = ''
   activeTrackIds.value = []
-  // 只保留已上传的数据
   tableData.value = tableData.value.filter(row => row.uploaded)
 }
 </script>

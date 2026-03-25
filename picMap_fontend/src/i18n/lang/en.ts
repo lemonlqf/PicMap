@@ -194,6 +194,7 @@ export default {
     updateSuccess: 'Updated successfully!',
     updateFailed: 'Update failed!',
     trackExistConfirm: 'Same name track file already exists. Do you want to overwrite?',
+    closeUploadTrackConfirm: 'There are unuploaded track data. Closing will lose this data. Are you sure you want to close?',
     warning: 'Warning',
     searchPlaceholder: 'Search name or time'
   },

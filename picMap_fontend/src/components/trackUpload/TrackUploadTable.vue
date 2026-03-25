@@ -1,7 +1,7 @@
 <template>
   <el-table ref="innerTableRef" :data="data" highlight-current-row show-overflow-tooltip height="50vh"
     @current-change="handleCurrentChange" :row-style="{ height: '35px' }" :row-class-name="tableRowClassName">
-    <el-table-column prop="name" :label="$t('name')" width="150" />
+    <el-table-column prop="name" :label="$t('name')" width="150" fixed="left" />
     <el-table-column prop="distance" :label="$t('distance')" width="100" />
     <el-table-column prop="startTime" :label="$t('startTime')" width="160" />
     <el-table-column prop="endTime" :label="$t('endTime')" width="160" />
@@ -25,7 +25,7 @@
         </div>
       </template>
     </el-table-column>
-    <el-table-column :label="$t('actions')" width="80">
+    <el-table-column :label="$t('actions')" width="80" fixed="right">
       <template #default="{ row }">
         <el-button v-if="!row.uploaded" type="primary" size="small" @click="emit('upload-row', row)">
           {{ $t('upload') }}
