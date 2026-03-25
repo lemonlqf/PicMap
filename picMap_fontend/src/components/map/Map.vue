@@ -387,6 +387,13 @@ async function updateTracks() {
     const instance = await ensureTrackLoaded(trackId)
     if (instance) {
       instance.addMap(map)
+      // 根据轨迹ID查找schema中的轨迹信息，获取配置的颜色
+      const normalizedTrackId = normalizeTrackId(trackId)
+      const trackInfo = schemaStore.getSchema.trackInfo?.find((t: any) => normalizeTrackId(t.id) === normalizedTrackId)
+      // 如果轨迹配置了颜色，则应用颜色到地图上的轨迹线
+      if (trackInfo?.setting?.lineColor) {
+        trackService.updateTrackColor(trackId, trackInfo.setting.lineColor)
+      }
     }
   }
 

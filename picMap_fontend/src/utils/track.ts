@@ -26,9 +26,10 @@ export async function updateTrackSchema(fileName: string) {
   const intances = trackService.getInstances()
   console.log('track instances:', intances)
   const trackInfo = trackService.getTrackInstanceById(fileName)?.getTrackInfo()
+  const existingSetting = existIndex >= 0 ? tracksInfo[existIndex].setting : undefined
   if (existIndex >= 0) {
-    // 存在相同id则覆盖
-    tracksInfo[existIndex] = { id: fileName, ...trackInfo }
+    // 存在相同id则覆盖，但保留setting字段
+    tracksInfo[existIndex] = { id: fileName, ...trackInfo, setting: existingSetting }
   } else {
     // 不存在则添加新对象
     tracksInfo.push({ id: fileName, ...trackInfo })

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 16:24:11
+ * @LastEditTime: 2026-03-25 17:01:48
  * @FilePath: \PicMap\picMap_fontend\src\components\trackUpload\TrackUploadDialog.vue
  * @Description: 轨迹上传弹窗组件
 -->
@@ -23,7 +23,7 @@
       <div class="content-box">
         <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
           :current-row-id="currentRow?.id" @row-change="handleRowChange" @group-change="handleGroupChange"
-          @upload-row="uploadRow" @delete-row="deleteRow" />
+          @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
@@ -45,6 +45,7 @@ import TrackUploadTable from './TrackUploadTable.vue'
 import { useSchemaStore } from '@/store/schema'
 import type { ITrackInfo } from '@/type/schema'
 import { getGroupIdAndNameLists, updateGroupInfoToSchema } from '@/utils/group'
+import { editSchemaAttrAndSave } from '@/utils/schema'
 
 const { t } = useI18n()
 const schemaStore = useSchemaStore()
@@ -109,7 +110,8 @@ function loadTableDataFromSchema() {
       ...formatTrackInfo(trackInfo),
       uploaded: true,
       file: null,
-      groupIds
+      groupIds,
+      setting: trackInfo.setting || {}
     }
   })
   // 如果有数据，自动选中第一行并加载轨迹到地图
@@ -333,6 +335,31 @@ async function handleGroupChange(row: TrackData) {
     ElMessage.success(t('description.updateSuccess'))
   } catch (error) {
     console.error('更新轨迹分组失败:', error)
+    ElMessage.error(t('description.updateFailed'))
+  }
+}
+
+/**
+ * @description: 处理轨迹颜色变化
+ * 当用户在颜色选择器中选择新颜色时调用，同时保存到schema并更新地图上轨迹的颜色
+ * @param {TrackData} row - 轨迹行数据，包含id和setting.lineColor
+ */
+async function handleColorChange(row: TrackData) {
+  try {
+    const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
+    const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
+    if (trackIndex >= 0) {
+      if (!trackInfoList[trackIndex].setting) {
+        trackInfoList[trackIndex].setting = {}
+      }
+      trackInfoList[trackIndex].setting!.lineColor = row.setting?.lineColor
+      // 保存到schema持久化
+      await editSchemaAttrAndSave('trackInfo', trackInfoList)
+      // 更新地图上轨迹的颜色
+      trackService.updateTrackColor(row.id, row.setting?.lineColor || '')
+    }
+  } catch (error) {
+    console.error('更新轨迹颜色失败:', error)
     ElMessage.error(t('description.updateFailed'))
   }
 }

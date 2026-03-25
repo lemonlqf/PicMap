@@ -200,6 +200,18 @@ class TrackService {
   }
 
   /**
+   * @description: 更新轨迹颜色
+   * @param {string} trackId - 轨迹ID
+   * @param {string} color - 颜色值
+   */
+  updateTrackColor(trackId: string, color: string) {
+    const trackInstance = this.trackInstances.get(trackId);
+    if (trackInstance) {
+      trackInstance.setLineColor(color);
+    }
+  }
+
+  /**
    * @description: 从指定地图删除所有轨迹图层
    * 如果轨迹不在任何地图上则从实例中删除
    * @param {L.Map} map - 地图实例
@@ -287,6 +299,8 @@ class TrackInstance {
   private pendingCallbacks: ((trackInfo: any) => void)[] = [];
   private options: any;
   private convertedGpx = '';
+  // 轨迹线颜色，用于创建图层时和应用到已有图层
+  private lineColor: string | undefined;
 
   private hashTrackId(seed: string) {
     let hash = 0;
@@ -295,6 +309,43 @@ class TrackInstance {
       hash |= 0;
     }
     return Math.abs(hash);
+  }
+
+  /**
+   * @description: 获取创建GPX图层时的选项，如果设置了lineColor则应用颜色
+   * @return {*} 包含轨迹线颜色的选项对象
+   */
+  private getLayerOptions() {
+    const options = { ...this.options };
+    if (this.lineColor) {
+      options.polyline_options = {
+        ...options.polyline_options,
+        color: this.lineColor
+      };
+    }
+    return options;
+  }
+
+  /**
+   * @description: 设置轨迹线颜色
+   * 如果颜色已设置，会遍历所有地图实例上的轨迹图层并更新颜色
+   * @param {string | undefined} color - 十六进制颜色值，如 '#FF6B6B'
+   */
+  setLineColor(color: string | undefined) {
+    this.lineColor = color;
+    if (color) {
+      this.mapInstances.forEach((mapInstance) => {
+        const gpxLayer = this.layerByMap.get(mapInstance);
+        if (gpxLayer) {
+          const layers = gpxLayer.getLayers();
+          layers.forEach((layer: any) => {
+            if (layer.setStyle) {
+              layer.setStyle({ color });
+            }
+          });
+        }
+      });
+    }
   }
 
   // 多条轨迹起终点重叠时，做极小偏移避免完全遮挡。
@@ -332,7 +383,8 @@ class TrackInstance {
   }
 
   private createLayerForMap() {
-    const layer = new L.GPX(this.convertedGpx, this.options);
+    const layerOptions = this.getLayerOptions();
+    const layer = new L.GPX(this.convertedGpx, layerOptions);
 
     layer.on('addpoint', (e: any) => {
       if (!e?.point || (e.point_type !== 'start' && e.point_type !== 'end')) {
@@ -463,6 +515,14 @@ class TrackInstance {
    */
   getTrackInfo() {
     return this.trackInfo;
+  }
+
+  /**
+   * @description: 获取轨迹线颜色
+   * @return {string | undefined}
+   */
+  getLineColor() {
+    return this.lineColor;
   }
 
   /**

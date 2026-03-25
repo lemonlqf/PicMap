@@ -35,7 +35,10 @@ export type ITrackInfo = {
   speedMax?: number,
   averageHr?: number,
   averageCadence?: number,
-  averageTemp?: number
+  averageTemp?: number,
+  setting?: {
+    lineColor?: string
+  }
 }
 
 export type IMapInfo = {

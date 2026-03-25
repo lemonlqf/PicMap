@@ -86,6 +86,7 @@ export default {
   uploadPicture: '点击上传图片',
   uploadTrack: '上传轨迹',
   trackManagement: '轨迹管理',
+  trackColor: '轨迹颜色',
   selectFile: '选择文件',
   fold: '折叠',
   expand: '展开',

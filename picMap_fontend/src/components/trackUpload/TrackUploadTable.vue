@@ -17,6 +17,15 @@
         <span v-else>-</span>
       </template>
     </el-table-column>
+    <el-table-column :label="$t('trackColor')" width="100">
+      <template #default="{ row }">
+        <div v-if="row.uploaded" class="color-picker-wrapper">
+          <ColorPicker v-if="row.setting" :pureColor="row.setting.lineColor"
+            @update:pureColor="(color: string) => { row.setting!.lineColor = color; emit('color-change', row) }" />
+        </div>
+        <span v-else>-</span>
+      </template>
+    </el-table-column>
     <el-table-column :label="$t('actions')" width="80">
       <template #default="{ row }">
         <el-button v-if="!row.uploaded" type="primary" size="small" @click="emit('upload-row', row)">
@@ -32,6 +41,8 @@
 
 <script lang="ts" setup>
 import { ref } from 'vue'
+import { ColorPicker } from 'vue3-colorpicker'
+import 'vue3-colorpicker/style.css'
 
 type TrackData = {
   id: string
@@ -42,6 +53,9 @@ type TrackData = {
   uploaded?: boolean
   file?: File | null
   groupIds?: string[]
+  setting?: {
+    lineColor?: string
+  }
   [key: string]: any
 }
 
@@ -61,6 +75,7 @@ const emit = defineEmits<{
   (e: 'upload-row', row: any): void
   (e: 'delete-row', row: any): void
   (e: 'group-change', row: any): void
+  (e: 'color-change', row: any): void
 }>()
 
 const innerTableRef = ref<any>(null)
@@ -89,6 +104,11 @@ defineExpose({
 
 :deep(.track-group-select .el-select__wrapper) {
   min-height: 28px;
+}
+
+.color-picker-wrapper {
+  display: flex;
+  align-items: center;
 }
 </style>
 
