@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-25 17:01:48
+ * @LastEditTime: 2026-03-25 17:17:46
  * @FilePath: \PicMap\picMap_fontend\src\components\trackUpload\TrackUploadDialog.vue
  * @Description: 轨迹上传弹窗组件
 -->
@@ -38,7 +38,7 @@ import { ref, watch, nextTick, computed } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import trackService from '@/services/track'
-import { updateTrackSchema, deleteTrackFromSchema, formatTrackInfo, formatDistance } from '@/utils/track'
+import { updateTrackSchema, deleteTrackFromSchema, formatTrackInfo, formatDistance, getDefaultLineColor } from '@/utils/track'
 import { formatDate } from '@/utils/date'
 import MapComponent from '@/components/map/Map.vue'
 import TrackUploadTable from './TrackUploadTable.vue'
@@ -111,7 +111,10 @@ function loadTableDataFromSchema() {
       uploaded: true,
       file: null,
       groupIds,
-      setting: trackInfo.setting || {}
+      setting: {
+        lineColor: getDefaultLineColor(),
+        ...trackInfo.setting
+      }
     }
   })
   // 如果有数据，自动选中第一行并加载轨迹到地图
@@ -185,7 +188,7 @@ async function handleTrackFileChange(file: any) {
     const existingRow = tableData.value.find(item => item.id === id && item.uploaded)
 
     if (existingRow) {
-      // 如果已存在，用新文件数据更新该行
+      // 如果已存在，用新文件数据更新该行，保留setting
       existingRow.file = file.raw
       existingRow.uploaded = false
       currentRow.value = existingRow
@@ -203,6 +206,10 @@ async function handleTrackFileChange(file: any) {
         endTime: '-',
         uploaded: false,
         file: file.raw,
+        setting: {
+          lineColor: getDefaultLineColor(),
+          ...existingTrack?.setting
+        },
       }
       tableData.value.unshift(newRow)
       currentRow.value = newRow
@@ -271,6 +278,18 @@ async function uploadRow(row: TrackData) {
     if (res.code === 200) {
       // 更新schema中的轨迹信息
       await updateTrackSchema(row.id)
+      // 如果行数据中有颜色设置，则保存到schema
+      if (row.setting?.lineColor) {
+        const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
+        const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
+        if (trackIndex >= 0) {
+          if (!trackInfoList[trackIndex].setting) {
+            trackInfoList[trackIndex].setting = {}
+          }
+          trackInfoList[trackIndex].setting!.lineColor = row.setting.lineColor
+          await editSchemaAttrAndSave('trackInfo', trackInfoList)
+        }
+      }
       row.uploaded = true
       row.file = null
       // 从上传列表中移除已上传的文件
@@ -355,9 +374,9 @@ async function handleColorChange(row: TrackData) {
       trackInfoList[trackIndex].setting!.lineColor = row.setting?.lineColor
       // 保存到schema持久化
       await editSchemaAttrAndSave('trackInfo', trackInfoList)
-      // 更新地图上轨迹的颜色
-      trackService.updateTrackColor(row.id, row.setting?.lineColor || '')
     }
+    // 更新地图上轨迹的颜色
+    trackService.updateTrackColor(row.id, row.setting?.lineColor || '')
   } catch (error) {
     console.error('更新轨迹颜色失败:', error)
     ElMessage.error(t('description.updateFailed'))
@@ -457,5 +476,4 @@ function cancel() {
     margin-top: 0;
   }
 }
-
 </style>

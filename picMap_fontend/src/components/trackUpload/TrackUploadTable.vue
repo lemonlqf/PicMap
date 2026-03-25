@@ -19,11 +19,10 @@
     </el-table-column>
     <el-table-column :label="$t('trackColor')" width="100">
       <template #default="{ row }">
-        <div v-if="row.uploaded" class="color-picker-wrapper">
-          <ColorPicker v-if="row.setting" :pureColor="row.setting.lineColor"
-            @update:pureColor="(color: string) => { row.setting!.lineColor = color; emit('color-change', row) }" />
+        <div class="color-picker-wrapper">
+          <ColorPicker :pureColor="row.setting?.lineColor"
+            @update:pureColor="(color: string) => { if (!row.setting) row.setting = {}; row.setting.lineColor = color; emit('color-change', row) }" />
         </div>
-        <span v-else>-</span>
       </template>
     </el-table-column>
     <el-table-column :label="$t('actions')" width="80">

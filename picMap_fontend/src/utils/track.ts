@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 15:13:18
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 10:22:19
+ * @LastEditTime: 2026-03-25 18:53:59
  * @FilePath: \PicMap\picMap_fontend\src\utils\track.ts
  * @Description: 轨迹相关的工具函数，用于更新和删除schema中的轨迹信息
  */
@@ -12,6 +12,31 @@ import trackService from '@/services/track'
 import trackApi from '@/http/modules/track'
 import type { ITrackInfo } from '@/type/schema'
 import { formatDate } from './date'
+
+export const colors = [
+  '#673bb7',
+  '#4caf50',
+  '#e91e63',
+  '#2196f3',
+  '#ff9800',
+  '#9c27b0',
+  '#f44336',
+  '#3f51b5',
+  '#009688',
+  '#ff5722'
+]
+
+/**
+ * @description: 随机获取默认轨迹线颜色，每次调用时会切换颜色，避免新添加的轨迹与已有轨迹颜色相同
+ * @param {boolean} changeColor - 是否切换颜色，默认为false，如果为true则切换到下一个颜色
+ * @return {*}
+ */
+export function getDefaultLineColor(changeColor: boolean = false): string {
+  changeColor && (getDefaultLineColor.index = getDefaultLineColor.index ? getDefaultLineColor.index + 1 : 1);
+  const index: number = getDefaultLineColor?.index
+  const color = colors[index % colors.length];
+  return color
+}
 
 /**
  * @description: 更新schema中的trackInfo

@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-18 16:11:31
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 21:35:18
+ * @LastEditTime: 2026-03-25 18:49:49
  * @FilePath: \PicMap\picMap_fontend\src\services\track.ts
  * @Description: 轨迹图层服务，管理轨迹的加载、显示、删除等操作
  */
@@ -10,6 +10,7 @@ import 'leaflet-gpx';
 import L from "leaflet";
 import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02';
 import trackApi from '@/http/modules/track';
+import { getDefaultLineColor } from '@/utils/track';
 
 const startIconUrl = new URL('../assets/icon/起点.png', import.meta.url).href;
 const endIconUrl = new URL('../assets/icon/终点.png', import.meta.url).href;
@@ -300,7 +301,7 @@ class TrackInstance {
   private options: any;
   private convertedGpx = '';
   // 轨迹线颜色，用于创建图层时和应用到已有图层
-  private lineColor: string | undefined;
+  private lineColor: string | undefined = getDefaultLineColor(true);
 
   private hashTrackId(seed: string) {
     let hash = 0;
