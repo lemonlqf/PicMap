@@ -28,15 +28,34 @@ const StreamZip = require('node-stream-zip')
  */
 router.post('/backup', async function (req, res, next) {
   try {
+    const { name } = req.body
+
     // 创建备份目录，如果不存在则创建
     const backupDir = path.join(archiveDirectory, '..', 'PicMap_Backup')
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true })
     }
 
-    // 生成备份文件名，使用时间戳命名
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
-    const backupFileName = `PicMap_Backup_${timestamp}.zip`
+    // 生成备份文件名
+    let backupFileName
+    if (name && name.trim()) {
+      // 使用用户提供的名称，但需要确保是有效的文件名
+      const sanitizedName = name.trim().replace(/[<>:"/\\|?*]/g, '_')
+      // 检查是否已存在同名备份
+      const existingFiles = fs.readdirSync(backupDir).filter(f => f.endsWith('.zip'))
+      const nameExists = existingFiles.some(f => {
+        const baseName = f.replace(/\.zip$/, '')
+        return baseName === sanitizedName || baseName === `PicMap_Backup_${sanitizedName}`
+      })
+      if (nameExists) {
+        return res.send(Result.fail('备份名称已存在，请使用其他名称'))
+      }
+      backupFileName = `${sanitizedName}.zip`
+    } else {
+      // 使用默认名称，时间戳命名
+      const timestamp = new Date().toISOString().replace(/[:.]/g, '-')
+      backupFileName = `PicMap_Backup_${timestamp}.zip`
+    }
     const backupFilePath = path.join(backupDir, backupFileName)
 
     // 创建文件写入流和zip压缩对象
