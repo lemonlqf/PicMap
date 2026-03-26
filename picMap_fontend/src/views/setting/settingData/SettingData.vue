@@ -152,6 +152,11 @@ async function handleBackup() {
 
   backupLoading.value = true
   try {
+    const sizeRes = await API.backup.getBackupSize()
+    if (sizeRes.code === 200 && sizeRes.data.sizeWarning) {
+      ElMessage.warning(t('backupLargeWarning'))
+    }
+
     const res = await API.backup.backup({ name: backupName.value.trim() })
     if (res.code === 200) {
       ElMessage.success(t('backupSuccess'))

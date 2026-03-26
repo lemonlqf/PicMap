@@ -147,6 +147,7 @@ export default {
   mergeModeTip: 'Merge backup data with existing data, keep all existing data',
   backupSuccess: 'Backup success',
   backupFailed: 'Backup failed',
+  backupLargeWarning: 'Archive is large, backup may take longer, please be patient',
   restoreSuccess: 'Restore success, please refresh page',
   restoreFailed: 'Restore failed',
   confirmDeleteBackup: 'Are you sure you want to delete this backup?',

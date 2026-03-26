@@ -22,6 +22,27 @@ const archiver = require('archiver')
 const StreamZip = require('node-stream-zip')
 
 /**
+ * 计算目录大小（递归）
+ */
+async function getDirectorySize(dirPath) {
+  let size = 0
+  try {
+    const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+    for (const entry of entries) {
+      const fullPath = path.join(dirPath, entry.name)
+      if (entry.isDirectory()) {
+        size += await getDirectorySize(fullPath)
+      } else {
+        size += fs.statSync(fullPath).size
+      }
+    }
+  } catch (err) {
+    console.error('Error calculating directory size:', err)
+  }
+  return size
+}
+
+/**
  * 创建备份
  * 将appSchema.json和所有用户数据打包成zip文件
  * 备份文件保存在 D:/PicMap_Backup 目录下
@@ -34,6 +55,23 @@ router.post('/backup', async function (req, res, next) {
     const backupDir = path.join(archiveDirectory, '..', 'PicMap_Backup')
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true })
+    }
+
+    // 计算备份数据大小，超过500MB时返回提示
+    let totalSize = 0
+    const users = fs.readdirSync(archiveDirectory)
+    for (const user of users) {
+      if (user === 'appSchema.json' || user.endsWith('.zip')) continue
+      const userPath = path.join(archiveDirectory, user)
+      if (fs.statSync(userPath).isDirectory()) {
+        totalSize += await getDirectorySize(userPath)
+      }
+    }
+
+    const SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024 // 500MB
+    let sizeWarning = ''
+    if (totalSize > SIZE_WARNING_THRESHOLD) {
+      sizeWarning = '存档较大，请耐心等待'
     }
 
     // 生成备份文件名
@@ -67,7 +105,8 @@ router.post('/backup', async function (req, res, next) {
       res.send(Result.success({
         filePath: backupFilePath,
         fileName: backupFileName,
-        size: archive.pointer()
+        size: archive.pointer(),
+        sizeWarning
       }))
     })
 
@@ -85,8 +124,6 @@ router.post('/backup', async function (req, res, next) {
       archive.file(appSchemaSrc, { name: 'appSchema.json' })
     }
 
-    // 遍历数据目录，备份所有用户数据
-    const users = fs.readdirSync(archiveDirectory)
     for (const user of users) {
       // 跳过非目录文件（appSchema.json和备份文件）
       if (user === 'appSchema.json' || user.endsWith('.zip')) continue
@@ -103,6 +140,37 @@ router.post('/backup', async function (req, res, next) {
   } catch (error) {
     console.error('Backup error:', error)
     res.send(Result.fail('备份失败: ' + error.message))
+  }
+})
+
+/**
+ * 检查备份数据大小
+ * 返回数据大小信息，超过阈值时返回警告提示
+ */
+router.get('/backupSize', async function (req, res, next) {
+  try {
+    let totalSize = 0
+    if (fs.existsSync(archiveDirectory)) {
+      const users = fs.readdirSync(archiveDirectory)
+      for (const user of users) {
+        if (user === 'appSchema.json' || user.endsWith('.zip')) continue
+        const userPath = path.join(archiveDirectory, user)
+        if (fs.statSync(userPath).isDirectory()) {
+          totalSize += await getDirectorySize(userPath)
+        }
+      }
+    }
+
+    const SIZE_WARNING_THRESHOLD = 500 * 1024 * 1024 // 500MB
+    const sizeWarning = totalSize > SIZE_WARNING_THRESHOLD
+
+    res.send(Result.success({
+      size: totalSize,
+      sizeWarning
+    }))
+  } catch (error) {
+    console.error('Get backup size error:', error)
+    res.send(Result.fail('获取备份大小失败: ' + error.message))
   }
 })
 
