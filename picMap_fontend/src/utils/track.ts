@@ -73,6 +73,20 @@ export async function deleteTrackFromSchema(trackId: string) {
   const filteredTracksInfo = tracksInfo.filter(item => item.id !== trackId)
   // 更新schema
   await editSchemaAttrAndSave('trackInfo', filteredTracksInfo)
+  // 从地图中删除轨迹实例
+  trackService.deleteTrack(trackId)
+  // 从所有分组的trackNumbers中移除该轨迹
+  const groupInfoList = schemaStore.getGroupInfo
+  const updatedGroupInfoList = groupInfoList.map(group => {
+    if (group.trackNumbers?.includes(trackId)) {
+      return {
+        ...group,
+        trackNumbers: group.trackNumbers.filter(id => id !== trackId)
+      }
+    }
+    return group
+  })
+  await editSchemaAttrAndSave('groupInfo', updatedGroupInfoList)
   // 删除服务器上的文件
   await trackApi.deleteTrack(trackId)
 }

@@ -10,7 +10,12 @@
  *   - hover时有大地图marker相同的动效
 -->
 <template>
-  <div class="map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }">
+  <div 
+    class="map" 
+    ref="mapContainer" 
+    :class="{ 'is-fullscreen': isFullscreen }"
+    @mousemove="handleMouseMove"
+  >
     <!-- 全屏按钮 -->
     <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
       <el-icon :size="16">
@@ -18,6 +23,24 @@
         <FullScreen v-else></FullScreen>
       </el-icon>
     </button>
+
+    <!-- 悬浮卡片 -->
+    <TrackHoverCard
+      :visible="hoverCardVisible"
+      :trackInfo="hoverTrackInfo"
+      :position="hoverCardPosition"
+    />
+
+    <!-- 详情卡片（全屏时显示） -->
+    <TrackDetailPanel
+      v-if="isFullscreen"
+      :visible="detailPanelVisible"
+      :trackList="detailPanelTrackList"
+      :currentTrackId="detailPanelTrackId"
+      :trackInfo="detailPanelTrackInfo"
+      @update:visible="detailPanelVisible = $event"
+      @track-change="handleTrackChange"
+    />
   </div>
 </template>
 
@@ -36,6 +59,8 @@ import { useSchemaStore } from '@/store/schema';
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap';
 import trackService from '@/services/track';
 import trackApi from '@/http/modules/track';
+import TrackHoverCard from '@/components/trackHoverCard/TrackHoverCard.vue';
+import TrackDetailPanel from '@/components/trackDetail/TrackDetailPanel.vue';
 
 /**
  * 组件props：图片ID列表
@@ -67,6 +92,38 @@ const isFullscreen = ref(false)
 let map: L.Map | null = null
 const markers: L.Marker[] = []
 let normalViewState: { center: L.LatLng; zoom: number } | null = null
+
+const hoverCardVisible = ref(false)
+const hoverCardPosition = ref({ x: 0, y: 0 })
+const hoverTrackInfo = ref<any>(null)
+
+const detailPanelVisible = ref(false)
+const detailPanelTrackId = ref('')
+const detailPanelTrackInfo = ref<any>(null)
+const detailPanelTrackList = ref<any[]>([])
+const loadedTrackInstances = ref<Set<any>>(new Set())
+const mapInstanceIdMap = new WeakMap<L.Map, string>()
+let mapIdCounter = 0
+let currentSelectedInstance: any = null
+
+function handleMouseMove(e: MouseEvent) {
+  hoverCardPosition.value = { x: e.clientX, y: e.clientY }
+}
+
+function handleTrackChange(instanceId: string) {
+  const track = detailPanelTrackList.value.find(t => t.instanceId === instanceId)
+  if (track) {
+    if (currentSelectedInstance && currentSelectedInstance !== track.instance) {
+      currentSelectedInstance.unhighlight()
+    }
+    if (track.instance && map) {
+      track.instance.highlight(map, instanceId)
+      currentSelectedInstance = track.instance
+    }
+    detailPanelTrackId.value = instanceId
+    detailPanelTrackInfo.value = track
+  }
+}
 
 function afterResizeTransition(callback: () => void) {
   // 与 .map 的 0.3s transition 对齐，避免在尺寸动画中间计算边界。
@@ -158,6 +215,9 @@ async function initMap() {
     minZoom: 3,
     maxZoom: 18
   })
+
+  // 为当前地图实例生成唯一 ID
+  mapInstanceIdMap.set(map, String(++mapIdCounter))
 
   // 添加瓦片图层，使用与主地图相同的瓦片
   const tileUrl = getCurrentTileUrl()
@@ -382,15 +442,67 @@ async function updateTracks() {
     }
   })
 
+  // 预加载所有轨迹到详情面板列表
+  detailPanelTrackList.value = []
+  loadedTrackInstances.value.clear()
+  
   // 再确保目标轨迹都已加载并显示到当前地图
   for (const trackId of targetTrackIds) {
     const instance = await ensureTrackLoaded(trackId)
     if (instance) {
+      if (loadedTrackInstances.value.has(instance)) {
+        continue
+      }
+      loadedTrackInstances.value.add(instance)
+      
       instance.addMap(map)
-      // 根据轨迹ID查找schema中的轨迹信息，获取配置的颜色
+      
+      const mapId = mapInstanceIdMap.get(map) || 'unknown'
+      const instanceId = trackId + '_' + mapId
+      
+      if (!detailPanelTrackList.value.find(t => t.instanceId === instanceId)) {
+        instance.onTrackInfoReady((info) => {
+          if (!detailPanelTrackList.value.find(t => t.instanceId === instanceId)) {
+            detailPanelTrackList.value.push({ instanceId, id: trackId, instance, ...info })
+          }
+        })
+      } else {
+        const existingTrack = detailPanelTrackList.value.find(t => t.instanceId === instanceId)
+        if (existingTrack && !existingTrack.instance) {
+          existingTrack.instance = instance
+        }
+      }
+      
+      instance.setHoverCallback(map, (info, event) => {
+        if (event === 'enter') {
+          hoverCardVisible.value = true
+          hoverTrackInfo.value = info
+        } else {
+          hoverCardVisible.value = false
+        }
+      })
+      
+      instance.setClickCallback(map, (info) => {
+        console.log('Click callback triggered for track:', trackId, 'instanceId:', instanceId)
+        if (!isFullscreen.value) {
+          console.log('Not fullscreen, skipping');
+          return
+        }
+        if (currentSelectedInstance && currentSelectedInstance !== instance) {
+          console.log('Unhighlighting previous instance');
+          currentSelectedInstance.unhighlight()
+        }
+        const mapId = mapInstanceIdMap.get(map)
+        console.log('Highlighting track, mapId:', mapId);
+        instance.highlight(map, instanceId)
+        currentSelectedInstance = instance
+        detailPanelTrackId.value = instanceId
+        detailPanelTrackInfo.value = { instanceId, id: trackId, instance, ...info }
+        detailPanelVisible.value = true
+      })
+      
       const normalizedTrackId = normalizeTrackId(trackId)
       const trackInfo = schemaStore.getSchema.trackInfo?.find((t: any) => normalizeTrackId(t.id) === normalizedTrackId)
-      // 如果轨迹配置了颜色，则应用颜色到地图上的轨迹线
       if (trackInfo?.setting?.lineColor) {
         trackService.updateTrackColor(trackId, trackInfo.setting.lineColor)
       }
@@ -450,6 +562,14 @@ watch(() => props.trackIds, () => {
   updateTracks()
 }, { deep: true, immediate: true })
 
+// 监听详情面板关闭，取消高亮
+watch(detailPanelVisible, (newVal) => {
+  if (!newVal && currentSelectedInstance) {
+    currentSelectedInstance.unhighlight()
+    currentSelectedInstance = null
+  }
+})
+
 // 组件挂载时初始化地图
 onMounted(() => {
   initMap()
@@ -458,6 +578,10 @@ onMounted(() => {
 // 组件卸载时清理地图实例
 onUnmounted(() => {
   isFullscreen.value = false
+  if (currentSelectedInstance) {
+    currentSelectedInstance.unhighlight()
+    currentSelectedInstance = null
+  }
   if (map) {
     trackService.deleteTracksInMap(map)
     map.remove()

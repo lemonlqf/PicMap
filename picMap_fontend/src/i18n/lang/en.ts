@@ -152,6 +152,28 @@ export default {
   reset: 'Reset',
   timeline: 'Timeline',
 
+  // Track related
+  track: {
+    basicInfo: 'Basic Info',
+    speedData: 'Speed Data',
+    elevationData: 'Elevation Data',
+    healthData: 'Health Data',
+    movingTime: 'Moving Time',
+    totalTime: 'Total Time',
+    movingSpeed: 'Moving Speed',
+    totalSpeed: 'Total Speed',
+    maxSpeed: 'Max Speed',
+    movingPace: 'Moving Pace',
+    elevationMax: 'Max Elevation',
+    elevationMin: 'Min Elevation',
+    elevationGain: 'Elevation Gain',
+    elevationLoss: 'Elevation Loss',
+    averageHr: 'Average HR',
+    averageCadence: 'Average Cadence',
+    averageTemp: 'Average Temp',
+    unnamed: 'Unnamed Track'
+  },
+
   description: {
     ensureToDissolveGroup: 'Are you sure you want to disband the group? This group will be disbanded, and the pictures within the group will still be retained!',
     ensureToDeleteGroup: 'Are you sure you want to delete the group? This group will be deleted, and the pictures within the group will also be deleted!',

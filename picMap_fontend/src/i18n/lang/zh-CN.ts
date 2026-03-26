@@ -151,6 +151,28 @@ export default {
   reset: '重置',
   timeline: '时间轴',
 
+  // 轨迹相关
+  track: {
+    basicInfo: '基础信息',
+    speedData: '速度数据',
+    elevationData: '海拔数据',
+    healthData: '健康数据',
+    movingTime: '移动时间',
+    totalTime: '总时间',
+    movingSpeed: '移动速度',
+    totalSpeed: '总速度',
+    maxSpeed: '最大速度',
+    movingPace: '移动配速',
+    elevationMax: '最高海拔',
+    elevationMin: '最低海拔',
+    elevationGain: '累计爬升',
+    elevationLoss: '累计下降',
+    averageHr: '平均心率',
+    averageCadence: '平均踏频',
+    averageTemp: '平均温度',
+    unnamed: '未命名轨迹'
+  },
+
   description: {
     ensureToDissolveGroup: '确定要解散分组吗？该分组将会被解散，组内图片任然保留！',
     ensureToDeleteGroup: '确定要删除分组吗？该分组将会被删除，组内图片任然保留！',

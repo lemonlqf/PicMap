@@ -1,5 +1,5 @@
 <template>
-  <el-table ref="innerTableRef" :data="data" highlight-current-row show-overflow-tooltip height="50vh"
+  <el-table ref="innerTableRef" :data="data" highlight-current-row show-overflow-tooltip max-height="50vh"
     @current-change="handleCurrentChange" :row-style="{ height: '35px' }" :row-class-name="tableRowClassName">
     <el-table-column prop="name" :label="$t('name')" width="150" fixed="left" />
     <el-table-column prop="distance" :label="$t('distance')" width="100" />

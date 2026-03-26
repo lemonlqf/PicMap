@@ -2,11 +2,11 @@
  * @Author: Do not edit
  * @Date: 2026-03-18 16:11:31
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-25 18:49:49
+ * @LastEditTime: 2026-03-26 17:18:21
  * @FilePath: \PicMap\picMap_fontend\src\services\track.ts
  * @Description: 轨迹图层服务，管理轨迹的加载、显示、删除等操作
  */
-import 'leaflet-gpx';
+import '@/assets/leaflet-gpx/leaflet-gpx.js';
 import L from "leaflet";
 import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02';
 import trackApi from '@/http/modules/track';
@@ -302,6 +302,12 @@ class TrackInstance {
   private convertedGpx = '';
   // 轨迹线颜色，用于创建图层时和应用到已有图层
   private lineColor: string | undefined = getDefaultLineColor(true);
+  // 悬浮回调函数，按地图实例存储
+  private hoverCallbacks: Map<L.Map, (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void> = new Map();
+  // 点击回调函数，按地图实例存储
+  private clickCallbacks: Map<L.Map, (trackInfo: Partial<TrackInfo>) => void> = new Map();
+  // 当前高亮的地图ID
+  private highlightedMapId: string | null = null;
 
   private hashTrackId(seed: string) {
     let hash = 0;
@@ -383,7 +389,7 @@ class TrackInstance {
     })
   }
 
-  private createLayerForMap() {
+  private createLayerForMap(map: L.Map) {
     const layerOptions = this.getLayerOptions();
     const layer = new L.GPX(this.convertedGpx, layerOptions);
 
@@ -405,9 +411,26 @@ class TrackInstance {
     });
 
     layer.on('mouseover', () => {
-      const info = this.getTrackInfo();
-      const infoStr = JSON.stringify(info);
-      console.log('鼠标悬停在轨迹上，显示轨迹信息', infoStr);
+      const callback = this.hoverCallbacks.get(map);
+      if (callback) {
+        callback(this.getTrackInfo(), 'enter');
+      }
+    });
+
+    layer.on('mouseout', () => {
+      const callback = this.hoverCallbacks.get(map);
+      if (callback) {
+        callback(this.getTrackInfo(), 'leave');
+      }
+    });
+
+    layer.on('click', (e: any) => {
+      console.log('GPX layer click event fired on map:', map);
+      const callback = this.clickCallbacks.get(map);
+      console.log('Callback found:', !!callback);
+      if (callback) {
+        callback(this.getTrackInfo());
+      }
     });
 
     if (!this.trackLayer) {
@@ -461,7 +484,7 @@ class TrackInstance {
 
     let layer = this.layerByMap.get(map);
     if (!layer) {
-      layer = this.createLayerForMap();
+      layer = this.createLayerForMap(map);
       this.layerByMap.set(map, layer);
     }
 
@@ -495,6 +518,8 @@ class TrackInstance {
       map.removeLayer(layer);
     }
     this.layerByMap.delete(map);
+    this.hoverCallbacks.delete(map);
+    this.clickCallbacks.delete(map);
 
     const index = this.mapInstances.indexOf(map);
     if (index !== -1) {
@@ -524,6 +549,77 @@ class TrackInstance {
    */
   getLineColor() {
     return this.lineColor;
+  }
+
+  setHoverCallback(map: L.Map, callback: (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void) {
+    this.hoverCallbacks.set(map, callback);
+  }
+
+  setClickCallback(map: L.Map, callback: (trackInfo: Partial<TrackInfo>) => void) {
+    this.clickCallbacks.set(map, callback);
+  }
+
+  /**
+   * @description: 高亮指定地图上的轨迹
+   * @param {L.Map} map - 地图实例
+   * @param {string} mapId - 地图唯一ID
+   */
+  highlight(map: L.Map, mapId: string) {
+    console.log('Highlight called for mapId:', mapId, 'current highlighted:', this.highlightedMapId);
+    if (this.highlightedMapId === mapId) {
+      console.log('Already highlighted, skipping');
+      return;
+    }
+    
+    this.unhighlight();
+    this.highlightedMapId = mapId;
+    
+    const gpxLayer = this.layerByMap.get(map);
+    console.log('GPX Layer:', gpxLayer, 'Layers:', gpxLayer?.getLayers());
+    if (gpxLayer) {
+      const layers = gpxLayer.getLayers();
+      layers.forEach((layer: any) => {
+        console.log('Layer:', layer, 'has setStyle:', typeof layer.setStyle);
+        if (layer.setStyle) {
+          layer.setStyle({
+            color: '#409eff',
+            weight: 6,
+            opacity: 1
+          });
+        }
+        if (layer.bringToFront) {
+          layer.bringToFront();
+        }
+      });
+    }
+  }
+
+  /**
+   * @description: 取消高亮
+   */
+  unhighlight() {
+    if (!this.highlightedMapId) return;
+    
+    this.mapInstances.forEach(map => {
+      const gpxLayer = this.layerByMap.get(map);
+      if (gpxLayer) {
+        const layers = gpxLayer.getLayers();
+        layers.forEach((layer: any) => {
+          if (layer.setStyle) {
+            layer.setStyle({
+              color: this.lineColor,
+              weight: 4,
+              opacity: 0.8
+            });
+          }
+          if (layer.bringToBack) {
+            layer.bringToBack();
+          }
+        });
+      }
+    });
+    
+    this.highlightedMapId = null;
   }
 
   /**
