@@ -1,7 +1,22 @@
 <template>
   <el-table ref="innerTableRef" :data="data" highlight-current-row show-overflow-tooltip max-height="50vh"
     @current-change="handleCurrentChange" :row-style="{ height: '35px' }" :row-class-name="tableRowClassName">
-    <el-table-column prop="name" :label="$t('name')" width="150" fixed="left" />
+    <el-table-column :label="$t('name')" width="150" fixed="left">
+      <template #default="{ row }">
+        <div class="name-cell">
+          <el-input
+            v-if="editingRowId === row.id"
+            v-model="editingName"
+            size="small"
+            @keyup.enter="confirmRename(row)"
+            @blur="confirmRename(row)"
+            @keyup.escape="cancelRename"
+          />
+          <span v-else class="track-name" @dblclick="startRename(row)">{{ row.name }}</span>
+          <el-icon class="edit-icon" @click="startRename(row)"><Edit /></el-icon>
+        </div>
+      </template>
+    </el-table-column>
     <el-table-column prop="distance" :label="$t('distance')" width="100" />
     <el-table-column prop="startTime" :label="$t('startTime')" width="160" />
     <el-table-column prop="endTime" :label="$t('endTime')" width="160" />
@@ -41,6 +56,7 @@
 <script lang="ts" setup>
 import { ref } from 'vue'
 import { ColorPicker } from 'vue3-colorpicker'
+import { Edit } from '@element-plus/icons-vue'
 import 'vue3-colorpicker/style.css'
 
 type TrackData = {
@@ -75,9 +91,12 @@ const emit = defineEmits<{
   (e: 'delete-row', row: any): void
   (e: 'group-change', row: any): void
   (e: 'color-change', row: any): void
+  (e: 'name-change', row: any, newName: string): void
 }>()
 
 const innerTableRef = ref<any>(null)
+const editingRowId = ref<string | null>(null)
+const editingName = ref('')
 
 function setCurrentRow(row: TrackData | null) {
   innerTableRef.value?.setCurrentRow(row)
@@ -89,6 +108,23 @@ function handleCurrentChange(row: TrackData | null) {
 
 function tableRowClassName({ row }: { row: TrackData }) {
   return props.currentRowId === row.id ? 'current-row-highlight' : ''
+}
+
+function startRename(row: TrackData) {
+  editingRowId.value = row.id
+  editingName.value = row.name || ''
+}
+
+function confirmRename(row: TrackData) {
+  if (editingName.value.trim() && editingName.value !== row.name) {
+    emit('name-change', row, editingName.value.trim())
+  }
+  cancelRename()
+}
+
+function cancelRename() {
+  editingRowId.value = null
+  editingName.value = ''
 }
 
 defineExpose({
@@ -108,6 +144,42 @@ defineExpose({
 .color-picker-wrapper {
   display: flex;
   align-items: center;
+}
+
+.track-name {
+  cursor: pointer;
+}
+
+.track-name:hover {
+  color: #637141;
+}
+
+.name-cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.name-cell .track-name {
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.name-cell .edit-icon {
+  opacity: 0;
+  cursor: pointer;
+  color: #909399;
+  transition: opacity 0.2s;
+}
+
+.name-cell:hover .edit-icon {
+  opacity: 1;
+}
+
+.name-cell .edit-icon:hover {
+  color: #637141;
 }
 </style>
 

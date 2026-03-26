@@ -218,6 +218,7 @@ export default {
     updateSuccess: '更新成功!',
     updateFailed: '更新失败!',
     trackExistConfirm: '已存在同名文件，是否覆盖上传？',
+    trackNameDuplicate: '轨迹名称已存在，请使用其他名称',
     closeUploadTrackConfirm: '还有未上传的轨迹数据，关闭将会丢失这些数据，确定要关闭吗？',
     warning: '警告',
     searchPlaceholder: '搜索名称或时间'

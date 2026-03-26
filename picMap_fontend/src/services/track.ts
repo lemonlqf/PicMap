@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-18 16:11:31
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-26 17:18:21
+ * @LastEditTime: 2026-03-26 22:47:02
  * @FilePath: \PicMap\picMap_fontend\src\services\track.ts
  * @Description: 轨迹图层服务，管理轨迹的加载、显示、删除等操作
  */
@@ -11,6 +11,7 @@ import L from "leaflet";
 import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02';
 import trackApi from '@/http/modules/track';
 import { getDefaultLineColor } from '@/utils/track';
+import { useSchemaStore } from '@/store/schema';
 
 const startIconUrl = new URL('../assets/icon/起点.png', import.meta.url).href;
 const endIconUrl = new URL('../assets/icon/终点.png', import.meta.url).href;
@@ -107,8 +108,12 @@ class TrackService {
         trackInstance.addMap(map);
       }
     } else {
+      // 先从schema中查找轨迹信息
+      const schemaStore = useSchemaStore();
+      const schemaTrackInfo = schemaStore.getSchema.trackInfo?.find((t: any) => t.id === file.name);
+
       // 创建新的轨迹实例并添加到地图
-      trackInstance = new TrackInstance(file, map ? [map] : [], options);
+      trackInstance = new TrackInstance(file, map ? [map] : [], options, schemaTrackInfo);
       this.trackInstances.set(trackInstance.getTrackId(), trackInstance);
     }
     return trackInstance;
@@ -368,11 +373,16 @@ class TrackInstance {
     point.setZIndexOffset(1000 + slot + (pointType === 'end' ? 100 : 0));
   }
 
-  constructor(file: File, maps: L.Map[] = [], options: any = defaultOptions) {
+  constructor(file: File, maps: L.Map[] = [], options: any = defaultOptions, schemaTrackInfo?: any) {
 
     this.trackId = file.name;
     this.options = options;
     this.mapInstances.push(...maps.filter((map): map is L.Map => !!map));
+
+    // 如果schema中有轨迹信息，先设置好
+    if (schemaTrackInfo) {
+      this.initTrackInfo(schemaTrackInfo);
+    }
 
     // 异步读取并解析GPX文件
     this.readFileAsText(file).then((fileContent) => {
@@ -387,6 +397,18 @@ class TrackInstance {
       });
 
     })
+  }
+
+  /**
+   * @description: 初始化轨迹统计信息，如果有待处理的回调则立即执行
+   * @param {Partial<TrackInfo>} trackInfo - 轨迹统计信息
+   */
+  initTrackInfo(trackInfo: Partial<TrackInfo>) {
+    this.trackInfo = trackInfo;
+    if (this.pendingCallbacks.length > 0) {
+      this.pendingCallbacks.forEach(cb => cb(this.trackInfo));
+      this.pendingCallbacks = [];
+    }
   }
 
   private createLayerForMap(map: L.Map) {

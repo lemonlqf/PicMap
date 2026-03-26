@@ -1,7 +1,7 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-23 21:57:23
+ * @LastEditTime: 2026-03-26 22:47:08
  * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
@@ -10,12 +10,7 @@
  *   - hover时有大地图marker相同的动效
 -->
 <template>
-  <div 
-    class="map" 
-    ref="mapContainer" 
-    :class="{ 'is-fullscreen': isFullscreen }"
-    @mousemove="handleMouseMove"
-  >
+  <div class="map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }" @mousemove="handleMouseMove">
     <!-- 全屏按钮 -->
     <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
       <el-icon :size="16">
@@ -25,22 +20,12 @@
     </button>
 
     <!-- 悬浮卡片 -->
-    <TrackHoverCard
-      :visible="hoverCardVisible"
-      :trackInfo="hoverTrackInfo"
-      :position="hoverCardPosition"
-    />
+    <TrackHoverCard :visible="hoverCardVisible" :trackInfo="hoverTrackInfo" :position="hoverCardPosition" />
 
     <!-- 详情卡片（全屏时显示） -->
-    <TrackDetailPanel
-      v-if="isFullscreen"
-      :visible="detailPanelVisible"
-      :trackList="detailPanelTrackList"
-      :currentTrackId="detailPanelTrackId"
-      :trackInfo="detailPanelTrackInfo"
-      @update:visible="detailPanelVisible = $event"
-      @track-change="handleTrackChange"
-    />
+    <TrackDetailPanel v-if="isFullscreen" :visible="detailPanelVisible" :trackList="detailPanelTrackList"
+      :currentTrackId="detailPanelTrackId" :trackInfo="detailPanelTrackInfo"
+      @update:visible="detailPanelVisible = $event" @track-change="handleTrackChange" />
   </div>
 </template>
 
@@ -445,7 +430,7 @@ async function updateTracks() {
   // 预加载所有轨迹到详情面板列表
   detailPanelTrackList.value = []
   loadedTrackInstances.value.clear()
-  
+
   // 再确保目标轨迹都已加载并显示到当前地图
   for (const trackId of targetTrackIds) {
     const instance = await ensureTrackLoaded(trackId)
@@ -454,12 +439,12 @@ async function updateTracks() {
         continue
       }
       loadedTrackInstances.value.add(instance)
-      
+
       instance.addMap(map)
-      
+
       const mapId = mapInstanceIdMap.get(map) || 'unknown'
       const instanceId = trackId + '_' + mapId
-      
+
       if (!detailPanelTrackList.value.find(t => t.instanceId === instanceId)) {
         instance.onTrackInfoReady((info) => {
           if (!detailPanelTrackList.value.find(t => t.instanceId === instanceId)) {
@@ -472,7 +457,7 @@ async function updateTracks() {
           existingTrack.instance = instance
         }
       }
-      
+
       instance.setHoverCallback(map, (info, event) => {
         if (event === 'enter') {
           hoverCardVisible.value = true
@@ -481,7 +466,7 @@ async function updateTracks() {
           hoverCardVisible.value = false
         }
       })
-      
+
       instance.setClickCallback(map, (info) => {
         console.log('Click callback triggered for track:', trackId, 'instanceId:', instanceId)
         if (!isFullscreen.value) {
@@ -500,7 +485,7 @@ async function updateTracks() {
         detailPanelTrackInfo.value = { instanceId, id: trackId, instance, ...info }
         detailPanelVisible.value = true
       })
-      
+
       const normalizedTrackId = normalizeTrackId(trackId)
       const trackInfo = schemaStore.getSchema.trackInfo?.find((t: any) => normalizeTrackId(t.id) === normalizedTrackId)
       if (trackInfo?.setting?.lineColor) {

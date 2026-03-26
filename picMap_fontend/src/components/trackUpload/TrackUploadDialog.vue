@@ -23,7 +23,8 @@
       <div class="content-box">
         <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
           :current-row-id="currentRow?.id" @row-change="handleRowChange" @group-change="handleGroupChange"
-          @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange" />
+          @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange"
+          @name-change="handleNameChange" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
@@ -379,6 +380,28 @@ async function handleColorChange(row: TrackData) {
     trackService.updateTrackColor(row.id, row.setting?.lineColor || '')
   } catch (error) {
     console.error('更新轨迹颜色失败:', error)
+    ElMessage.error(t('description.updateFailed'))
+  }
+}
+
+/**
+ * @description: 处理轨迹名称变化
+ * @param {TrackData} row - 轨迹行数据
+ * @param {string} newName - 新名称
+ */
+async function handleNameChange(row: TrackData, newName: string) {
+  try {
+    row.name = newName
+
+    const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
+    const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
+    if (trackIndex >= 0) {
+      trackInfoList[trackIndex].name = newName
+      await editSchemaAttrAndSave('trackInfo', trackInfoList)
+    }
+    ElMessage.success(t('description.updateSuccess'))
+  } catch (error) {
+    console.error('更新轨迹名称失败:', error)
     ElMessage.error(t('description.updateFailed'))
   }
 }
