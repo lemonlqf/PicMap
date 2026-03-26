@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-12 15:30:32
+ * @LastEditTime: 2026-03-22 22:10:18
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
@@ -31,6 +31,10 @@ export default {
   deleteUser: '删除用户',
   delete: '删除',
   deleteSuccess: '删除成功',
+  distance: '距离',
+  startTime: '开始时间',
+  endTime: '结束时间',
+  actions: '操作',
   setGroup: '设置分组',
   fixPosition: '确定位置',
   createUser: '创建新用户',
@@ -80,6 +84,10 @@ export default {
   addGroup: '添加分组',
   uploadedPicture: '已上传图片',
   uploadPicture: '点击上传图片',
+  uploadTrack: '上传轨迹',
+  trackManagement: '轨迹管理',
+  trackColor: '轨迹颜色',
+  selectFile: '选择文件',
   fold: '折叠',
   expand: '展开',
   yes: '是',
@@ -124,6 +132,9 @@ export default {
   dataManagement: '数据',
   backup: '备份',
   createBackup: '创建备份',
+  backupName: '备份名称',
+  backupNamePlaceholder: '请输入备份名称',
+  backupNameExists: '备份名称已存在',
   backupTip: '备份将包含所有用户数据、图片和设置',
   backupHistory: '备份历史',
   noBackup: '暂无备份',
@@ -142,6 +153,28 @@ export default {
   deleteFailed: '删除失败',
   reset: '重置',
   timeline: '时间轴',
+
+  // 轨迹相关
+  track: {
+    basicInfo: '基础信息',
+    speedData: '速度数据',
+    elevationData: '海拔数据',
+    healthData: '健康数据',
+    movingTime: '移动时间',
+    totalTime: '总时间',
+    movingSpeed: '移动速度',
+    totalSpeed: '总速度',
+    maxSpeed: '最大速度',
+    movingPace: '移动配速',
+    elevationMax: '最高海拔',
+    elevationMin: '最低海拔',
+    elevationGain: '累计爬升',
+    elevationLoss: '累计下降',
+    averageHr: '平均心率',
+    averageCadence: '平均踏频',
+    averageTemp: '平均温度',
+    unnamed: '未命名轨迹'
+  },
 
   description: {
     ensureToDissolveGroup: '确定要解散分组吗？该分组将会被解散，组内图片任然保留！',
@@ -175,8 +208,20 @@ export default {
     setAsDefault: '设为默认瓦片',
     largeSize: '图片尺寸过大, 超过 ',
     uploadFailed: '上传失败!',
+    selectFileFirst: '请先选择文件！',
+    trackUploadedSuccess: '轨迹上传成功！',
     parsePictureInfoFailed: '解析图片信息失败!',
-    parsePictureFailed: '解析图片失败!'
+    parsePictureFailed: '解析图片失败!',
+    loadTrackFailed: '加载轨迹失败!',
+    deleteSuccess: '删除成功!',
+    deleteFailed: '删除失败!',
+    updateSuccess: '更新成功!',
+    updateFailed: '更新失败!',
+    trackExistConfirm: '已存在同名文件，是否覆盖上传？',
+    trackNameDuplicate: '轨迹名称已存在，请使用其他名称',
+    closeUploadTrackConfirm: '还有未上传的轨迹数据，关闭将会丢失这些数据，确定要关闭吗？',
+    warning: '警告',
+    searchPlaceholder: '搜索名称或时间'
   },
   placeholder: {
     selectGroup: '请选择分组'

@@ -1,11 +1,16 @@
 /*
  * @Author: your name
  * @Date: 2025-07-17 18:40:56
- * @LastEditTime: 2025-09-13 18:22:43
+ * @LastEditTime: 2026-03-19 13:55:48
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @Description: In User Settings Edit
- * @FilePath: \Code\picMap_fontend\src\utils\constant.ts
+ * @FilePath: \PicMap\picMap_fontend\src\utils\constant.ts
  */
+
+// 默认地图中心点坐标
+export const DEFAULT_CENTER = [30.2489634, 120.2052342]
+// 默认地图缩放级别
+export const DEFAULT_ZOOM = 10
 
 // 抽屉的高度
 export const DRAWER_HEIGHT = 400

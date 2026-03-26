@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-01-25 20:00:00
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-14 20:42:33
- * @FilePath: \Code\picMap_backend\public\globalVariable.js
+ * @LastEditTime: 2026-03-21 09:01:46
+ * @FilePath: \PicMap\picMap_backend\public\globalVariable.js
  * @Description:
  */
 
@@ -39,6 +39,7 @@ const defaultAppInfo = JSON.stringify({
 let defaultUserName = 'user1'
 const schemaReactivePath = 'images/schema' // schema文件的响应式路径
 const imageReactivePath = 'images' // 图片文件的响应式路径
+const trackReactivePath = 'tracks' // 轨迹文件的响应式路径
 const schemaFileName = 'schema.json' // schema文件名称
 const center = [30.2489634, 120.2052342] // 默认地图中心点坐标
 let currentUserName = ''
@@ -98,6 +99,10 @@ function getImageFilePath(userId) {
   return `${archiveDirectory}/${userId}/${imageReactivePath}`
 }
 
+function getTrackFilePath(userId) {
+  return `${archiveDirectory}/${userId}/${trackReactivePath}`
+}
+
 
 module.exports = {
   archiveDirectory,
@@ -109,5 +114,6 @@ module.exports = {
   getSchemaDirPath,
   getSchemaJSONPath,
   getImageFilePath,
+  getTrackFilePath,
   setArchiveDirectory,
 }

@@ -14,7 +14,7 @@
     <div class="section">
       <div class="section-title">{{ $t('backup') }}</div>
       <div class="section-content">
-        <el-button type="primary" @click="handleBackup" :loading="backupLoading">
+        <el-button type="primary" @click="openBackupDialog" :loading="backupLoading">
           {{ $t('createBackup') }}
         </el-button>
         <div class="tip">{{ $t('backupTip') }}</div>
@@ -39,6 +39,21 @@
       </div>
     </div>
 
+    <el-dialog v-model="backupDialogVisible" :title="$t('createBackup')" width="400px">
+      <div class="backup-name-input">
+        <el-input
+          v-model="backupName"
+          :placeholder="$t('backupNamePlaceholder')"
+          clearable
+          @keyup.enter="handleBackup"
+        />
+      </div>
+      <template #footer>
+        <el-button @click="backupDialogVisible = false">{{ $t('cancel') }}</el-button>
+        <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('confirm') }}</el-button>
+      </template>
+    </el-dialog>
+
     <el-dialog v-model="restoreDialogVisible" :title="$t('restoreData')" width="400px">
       <div class="restore-mode">
         <el-radio-group v-model="restoreMode">
@@ -58,7 +73,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import API from '@/http'
@@ -70,6 +85,8 @@ const { t } = useI18n()
 const backupList = ref<any[]>([])
 // 备份按钮loading状态
 const backupLoading = ref(false)
+// 备份名称弹窗显示状态
+const backupDialogVisible = ref(false)
 // 恢复数据弹窗显示状态
 const restoreDialogVisible = ref(false)
 // 恢复按钮loading状态
@@ -78,6 +95,8 @@ const restoreLoading = ref(false)
 const restoreMode = ref<'cover' | 'merge'>('cover')
 // 当前选中的备份文件
 const selectedBackup = ref<any>(null)
+// 备份名称
+const backupName = ref('')
 
 // 页面加载时获取备份列表
 onMounted(() => {
@@ -100,16 +119,44 @@ async function loadBackupList() {
 }
 
 /**
+ * 打开备份名称弹窗
+ * 生成默认备份名称
+ */
+function openBackupDialog() {
+  const timestamp = new Date().toLocaleString('zh-CN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  }).replace(/\//g, '-').replace(/,/g, '')
+  backupName.value = `PicMap_Backup_${timestamp}`
+  backupDialogVisible.value = true
+}
+
+/**
  * 创建备份
  * 调用后端接口创建新的备份文件
  */
 async function handleBackup() {
+  if (backupName.value.trim()) {
+    const nameExists = backupList.value.some(item => {
+      const baseName = item.fileName.replace(/\.zip$/, '')
+      return baseName === backupName.value.trim()
+    })
+    if (nameExists) {
+      ElMessage.error(t('backupNameExists'))
+      return
+    }
+  }
+
   backupLoading.value = true
   try {
-    const res = await API.backup.backup()
+    const res = await API.backup.backup({ name: backupName.value.trim() })
     if (res.code === 200) {
       ElMessage.success(t('backupSuccess'))
-      // 刷新备份列表
+      backupDialogVisible.value = false
+      backupName.value = ''
       loadBackupList()
     } else {
       ElMessage.error(res.message || t('backupFailed'))
@@ -272,6 +319,10 @@ function formatTime(date: string): string {
       gap: 10px;
     }
   }
+}
+
+.backup-name-input {
+  margin-bottom: 10px;
 }
 
 .restore-mode {

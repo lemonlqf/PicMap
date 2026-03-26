@@ -19,6 +19,7 @@
     "express": "^4.21.2",
     "heic2any": "^0.0.4",
     "leaflet": "^1.9.4",
+    "leaflet-gpx": "^2.2.0",
     "leaflet.markercluster": "^1.5.3",
     "lodash-es": "^4.17.21",
     "mitt": "^3.0.1",
@@ -31,6 +32,7 @@
     "vue-cropper": "^0.6.5",
     "vue-i18n": "^11.1.10",
     "vue-router": "^4.5.0",
+    "vue3-colorpicker": "^2.3.0",
     "vuedraggable": "^4.1.0"
   },
   "devDependencies": {

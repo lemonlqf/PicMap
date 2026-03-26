@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-17 19:25:52
+ * @LastEditTime: 2026-03-23 10:50:54
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
@@ -23,6 +23,7 @@
         <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
       </el-button-group>
     </div>
+    <!-- 用户 -->
     <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
 
     <!-- 上传按钮 -->
@@ -64,11 +65,12 @@ import TimeLine from '@/components/timeLine/TimeLine.vue'
 import markerService from '@/services/marker'
 import { TimeType } from '@/utils/group'
 import type { TimeLineDataPoint } from '@/type/map'
+import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant'
 
 const schemaStore = useSchemaStore()
 let currentMapTile = ref()
-const mapCenter = ref([30.2489634, 120.2052342])
-const mapZoom = ref(10)
+const mapCenter = ref(DEFAULT_CENTER)
+const mapZoom = ref(DEFAULT_ZOOM)
 const mapRef = ref()
 const timeRanges = ref({
   min: new Date('2000-01-01').getTime(),
@@ -171,7 +173,7 @@ async function initSchema() {
     const schema = JSON.parse(res.data)
     // 将schema信息保存到store中
     schemaStore.setSchema(JSON.parse(res.data))
-    mapCenter.value = schema.mapInfo?.center ?? [30.2489634, 120.2052342]
+    mapCenter.value = schema.mapInfo?.center ?? DEFAULT_CENTER
     mapZoom.value = schema.mapInfo?.zoom ?? 10
     timeLineData.value = getAllImageTimeTimeLineData()
     const imagesIds = getAllImageIdInSchema()
@@ -260,12 +262,12 @@ onMounted(() => {
   position: absolute;
   left: 20px;
   top: 20px;
-  z-index: 1000;
+  z-index: 800;
 }
 
 .fix-group {
   position: fixed;
-  z-index: 1000;
+  z-index: 800;
 }
 
 .switch-group {
@@ -281,6 +283,7 @@ onMounted(() => {
 .group-info-group {
   top: 125px;
   right: 15px;
+  z-index: 800;
 }
 
 .button {
@@ -291,7 +294,7 @@ onMounted(() => {
   position: absolute;
   top: 17px;
   left: 225px;
-  z-index: 1000;
+  z-index: 801;
 }
 
 .time-line {
@@ -300,7 +303,7 @@ onMounted(() => {
   left: 20px;
   right: 50vw;
   box-sizing: border-box;
-  z-index: 1000;
+  z-index: 800;
 }
 
 .no-pointer-events {

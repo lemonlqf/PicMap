@@ -58,6 +58,7 @@ import { useAppStore } from '@/store/appSchema';
 import { cloneDeep } from 'lodash-es';
 import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
 import { useI18n } from 'vue-i18n'
+import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant';
 const { t } = useI18n()
 const props = defineProps({
   url: {
@@ -103,10 +104,10 @@ let map: any = null
 function initMap() {
   if (!map) {
     map = L.map(mapRef.value, {
-      zoom: 10, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+      zoom: DEFAULT_ZOOM, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
       minZoom: 3,
       maxZoom: 18, // 目前小于18不显示了
-      center: [30.2489634, 120.2052342],
+      center: DEFAULT_CENTER,
       zoomControl: false, //缩放组件
       attributionControl: false //去掉右下角logol
     })

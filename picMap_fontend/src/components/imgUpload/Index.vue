@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-17 19:01:21
+ * @LastEditTime: 2026-03-23 16:24:24
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -14,17 +14,21 @@
 -->
 <template>
   <div class="img-upload">
-    <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
-      action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-      <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary" :disabled="isLoading">
-        {{ $t('uploadPicture') }}
-        <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
-          <Loading />
-        </el-icon></el-button>
-      <!-- <template #tip>
-        <div class="el-upload__tip">请上传图片</div>
-      </template> -->
-    </el-upload>
+    <!-- 上传图片 -->
+    <div class="upload-button-group">
+      <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
+        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
+        <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary" :disabled="isLoading">
+          {{ $t('uploadPicture') }}
+          <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
+            <Loading />
+          </el-icon></el-button>
+      </el-upload>
+    </div>
+    <!-- 上传轨迹按钮 -->
+    <el-button :title="$t('trackManagement')" class="upload-track-button" circle type="primary" @click="trackUploadDialogShow = true">
+      <TrackIcon style="height: 20px; width: 20px; color: white"/>
+    </el-button>
     <!-- 上传到表单中图片数据 -->
     <el-scrollbar max-height="70vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
@@ -81,7 +85,6 @@
         </div>
       </div>
     </el-scrollbar>
-    <!-- 测试用，后续删除 -->
     <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
       type="primary" :disabled="isUploading">{{ $t('batchUpload') }}<el-icon v-if="isUploading" class="is-loading"
         style="margin-left: 8px;">
@@ -92,52 +95,35 @@
         $t('clearAll') }}</el-button>
   </div>
   <!-- 定位弹框 -->
-  <el-dialog :z-index="9999" v-model="locateDialogShow" :title="$t('setPictureLocation')" style="width: 440px;">
-    <el-form ref="locateFromRef" :model="needLocateImageIdFormData" style="width: 400px" label-width="auto"
-      :rules="locateRules">
-      <el-form-item :label="$t('longitude')" prop="GPSLongitude">
-        <el-input v-model="needLocateImageIdFormData.GPSLongitude"></el-input>
-      </el-form-item>
-      <el-form-item :label="$t('latitude')" prop="GPSLatitude">
-        <el-input v-model="needLocateImageIdFormData.GPSLatitude"></el-input>
-      </el-form-item>
-      <el-form-item :label="$t('altitude')" prop="GPSAltitude">
-        <el-input v-model="needLocateImageIdFormData.GPSAltitude" placeholder="0"></el-input>
-      </el-form-item>
-    </el-form>
-    <template #footer>
-      <div class="dialog-footer">
-        <el-button @click="manualLocateImage" class="locate-button" type="primary">{{ $t('manualLocate') }}</el-button>
-        <el-button @click="cancelLocateImage">{{ $t('cancel') }}</el-button>
-        <el-button type="primary" @click="locateImage(locateFromRef)">
-          {{ $t('confirm') }}
-        </el-button>
-      </div>
-    </template>
-  </el-dialog>
+  <LocateDialog v-model="locateDialogShow" :image-id="needLocateImageIdFormData.id" @confirm="handleLocateConfirm"
+    @manual-locate="handleManualLocate"></LocateDialog>
   <!-- 单张图片分组设置弹框 -->
   <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds"></GroupInfoDialog>
+  <!-- 上传轨迹弹框 -->
+  <TrackUploadDialog v-model="trackUploadDialogShow"></TrackUploadDialog>
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, computed, reactive, onMounted } from 'vue'
+import { ref, watch, computed, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
+import TrackIcon from '@/assets/icon/轨迹.svg?component'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlobUrl, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
+import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
+import TrackUploadDialog from '../trackUpload/TrackUploadDialog.vue'
+import LocateDialog from './LocateDialog.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import { ImageType } from '@/type/image'
 import type { IGPSInfo } from '@/type/schema'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 import markerService from '@/services/marker'
-import mapService from '@/services/map'
 
 const { t } = useI18n()
 
@@ -210,7 +196,12 @@ const locateDialogShow = ref(false)
 // 分组设置的弹框
 const groupDialogShow = ref(false)
 // 定位的数据
-const needLocateImageIdFormData = ref({
+const needLocateImageIdFormData = ref<{
+  id: string | null,
+  GPSAltitude: number | null,
+  GPSLatitude: number | null,
+  GPSLongitude: number | null
+}>({
   id: null,
   GPSAltitude: null,
   GPSLatitude: null,
@@ -551,82 +542,34 @@ function showLocateDialog(id: string) {
 }
 
 /**
- * @description: {{ $t('cancel') }}定位
+ * @description: 处理定位确认
+ * @param {*} data
  * @return {*}
  */
-function cancelLocateImage() {
-  resetLocateForm()
-  locateDialogShow.value = false
-}
-
-/**
- * @description: 情空表单
- * @return {*}
- */
-function resetLocateForm() {
-  // 清空form表单的数据
-  Object.keys(needLocateImageIdFormData.value).forEach(key => {
-    needLocateImageIdFormData.value[key] = null
-  })
-}
-
-/**
- * @description: 定位图片，将数据保存到schema中
- * @return {*}
- */
-async function locateImage(locateFromRef) {
-  if (!locateFromRef) return
-  await locateFromRef.validate((valid, fields) => {
-    if (valid) {
-      console.log(needLocateImageIdFormData.value)
-      if (needLocateImageIdFormData.value.id) {
-        const { GPSLatitude, GPSAltitude, GPSLongitude = 0 } = needLocateImageIdFormData.value
-        const imageInfo = needUploadImageInfos.value.find(item => {
-          return item.id === needLocateImageIdFormData.value.id
-        })
-        imageInfo.GPSInfo = { GPSLatitude, GPSAltitude, GPSLongitude }
-      }
-      locateDialogShow.value = false
-
-      console.log('submit!')
-    } else {
-      console.log('error submit!', fields)
+function handleLocateConfirm(data: { id: string | null; GPSLatitude: number | null; GPSLongitude: number | null; GPSAltitude: number | null }) {
+  if (data.id) {
+    const { GPSLatitude, GPSAltitude, GPSLongitude = 0 } = data
+    const imageInfo = needUploadImageInfos.value.find(item => {
+      return item.id === data.id
+    })
+    if (imageInfo) {
+      imageInfo.GPSInfo = { GPSLatitude, GPSAltitude, GPSLongitude }
     }
-  })
+  }
 }
 
-// 手动定位校验规则
-const locateRules = reactive({
-  GPSLongitude: [{
-    required: true,
-    message: t('description.needLongitude'),
-    trigger: 'change',
-  }],
-  GPSLatitude: [{
-    required: true,
-    message: t('description.needLatitude'),
-    trigger: 'change',
-  }]
-})
-
 /**
- * @description: 手动定位
+ * @description: 处理手动定位
+ * @param {*} data
  * @return {*}
  */
-async function manualLocateImage() {
+function handleManualLocate(data: { id: string | null; lat: number; lng: number }) {
   const mapStore = useMapStore()
-  locateDialogShow.value = false
   const fileInfo = hasUrlFileList.value.find(item => {
-    return item.id === needLocateImageIdFormData.value.id
+    return item.id === data.id
   })
-  const MAP_INSTANCE = mapService.getMapInstance()
-  const markerLatLng = MAP_INSTANCE.getCenter()
-  needLocateImageIdFormData.value.GPSLatitude = markerLatLng.lat
-  needLocateImageIdFormData.value.GPSLongitude = markerLatLng.lng
-  const marker = markerService.addManualLocateImageMarkerToMap(fileInfo, markerLatLng.lat, markerLatLng.lng)
-  // 加入marker
+  const marker = markerService.addManualLocateImageMarkerToMap(fileInfo, data.lat, data.lng)
   mapStore.addMarkerId(marker.options.id)
-  // 加入visibleMarker
   markerService.addVisibleMarkerById(marker.options.id)
   updateFromLocateInfo(marker, fileInfo)
   marker.on('moveend', () => {
@@ -634,7 +577,7 @@ async function manualLocateImage() {
   })
 }
 
-function updateFromLocateInfo(marker, fileInfo) {
+function updateFromLocateInfo(marker: any, fileInfo: any) {
   const { lat, lng } = marker.getLatLng()
   if (lat && lng) {
     fileInfo.GPSInfo.GPSLatitude = lat
@@ -654,8 +597,11 @@ const groupIdAndNameLists = ref([])
 
 // 可以是多个
 const editImageIds = ref<string[]>([])
+// 轨迹上传弹框
+const trackUploadDialogShow = ref(false)
+
 /**
- * @description: 
+ * @description:
  * @return {*}
  */
 function showGroupDialog(imageId: string) {
@@ -688,6 +634,16 @@ defineExpose({
   border-radius: 10px;
   padding: 10px 0 0 10px;
 
+  .upload-button-group {
+    display: flex;
+    align-items: center;
+  }
+
+  .upload-track-button {
+    position: absolute;
+    top: 10px;
+    left: 220px;
+  }
 }
 
 :deep(.el-upload-list) {

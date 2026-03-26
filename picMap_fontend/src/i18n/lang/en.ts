@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:08
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 23:55:50
+ * @LastEditTime: 2026-03-22 22:10:46
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\en.ts
  * @Description: 
  */
@@ -31,6 +31,10 @@ export default {
   deleteUser: 'Delete user',
   delete: 'Delete',
   deleteSuccess: 'Delete success',
+  distance: 'Distance',
+  startTime: 'Start time',
+  endTime: 'End time',
+  actions: 'Actions',
   setGroup: 'Set group',
   fixPosition: 'Fix position',
   createUser: 'Create user',
@@ -82,6 +86,10 @@ export default {
   addGroup: 'Add group',
   uploadedPicture: 'Uploaded picture',
   uploadPicture: 'Upload picture',
+  uploadTrack: 'Upload track',
+  trackManagement: 'Track management',
+  trackColor: 'Track color',
+  selectFile: 'Select file',
   fold: 'Fold',
   expand: 'Expand',
   pictureToBeUploaded: 'Picture to be uploaded',
@@ -125,6 +133,9 @@ export default {
   dataManagement: 'Data',
   backup: 'Backup',
   createBackup: 'Create Backup',
+  backupName: 'Backup name',
+  backupNamePlaceholder: 'Please enter backup name',
+  backupNameExists: 'Backup name already exists',
   backupTip: 'Backup will include all user data, pictures and settings',
   backupHistory: 'Backup History',
   noBackup: 'No backup',
@@ -143,6 +154,28 @@ export default {
   deleteFailed: 'Delete failed',
   reset: 'Reset',
   timeline: 'Timeline',
+
+  // Track related
+  track: {
+    basicInfo: 'Basic Info',
+    speedData: 'Speed Data',
+    elevationData: 'Elevation Data',
+    healthData: 'Health Data',
+    movingTime: 'Moving Time',
+    totalTime: 'Total Time',
+    movingSpeed: 'Moving Speed',
+    totalSpeed: 'Total Speed',
+    maxSpeed: 'Max Speed',
+    movingPace: 'Moving Pace',
+    elevationMax: 'Max Elevation',
+    elevationMin: 'Min Elevation',
+    elevationGain: 'Elevation Gain',
+    elevationLoss: 'Elevation Loss',
+    averageHr: 'Average HR',
+    averageCadence: 'Average Cadence',
+    averageTemp: 'Average Temp',
+    unnamed: 'Unnamed Track'
+  },
 
   description: {
     ensureToDissolveGroup: 'Are you sure you want to disband the group? This group will be disbanded, and the pictures within the group will still be retained!',
@@ -176,8 +209,20 @@ export default {
     setAsDefault: 'Set as default tile',
     largeSize: 'pictrue is too big, Over ',
     uploadFailed: 'Upload filed!',
+    selectFileFirst: 'Please select a file first!',
+    trackUploadedSuccess: 'Track uploaded successfully!',
     parsePictureInfoFailed: 'Parse picture info failed!',
-    parsePictureFailed: 'Parse picture failed!'
+    parsePictureFailed: 'Parse picture failed!',
+    loadTrackFailed: 'Failed to load track!',
+    deleteSuccess: 'Deleted successfully!',
+    deleteFailed: 'Delete failed!',
+    updateSuccess: 'Updated successfully!',
+    updateFailed: 'Update failed!',
+    trackExistConfirm: 'Same name track file already exists. Do you want to overwrite?',
+    trackNameDuplicate: 'Track name already exists, please use a different name',
+    closeUploadTrackConfirm: 'There are unuploaded track data. Closing will lose this data. Are you sure you want to close?',
+    warning: 'Warning',
+    searchPlaceholder: 'Search name or time'
   },
   placeholder: {
     selectGroup: 'Plaese select group'

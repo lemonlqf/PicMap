@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-17 17:16:01
+ * @LastEditTime: 2026-03-21 09:02:47
  * @FilePath: \PicMap\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -19,6 +19,8 @@ const nodePath = require('node:path')
 
 // 图片id前缀
 const IMAGE_ID_PREFIX = 'PM'
+// 轨迹id前缀
+const TRACK_ID_PREFIX = "PM"
 // 缩略图文件名前缀,在id的后面
 const THUMBNAIL_PREFIX = '_THUMBNAIL_'
 // HEIC/HEIF图片格式
@@ -550,6 +552,10 @@ function getImageIdWithoutExtension(id) {
   return nodePath.basename(id, nodePath.extname(id))
 }
 
+function getTrackId(id) {
+  return `${TRACK_ID_PREFIX}${id}`
+}
+
 module.exports = {
   getNewImageId,
   getImageId,
@@ -560,6 +566,7 @@ module.exports = {
   isRawImage,
   convertHeicToJpegBuffer,
   convertRawToJpegBuffer,
+  getTrackId,
   THUMBNAIL_PREFIX,
   getImageIdWithoutExtension
 }

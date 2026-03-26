@@ -21,6 +21,7 @@ var image = require('./routes/image.js')
 var schema = require('./routes/schema.js')
 var appInfo = require('./routes/appSchema.js')
 var backupRouter = require('./routes/backup.js')
+var track = require('./routes/track.js')
 
 const { init } = require('./utils/init.js')
 init()
@@ -45,6 +46,7 @@ app.use('/image', image)
 app.use('/schema', schema)
 app.use('/appSchema', appInfo)
 app.use('/backup', backupRouter)
+app.use('/track', track)
 
 app.use(cors())
 

@@ -26,7 +26,7 @@ http.interceptors.request.use(
     // 请求添加上userId
     const currentUserId = appStore.getCurrentUserInfo.userId; // 这里可以从 store、cookie、localStorage 获取
     // GET 请求
-    if (config.method === 'get') {
+    if (config.method === 'get' || config.method === 'delete') {
       config.params = config.params || {};
       config.params.currentUserId = currentUserId;
     }
