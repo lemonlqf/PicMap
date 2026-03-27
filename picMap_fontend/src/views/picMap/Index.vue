@@ -29,7 +29,7 @@
     <!-- 上传按钮 -->
     <div :class="['fix-group upload-group', getAnimateClass('upload')]">
       <!-- 图片上传组件 -->
-      <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
+      <ImageUpolad ref="imageUploadRef" :map="map" @uploadSuccess="handleImageUploadSuccess"></ImageUpolad>
       <!-- 轨迹上传组件 -->
       <TrackUpload class="track-upload"></TrackUpload>
     </div>
@@ -136,6 +136,10 @@ watch(pureMode, (newVal) => {
 
 function getAnimateClass(key: string) {
   return animateState[key]
+}
+
+function handleImageUploadSuccess() {
+  timeLineData.value = getAllImageTimeTimeLineData()
 }
 
 // 获取所有图片的时间数据，构造成时间轴组件需要的格式

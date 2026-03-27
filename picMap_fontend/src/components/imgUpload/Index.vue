@@ -156,6 +156,10 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits<{
+  (e: 'uploadSuccess'): void
+}>()
+
 const acceptType = [
   ImageType.PNG,
   ImageType.JPEG,
@@ -552,9 +556,10 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
   }).length === res1.length
   if (allSuccess && res1.length && res2.code === 200) {
     ElMessage.success(t('description.pictureUploadedSuccess'))
-    // 上传完成后，点击右键可以出现操作菜单
+    emit('uploadSuccess')
   } else if (!allSuccess && res1.length && res2.code === 200) {
     ElMessage.success(t('description.somePictureUploadedSuccess'))
+    emit('uploadSuccess')
   } else {
   }
   isUploading.value = false
