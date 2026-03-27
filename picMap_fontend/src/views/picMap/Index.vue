@@ -2,13 +2,13 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-27 17:02:27
+ * @LastEditTime: 2026-03-27 18:46:40
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
 <template>
   <div class="home-page">
-   <!-- 地图 -->
+    <!-- 地图 -->
     <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" ref="mapRef"></Map>
     <div :class="['fix-group switch-group', getAnimateClass('switch')]">
       <!-- 瓦片选择器 -->
@@ -31,7 +31,7 @@
       <!-- 图片上传组件 -->
       <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
       <!-- 轨迹上传组件 -->
-      <TrackUpload></TrackUpload>
+      <TrackUpload class="track-upload"></TrackUpload>
     </div>
     <!-- 图片详情抽屉 -->
     <Drawer ref="drawerRef"></Drawer>
@@ -252,8 +252,8 @@ onMounted(() => {
 <style lang="scss" scoped>
 .home-page {
   height: 100vh;
-  width: 100vw; 
-  position: relative; 
+  width: 100vw;
+  position: relative;
   overflow: hidden;
 }
 
@@ -314,5 +314,10 @@ onMounted(() => {
 
 .no-pointer-events {
   pointer-events: none;
+}
+
+.track-upload {
+  margin-top: 10px;
+  margin-left: 5px;
 }
 </style>

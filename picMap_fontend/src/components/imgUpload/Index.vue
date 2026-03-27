@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-27 16:50:33
+ * @LastEditTime: 2026-03-27 19:21:36
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -22,31 +22,39 @@
           {{ $t('uploadPicture') }}
           <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
             <Loading />
-          </el-icon></el-button>
+          </el-icon>
+        </el-button>
       </el-upload>
+      <span v-if="hasUrlFileList.length" class="upload-count">{{ uploadedImageInfos.length }}/{{ hasUrlFileList.length }}</span>
     </div>
     <!-- 上传到表单中图片数据 -->
-    <el-scrollbar max-height="70vh">
+    <el-scrollbar style="height: unset" max-height="65vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
         <h3 class="h3-title">{{ $t('uploadedPicture') }}：</h3>
         <div class="uploaded-list" :class="{ expanded: uploadExpand }">
           <div class="duplicate-upload-img-card" v-for="item in uploadedImageInfos" :key="item.id">
-            <el-tooltip :content="item.name" placement="top">
+            <el-tooltip show-after="500" :content="item.name" placement="top">
               <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
-                @click="markerService.setViewByMarkerId(item.id)" />
+                @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item.blobUrl ?? item.url)" />
             </el-tooltip>
           </div>
         </div>
         <div class="uploaded-actions">
           <el-button-group>
             <el-button class="edit-button" v-show="uploadExpand" @click="uploadExpand = false" size="small">
-              <el-icon><ArrowUpBold /></el-icon>{{ $t('fold') }}
+              <el-icon>
+                <ArrowUpBold />
+              </el-icon>{{ $t('fold') }}
             </el-button>
             <el-button class="edit-button" v-show="!uploadExpand" @click="uploadExpand = true" size="small">
-              <el-icon><ArrowDownBold /></el-icon>{{ $t('expand') }}
+              <el-icon>
+                <ArrowDownBold />
+              </el-icon>{{ $t('expand') }}
             </el-button>
             <el-button class="edit-button" @click="clearUploadImage" size="small" type="danger">
-              <el-icon><Delete /></el-icon>{{ $t('clear') }}
+              <el-icon>
+                <Delete />
+              </el-icon>{{ $t('clear') }}
             </el-button>
           </el-button-group>
         </div>
@@ -56,41 +64,33 @@
         <div class="upload-img-card" v-for="item in needUploadImageInfos" :key="item.id">
           <div class="image-info">
             <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
-              @click="markerService.setViewByMarkerId(item.id)" />
+              @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item.blobUrl ?? item.url)" />
             <div class="info-text">
-              <el-tooltip :content="item.name" placement="top">
+              <el-tooltip show-after="500" :content="item.name" placement="top">
                 <span class="name-text">{{ item.name }}</span>
               </el-tooltip>
               <span class="gps-text">
                 {{ item?.GPSInfo?.GPSLatitude ? `${item.GPSInfo.GPSLatitude}, ${item.GPSInfo.GPSLongitude}` :
-                $t('noData') }}
+                  $t('noData') }}
               </span>
             </div>
           </div>
           <div class="upload-buttons">
-            <el-tooltip v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude" :content="$t('locate')"
-              placement="top">
-              <div class="action-btn locate" @click="showLocateDialog(item.name)">
-                <img src="@/assets/icon/定位(白色).png" alt="">
-              </div>
-            </el-tooltip>
-            <el-tooltip v-else :content="$t('upload')" placement="top">
-              <div class="action-btn upload" @click="uploadImage(item.name)">
-                <img src="@/assets/icon/上传 (白色).png" alt="">
-              </div>
-            </el-tooltip>
-            <el-tooltip :content="$t('group')" placement="top">
-              <div
-                :class="['action-btn', 'group', { disabled: !item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude }]"
-                @click="item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude && showGroupDialog(item.id)">
-                <img src="@/assets/icon/分组（白色）.png" alt="">
-              </div>
-            </el-tooltip>
-            <el-tooltip :content="$t('delete')" placement="top">
-              <div class="action-btn delete" @click="deleteImage(item.name)">
-                <img src="@/assets/icon/删除 (白色).png" alt="">
-              </div>
-            </el-tooltip>
+            <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude" :title="$t('locate')"
+              class="action-btn locate" @click="showLocateDialog(item.name)">
+              <img src="@/assets/icon/定位(白色).png" alt="">
+            </div>
+            <div v-else :title="$t('upload')" class="action-btn upload" @click="uploadImage(item.name)">
+              <img src="@/assets/icon/上传 (白色).png" alt="">
+            </div>
+            <div :title="$t('group')"
+              :class="['action-btn', 'group', { disabled: !item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude }]"
+              @click="item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude && showGroupDialog(item.id)">
+              <img src="@/assets/icon/分组（白色）.png" alt="">
+            </div>
+            <div :title="$t('delete')" class="action-btn delete" @click="deleteImage(item.name)">
+              <img src="@/assets/icon/删除 (白色).png" alt="">
+            </div>
           </div>
         </div>
       </div>
@@ -103,8 +103,11 @@
     <!-- 待上传图片操作按钮 -->
     <div v-if="needUploadImageInfos.length" class="upload-actions">
       <el-button-group>
-        <el-button class="edit-button" type="primary" :disabled="isUploading" @click="uploadImages(needUploadImageInfos)" size="small">
-          <el-icon v-if="isUploading" class="is-loading"><Loading /></el-icon>
+        <el-button class="edit-button" type="primary" :disabled="isUploading"
+          @click="uploadImages(needUploadImageInfos)" size="small">
+          <el-icon v-if="isUploading" class="is-loading">
+            <Loading />
+          </el-icon>
           {{ $t('batchUpload') }}
         </el-button>
         <el-button class="edit-button" type="danger" :disabled="isUploading" @click="deleteAll" size="small">
@@ -119,6 +122,8 @@
   <!-- 单张图片分组设置弹框 -->
   <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds" @group-setup-complete="handleGroupSetupComplete">
   </GroupInfoDialog>
+  <!-- 图片预览 -->
+  <ImagePreview v-model:visible="previewVisible" :src="previewSrc"></ImagePreview>
 </template>
 
 <script lang="ts" setup>
@@ -134,6 +139,7 @@ import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import LocateDialog from './LocateDialog.vue'
+import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import { ImageType } from '@/type/image'
 import type { IGPSInfo } from '@/type/schema'
@@ -622,6 +628,15 @@ const groupIdAndNameLists = ref([])
 // 可以是多个
 const editImageIds = ref<string[]>([])
 
+// 图片预览
+const previewVisible = ref(false)
+const previewSrc = ref('')
+
+function previewImage(src: string) {
+  previewSrc.value = src
+  previewVisible.value = true
+}
+
 /**
  * @description:
  * @return {*}
@@ -665,6 +680,7 @@ defineExpose({
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
   padding: 10px;
+  overflow: hidden;
 
   .upload-button-group {
     display: flex;
@@ -789,7 +805,7 @@ defineExpose({
     display: flex;
     gap: 4px;
     opacity: 0;
-    transition: all 0.25s ease;
+    transition: all 0.15s ease;
 
     .action-btn {
       width: 28px;
@@ -892,5 +908,11 @@ img {
 
 .edit-button {
   width: 100px;
+}
+
+.upload-count {
+  margin-left: 14px;
+  font-size: 12px;
+  color: #606266;
 }
 </style>
