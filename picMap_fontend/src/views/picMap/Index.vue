@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 10:50:54
+ * @LastEditTime: 2026-03-27 17:02:27
  * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
@@ -28,7 +28,10 @@
 
     <!-- 上传按钮 -->
     <div :class="['fix-group upload-group', getAnimateClass('upload')]">
+      <!-- 图片上传组件 -->
       <ImageUpolad ref="imageUploadRef" :map="map"></ImageUpolad>
+      <!-- 轨迹上传组件 -->
+      <TrackUpload></TrackUpload>
     </div>
     <!-- 图片详情抽屉 -->
     <Drawer ref="drawerRef"></Drawer>
@@ -50,6 +53,7 @@ import { onBeforeMount, onMounted, ref, watch, nextTick, reactive, computed } fr
 import { ElMessage } from 'element-plus'
 import 'leaflet/dist/leaflet.css'
 import ImageUpolad from '@/components/imgUpload/Index.vue'
+import TrackUpload from '@/components/trackUpload/index.vue'
 import Drawer from '@/components/drawer/Index.vue'
 import contentMenu from '@/components/contentMenu/Index.vue'
 import GroupInfo from '@/components/groupInfo/Index.vue'
@@ -278,6 +282,8 @@ onMounted(() => {
 .upload-group {
   top: 70px;
   left: 10px;
+  display: flex;
+  gap: 10px;
 }
 
 .group-info-group {

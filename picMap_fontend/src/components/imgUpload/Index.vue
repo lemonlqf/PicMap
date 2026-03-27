@@ -25,11 +25,6 @@
           </el-icon></el-button>
       </el-upload>
     </div>
-    <!-- 上传轨迹按钮 -->
-    <el-button :title="$t('trackManagement')" class="upload-track-button" circle type="primary"
-      @click="trackUploadDialogShow = true">
-      <TrackIcon style="height: 20px; width: 20px; color: white" />
-    </el-button>
     <!-- 上传到表单中图片数据 -->
     <el-scrollbar max-height="70vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
@@ -124,8 +119,6 @@
   <!-- 单张图片分组设置弹框 -->
   <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds" @group-setup-complete="handleGroupSetupComplete">
   </GroupInfoDialog>
-  <!-- 上传轨迹弹框 -->
-  <TrackUploadDialog v-model="trackUploadDialogShow"></TrackUploadDialog>
 </template>
 
 <script lang="ts" setup>
@@ -133,7 +126,6 @@ import { ref, watch, computed, onMounted } from 'vue'
 import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
-import TrackIcon from '@/assets/icon/轨迹.svg?component'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
@@ -141,7 +133,6 @@ import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
-import TrackUploadDialog from '../trackUpload/TrackUploadDialog.vue'
 import LocateDialog from './LocateDialog.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
 import { ImageType } from '@/type/image'
@@ -630,8 +621,6 @@ const groupIdAndNameLists = ref([])
 
 // 可以是多个
 const editImageIds = ref<string[]>([])
-// 轨迹上传弹框
-const trackUploadDialogShow = ref(false)
 
 /**
  * @description:
@@ -680,12 +669,6 @@ defineExpose({
   .upload-button-group {
     display: flex;
     align-items: center;
-  }
-
-  .upload-track-button {
-    position: absolute;
-    top: 10px;
-    left: 220px;
   }
 }
 
