@@ -16,6 +16,8 @@ const { ensureDir } = require('../utils/file/writeFile.js')
 const fs = require('node:fs')
 const nodePath = require('node:path')
 
+const MAX_GPX_FILE_SIZE = 50 * 1024 * 1024 // 50MB
+
 
 /**
  * @description: 上传轨迹文件接口
@@ -36,6 +38,11 @@ router.post('/uploadTrack', async function (req, res, next) {
 
     if (!uploadFile) {
       res.send(Result.fail('未接收到文件，请检查 FormData 字段是否为 file'))
+      return
+    }
+
+    if (uploadFile.size > MAX_GPX_FILE_SIZE) {
+      res.send(Result.fail(`文件大小不能超过 50MB，当前文件大小为 ${(uploadFile.size / 1024 / 1024).toFixed(2)} MB`))
       return
     }
 

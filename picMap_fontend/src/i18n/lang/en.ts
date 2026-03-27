@@ -88,6 +88,7 @@ export default {
   uploadPicture: 'Upload picture',
   uploadTrack: 'Upload track',
   trackManagement: 'Track management',
+  gpxSizeLimit: 'Max GPX file size: 50MB',
   trackColor: 'Track color',
   selectFile: 'Select file',
   fold: 'Fold',

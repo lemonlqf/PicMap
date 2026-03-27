@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-22 22:10:18
+ * @LastEditTime: 2026-03-27 14:43:26
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
@@ -86,6 +86,7 @@ export default {
   uploadPicture: '点击上传图片',
   uploadTrack: '上传轨迹',
   trackManagement: '轨迹管理',
+  gpxSizeLimit: 'GPX文件上传限制:50MB',
   trackColor: '轨迹颜色',
   selectFile: '选择文件',
   fold: '折叠',

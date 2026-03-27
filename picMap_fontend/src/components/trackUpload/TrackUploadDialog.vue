@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-19 10:46:16
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-25 19:10:04
+ * @LastEditTime: 2026-03-27 14:43:48
  * @FilePath: \PicMap\picMap_fontend\src\components\trackUpload\TrackUploadDialog.vue
  * @Description: 轨迹上传弹窗组件
 -->
@@ -19,6 +19,7 @@
           :on-remove="handleFileRemove" :show-file-list="false">
           <el-button type="primary">{{ $t('selectFile') }}</el-button>
         </el-upload>
+        <span class="gpx-size-hint">{{ $t('gpxSizeLimit') }}</span>
       </div>
       <div class="content-box">
         <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
@@ -159,7 +160,12 @@ async function handleRowChange(row: TrackData | null) {
  * @description: 处理文件选择事件，将选择的文件添加到表格
  */
 async function handleTrackFileChange(file: any) {
+  const MAX_GPX_SIZE = 50 * 1024 * 1024 // 50MB
   if (file.raw) {
+    if (file.raw.size > MAX_GPX_SIZE) {
+      ElMessage.warning(`${t('gpxSizeLimit')} (${(file.raw.size / 1024 / 1024).toFixed(2)} MB)`)
+      return
+    }
     const trackInstance = trackService.activeTrack(file.raw)
     const id = trackInstance.getTrackId()
 
@@ -480,6 +486,12 @@ function resetState() {
 .search-input {
   margin-bottom: 0;
   width: 300px;
+}
+
+.gpx-size-hint {
+  font-size: 12px;
+  transform: translate(-9px, 9px);
+  color: #909399;
 }
 
 .track-file-name {
