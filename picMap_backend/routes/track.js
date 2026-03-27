@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-21
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-22 22:18:16
+ * @LastEditTime: 2026-03-27 14:34:35
  * @FilePath: \PicMap\picMap_backend\routes\track.js
  * @Description: 轨迹相关接口，包含上传、删除、获取轨迹文件等操作
  */
@@ -12,18 +12,10 @@ const { IncomingForm } = require('formidable')
 const { getTrackFilePath } = require('../public/globalVariable')
 const Result = require('./resultCode/result.js')
 const { getTrackId } = require('../utils/image/image.js')
+const { ensureDir } = require('../utils/file/writeFile.js')
 const fs = require('node:fs')
 const nodePath = require('node:path')
 
-/**
- * @description: 确保目录存在，如果不存在则创建
- * @param {string} path - 目录路径
- */
-function ensureDir(path) {
-  if (!fs.existsSync(path)) {
-    fs.mkdirSync(path, { recursive: true })
-  }
-}
 
 /**
  * @description: 上传轨迹文件接口

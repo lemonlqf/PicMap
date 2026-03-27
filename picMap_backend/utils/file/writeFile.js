@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2024-12-14 19:37:46
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-05 20:33:38
+ * @LastEditTime: 2026-03-27 14:33:44
  * @FilePath: \PicMap\picMap_backend\utils\file\writeFile.js
  * @Description:
  */
@@ -58,6 +58,8 @@ function changeExtensionToJpg(id) {
   return `${baseName}.jpg`
 }
 
+// 已创建目录缓存，避免重复检查和创建同一目录
+const createdDirs = new Set()
 /**
  * 确保目录存在，不存在则递归创建。
  *
@@ -65,9 +67,11 @@ function changeExtensionToJpg(id) {
  * @returns {void}
  */
 function ensureDir(path) {
+  if (createdDirs.has(path)) return
   if (!fs.existsSync(path)) {
     fs.mkdirSync(path, { recursive: true })
   }
+  createdDirs.add(path)
 }
 
 /**
@@ -100,4 +104,4 @@ function writeBase64File(baseUrl, id, extension, savePath = globalVariables.imag
   })
 }
 
-module.exports = { writeBase64File, changeExtensionToJpg }
+module.exports = { writeBase64File, changeExtensionToJpg, ensureDir }
