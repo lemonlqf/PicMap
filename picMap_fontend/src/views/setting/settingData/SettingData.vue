@@ -48,10 +48,7 @@
           @keyup.enter="handleBackup"
         />
       </div>
-      <div v-if="backupLoading" class="backup-loading">
-        <el-icon class="loading-icon"><Loading /></el-icon>
-        <span>{{ $t('backupLoading') }}</span>
-      </div>
+      <LoadingTip v-if="backupLoading" :text="$t('backupLoading')" />
       <template #footer>
         <el-button @click="backupDialogVisible = false" :disabled="backupLoading">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('confirm') }}</el-button>
@@ -79,7 +76,7 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
 import { ElMessage, ElMessageBox, ElIcon } from 'element-plus'
-import { Loading } from '@element-plus/icons-vue'
+import LoadingTip from '@/components/loadingTip/Index.vue'
 import { useI18n } from 'vue-i18n'
 import API from '@/http'
 import Backup from '@/http/modules/backup'
@@ -332,35 +329,8 @@ function formatTime(date: string): string {
 }
 
 .backup-name-input {
-  margin-bottom: 10px;
-}
-
-.restore-mode {
-  .mode-tip {
-    margin-top: 10px;
-    color: #666;
-    font-size: 14px;
-  }
-}
-
-.backup-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  padding: 20px;
+  margin-top: 10px;
   color: #666;
-
-  .loading-icon {
-    font-size: 32px;
-    color: #409eff;
-    margin-bottom: 10px;
-    animation: rotate 1s linear infinite;
-  }
-
-  @keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-  }
+  font-size: 14px;
 }
 </style>

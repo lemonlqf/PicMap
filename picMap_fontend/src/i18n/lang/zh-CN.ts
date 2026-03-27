@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-27 14:43:26
+ * @LastEditTime: 2026-03-27 21:53:12
  * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
@@ -98,6 +98,8 @@ export default {
   upload: '上传',
   group: '分组',
   batchUpload: '批量上传',
+  batchUploadToGroup: '批量上传到分组',
+  uploadingPleaseWait: '正在上传中，请稍等...',
   clear: '清空',
   clearAll: '全部清空',
   pictureName: '照片名',
@@ -180,8 +182,8 @@ export default {
   },
 
   description: {
-    ensureToDissolveGroup: '确定要解散分组吗？该分组将会被解散，组内图片任然保留！',
-    ensureToDeleteGroup: '确定要删除分组吗？该分组将会被删除，组内图片任然保留！',
+    ensureToDissolveGroup: '确定要解散分组吗？该分组将会被解散，组内图片仍然保留！',
+    ensureToDeleteGroup: '确定要删除分组吗？该分组将会被删除，组内图片不会保留！',
     groupNotExist: '分组还未添加到地图中！',
     enterUserName: '"请输入用户名！',
     userNameExist: '用户名已存在！',

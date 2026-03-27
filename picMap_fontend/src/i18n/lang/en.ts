@@ -98,6 +98,8 @@ export default {
   upload: 'Upload',
   group: 'Group',
   batchUpload: 'Batch upload',
+  batchUploadToGroup: 'Batch upload to group',
+  uploadingPleaseWait: 'Uploading, please wait...',
   clear: 'clear',
   clearAll: 'Clear all',
   pictureName: 'Picture name',

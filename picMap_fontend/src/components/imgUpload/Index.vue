@@ -103,15 +103,19 @@
     <!-- 待上传图片操作按钮 -->
     <div v-if="needUploadImageInfos.length" class="upload-actions">
       <el-button-group>
-        <el-button class="edit-button" type="primary" :disabled="isUploading"
+        <el-button class="upload-action-btn" type="primary" :disabled="isUploading"
           @click="uploadImages(needUploadImageInfos)" size="small">
           <el-icon v-if="isUploading" class="is-loading">
             <Loading />
           </el-icon>
-          {{ $t('batchUpload') }}
+          批量<br>上传
         </el-button>
-        <el-button class="edit-button" type="danger" :disabled="isUploading" @click="deleteAll" size="small">
-          {{ $t('clearAll') }}
+        <el-button class="upload-action-btn" type="warning" :disabled="isUploading" @click="batchUploadToGroupDialogShow = true"
+          size="small">
+          批量上传<br>到分组
+        </el-button>
+        <el-button class="upload-action-btn" type="danger" :disabled="isUploading" @click="deleteAll" size="small">
+          全部<br>清空
         </el-button>
       </el-button-group>
     </div>
@@ -122,6 +126,8 @@
   <!-- 单张图片分组设置弹框 -->
   <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds" @group-setup-complete="handleGroupSetupComplete">
   </GroupInfoDialog>
+  <!-- 批量上传到分组弹框 -->
+  <BatchUploadToGroupDialog v-model="batchUploadToGroupDialogShow" :uploading="isUploading" @confirm="handleBatchUploadToGroup"></BatchUploadToGroupDialog>
   <!-- 图片预览 -->
   <ImagePreview v-model:visible="previewVisible" :src="previewSrc"></ImagePreview>
 </template>
@@ -132,12 +138,14 @@ import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
+import { updateGroupMarkerImage } from '@/utils/group'
 import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
 import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
+import BatchUploadToGroupDialog from '@/components/groupInfo/batchUploadToGroup/BatchUploadToGroupDialog.vue'
 import LocateDialog from './LocateDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
 import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
@@ -221,6 +229,8 @@ const hasUrlFileList = ref<IImageDetailInfo[]>([])
 const locateDialogShow = ref(false)
 // 分组设置的弹框
 const groupDialogShow = ref(false)
+// 批量上传到分组弹框
+const batchUploadToGroupDialogShow = ref(false)
 // 定位的数据
 const needLocateImageIdFormData = ref<{
   id: string | null,
@@ -480,6 +490,12 @@ watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   }
 })
 
+watch(isUploading, (newVal) => {
+  if (batchUploadToGroupDialogShow.value && newVal === false) {
+    batchUploadToGroupDialogShow.value = false
+  }
+})
+
 /**
  * @description: 上传在左侧上传列表中的单张照片
  * @param {*} name
@@ -663,6 +679,37 @@ function handleGroupSetupComplete(imageIds: string[]) {
   if (imagesToUpload.length > 0) {
     uploadImages(imagesToUpload)
   }
+}
+
+/**
+ * @description: 批量上传到分组的回调
+ * @param {string[]} groupIds - 选中的分组ID列表
+ */
+async function handleBatchUploadToGroup(groupIds: string[]) {
+  const imagesWithGPS = needUploadImageInfos.value.filter(item => {
+    return item.GPSInfo?.GPSLatitude && item.GPSInfo?.GPSLongitude
+  })
+  if (imagesWithGPS.length === 0) {
+    ElMessage.warning(t('description.noPictureCanUpload'))
+    return
+  }
+  const imageIds = imagesWithGPS.map(img => img.id)
+  // 隐藏已分配到分组的图片标记
+  imageIds.forEach(imageId => {
+    markerService.hiddenMarkerById(imageId)
+  })
+  // 先将分组信息更新到 schema 中
+  const schema = schemaStore.getSchema
+  groupIds.forEach(groupId => {
+    const group = schema.groupInfo.find(item => item.id === groupId)
+    if (group) {
+      group.groupNumbers = [...new Set([...group.groupNumbers, ...imageIds])]
+      updateGroupMarkerImage(group)
+    }
+  })
+  await SaveSchema()
+  // 上传图片
+  uploadImages(imagesWithGPS)
 }
 
 // TODO:更新图片信息
@@ -913,6 +960,12 @@ img {
 
 .edit-button {
   width: 100px;
+}
+
+.upload-action-btn {
+  width: 80px;
+  height: 40px;
+  line-height: 14px;
 }
 
 .upload-count {
