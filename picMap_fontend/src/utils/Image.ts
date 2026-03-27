@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-17 17:20:09
+ * @LastEditTime: 2026-03-27 15:44:26
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -198,11 +198,15 @@ export function calcMBSize(size: number) {
 /**
  * @description: 上传图片
  * @param {*} imageInfos
+ * @param {Function} onProgress - 进度回调函数，参数为 (current: number, total: number)
  * @return {*}
  */
-export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHttpResponse[]> {
+export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: (current: number, total: number) => void): Promise<IHttpResponse[]> {
   const res = []
   const schemaStore = useSchemaStore()
+  const total = imageInfos.length
+  let current = 0
+
   for (let i = 0; i < imageInfos.length; i++) {
     const imageInfo = imageInfos[i]
     // 如果不符合上传条件的，先不上传
@@ -229,6 +233,10 @@ export async function uploadImages(imageInfos: IImageDetailInfo[]): Promise<IHtt
       // 将 marker 设置为不可移动
       marker?.dragging?.disable?.()
     }
+
+    // 更新进度
+    current++
+    onProgress?.(current, total)
   }
   return res
 }

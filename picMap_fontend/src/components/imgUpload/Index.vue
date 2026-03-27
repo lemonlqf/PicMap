@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-29 18:33:43
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-23 16:24:24
+ * @LastEditTime: 2026-03-27 16:50:33
  * @FilePath: \PicMap\picMap_fontend\src\components\imgUpload\Index.vue
  * @Description: 首页的图片上传组件
   - 基于Element Plus的Upload组件封装，提供图片预览、格式/大小限制等功能
@@ -18,7 +18,7 @@
     <div class="upload-button-group">
       <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
         action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-        <el-button style="margin-right: 10px; margin-bottom:10px; width: 180px;" type="primary" :disabled="isLoading">
+        <el-button style="width: 180px;" type="primary" :disabled="isLoading">
           {{ $t('uploadPicture') }}
           <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
             <Loading />
@@ -26,80 +26,104 @@
       </el-upload>
     </div>
     <!-- 上传轨迹按钮 -->
-    <el-button :title="$t('trackManagement')" class="upload-track-button" circle type="primary" @click="trackUploadDialogShow = true">
-      <TrackIcon style="height: 20px; width: 20px; color: white"/>
+    <el-button :title="$t('trackManagement')" class="upload-track-button" circle type="primary"
+      @click="trackUploadDialogShow = true">
+      <TrackIcon style="height: 20px; width: 20px; color: white" />
     </el-button>
     <!-- 上传到表单中图片数据 -->
     <el-scrollbar max-height="70vh">
       <div class="duplicate-image-box" v-show="uploadedImageInfos.length">
-        <!-- 重复的图片 -->
         <h3 class="h3-title">{{ $t('uploadedPicture') }}：</h3>
-        <el-scrollbar :max-height="uploadExpand ? 'fit-content' : '57px'">
-          <div class="duplicate-upload-img-card" v-for="(item, index) in uploadedImageInfos">
+        <div class="uploaded-list" :class="{ expanded: uploadExpand }">
+          <div class="duplicate-upload-img-card" v-for="item in uploadedImageInfos" :key="item.id">
             <el-tooltip :content="item.name" placement="top">
-              <img :src="item.blobUrl ?? item.url" alt="" height="50px" :key="item.name"
-                @click="markerService.setViewByMarkerId(item?.id)" />
+              <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
+                @click="markerService.setViewByMarkerId(item.id)" />
             </el-tooltip>
           </div>
-        </el-scrollbar>
-        <!-- 折叠、展开、清空已上传图片 -->
-        <div class="button-flex">
-          <el-button class="bottom-button" v-show="uploadExpand" :icon="ArrowUpBold" @click="uploadExpand = false"
-            type="primary">{{ $t('fold') }}</el-button>
-          <el-button class="bottom-button" v-show="!uploadExpand" :icon="ArrowDownBold" @click="uploadExpand = true"
-            type="primary">{{ $t('expand') }}</el-button>
-          <el-button class="bottom-button" @click="clearUploadImage" :icon="Delete" type="danger">{{ $t('clear')
-          }}</el-button>
+        </div>
+        <div class="uploaded-actions">
+          <el-button-group>
+            <el-button class="edit-button" v-show="uploadExpand" @click="uploadExpand = false" size="small">
+              <el-icon><ArrowUpBold /></el-icon>{{ $t('fold') }}
+            </el-button>
+            <el-button class="edit-button" v-show="!uploadExpand" @click="uploadExpand = true" size="small">
+              <el-icon><ArrowDownBold /></el-icon>{{ $t('expand') }}
+            </el-button>
+            <el-button class="edit-button" @click="clearUploadImage" size="small" type="danger">
+              <el-icon><Delete /></el-icon>{{ $t('clear') }}
+            </el-button>
+          </el-button-group>
         </div>
       </div>
       <div v-show="needUploadImageInfos.length">
         <h3 class="h3-title">{{ $t('pictureToBeUploaded') }}：</h3>
-        <div class="upload-img-card" v-for="(item, index) in needUploadImageInfos" :key="item.name">
+        <div class="upload-img-card" v-for="item in needUploadImageInfos" :key="item.id">
           <div class="image-info">
-            <el-tooltip :content="item.name" placement="top">
-              <img :src="item.blobUrl ?? item.url" alt="" height="50px"
-                @click="markerService.setViewByMarkerId(item?.id)" />
-            </el-tooltip>
-            <h1>{{ $t('pictureName') }}:{{ item.name }}</h1>
-            <h1>{{ $t('latitude') }}:{{ !item?.GPSInfo?.GPSLatitude ? $t('noData') : item?.GPSInfo?.GPSLatitude }}</h1>
-            <h1>{{ $t('longitude') }}:{{ !item?.GPSInfo?.GPSLongitude ? $t('noData') : item?.GPSInfo?.GPSLongitude }}
-            </h1>
-            <!-- <h1>id: {{ item.id }}</h1> -->
+            <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
+              @click="markerService.setViewByMarkerId(item.id)" />
+            <div class="info-text">
+              <el-tooltip :content="item.name" placement="top">
+                <span class="name-text">{{ item.name }}</span>
+              </el-tooltip>
+              <span class="gps-text">
+                {{ item?.GPSInfo?.GPSLatitude ? `${item.GPSInfo.GPSLatitude}, ${item.GPSInfo.GPSLongitude}` :
+                $t('noData') }}
+              </span>
+            </div>
           </div>
-          <div class="uplod-delete-buttons">
-            <div v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude"
-              @click="showLocateDialog(item.name)">
-              <img src="@/assets/icon/定位(白色).png" width="16px" alt="">{{ $t('locate') }}</img>
-            </div>
-            <div v-else @click="uploadImage(item.name)">
-              <img src="@/assets/icon/上传 (白色).png" width="16px">{{ $t('upload') }}</img>
-            </div>
-            <!-- 分组信息 -->
-            <div :class="{ 'disabled-button': !item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude }"
-              @click="item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude && showGroupDialog(item.id)">
-              <img src="@/assets/icon/分组（白色）.png" width="16px">{{ $t('group') }}</img>
-            </div>
-            <div @click="deleteImage(item.name)">
-              <img src="@/assets/icon/删除 (白色).png" width="16px">{{ $t('delete') }}</img>
-            </div>
+          <div class="upload-buttons">
+            <el-tooltip v-if="!item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude" :content="$t('locate')"
+              placement="top">
+              <div class="action-btn locate" @click="showLocateDialog(item.name)">
+                <img src="@/assets/icon/定位(白色).png" alt="">
+              </div>
+            </el-tooltip>
+            <el-tooltip v-else :content="$t('upload')" placement="top">
+              <div class="action-btn upload" @click="uploadImage(item.name)">
+                <img src="@/assets/icon/上传 (白色).png" alt="">
+              </div>
+            </el-tooltip>
+            <el-tooltip :content="$t('group')" placement="top">
+              <div
+                :class="['action-btn', 'group', { disabled: !item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude }]"
+                @click="item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude && showGroupDialog(item.id)">
+                <img src="@/assets/icon/分组（白色）.png" alt="">
+              </div>
+            </el-tooltip>
+            <el-tooltip :content="$t('delete')" placement="top">
+              <div class="action-btn delete" @click="deleteImage(item.name)">
+                <img src="@/assets/icon/删除 (白色).png" alt="">
+              </div>
+            </el-tooltip>
           </div>
         </div>
       </div>
     </el-scrollbar>
-    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="uploadImages(needUploadImageInfos)"
-      type="primary" :disabled="isUploading">{{ $t('batchUpload') }}<el-icon v-if="isUploading" class="is-loading"
-        style="margin-left: 8px;">
-        <Loading />
-      </el-icon></el-button>
-    <el-button class="bottom-button" v-if="needUploadImageInfos.length" @click="deleteAll" type="danger"
-      :disabled="isUploading">{{
-        $t('clearAll') }}</el-button>
+    <!-- 上传进度条 -->
+    <div v-if="isUploading && uploadProgress.total > 0" class="upload-progress">
+      <el-progress :percentage="Math.round(uploadProgress.current / uploadProgress.total * 100)"
+        :format="() => `${uploadProgress.current}/${uploadProgress.total}`" />
+    </div>
+    <!-- 待上传图片操作按钮 -->
+    <div v-if="needUploadImageInfos.length" class="upload-actions">
+      <el-button-group>
+        <el-button class="edit-button" type="primary" :disabled="isUploading" @click="uploadImages(needUploadImageInfos)" size="small">
+          <el-icon v-if="isUploading" class="is-loading"><Loading /></el-icon>
+          {{ $t('batchUpload') }}
+        </el-button>
+        <el-button class="edit-button" type="danger" :disabled="isUploading" @click="deleteAll" size="small">
+          {{ $t('clearAll') }}
+        </el-button>
+      </el-button-group>
+    </div>
   </div>
   <!-- 定位弹框 -->
   <LocateDialog v-model="locateDialogShow" :image-id="needLocateImageIdFormData.id" @confirm="handleLocateConfirm"
     @manual-locate="handleManualLocate"></LocateDialog>
   <!-- 单张图片分组设置弹框 -->
-  <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds" @group-setup-complete="handleGroupSetupComplete"></GroupInfoDialog>
+  <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds" @group-setup-complete="handleGroupSetupComplete">
+  </GroupInfoDialog>
   <!-- 上传轨迹弹框 -->
   <TrackUploadDialog v-model="trackUploadDialogShow"></TrackUploadDialog>
 </template>
@@ -445,6 +469,7 @@ const uploadedImageLoading = ref(false)
 const loadingInstance = ref()
 const isLoading = ref(false)
 const isUploading = ref(false)
+const uploadProgress = ref({ current: 0, total: 0 })
 
 watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   if (needUploadImageLoading.value || uploadedImageLoading.value) {
@@ -514,9 +539,15 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
     isUploading.value = false
     return
   }
+  // 初始化进度
+  uploadProgress.value = { current: 0, total: locateImageInfos.length }
+  // 进度回调函数
+  const onProgress = (current: number, total: number) => {
+    uploadProgress.value = { current, total }
+  }
   // subimtData.append('data', 123)
   // 上传图片一定要用UploadImages因为有特殊操作，而且要先上传图片再保存schema
-  const res1 = await UploadImages(locateImageInfos)
+  const res1 = await UploadImages(locateImageInfos, onProgress)
   // 所有setSchema方法都必须调用saveSchmea，因为在保存前需要有特殊操作
   const res2 = await SaveSchema()
   const allSuccess = res1.filter(res => {
@@ -530,6 +561,7 @@ async function uploadImages(imageInfos: IImageDetailInfo[]) {
   } else {
   }
   isUploading.value = false
+  uploadProgress.value = { current: 0, total: 0 }
 }
 
 /**
@@ -640,14 +672,10 @@ defineExpose({
 </script>
 
 <style lang="scss" scoped>
-.bottom-button {
-  margin: 10px 5px !important;
-}
-
 .img-upload {
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
-  padding: 10px 0 0 10px;
+  padding: 10px;
 
   .upload-button-group {
     display: flex;
@@ -665,133 +693,221 @@ defineExpose({
   display: none;
 }
 
-.img-cards {
-  max-height: calc(100vh - 100px);
-  overflow: auto;
-}
-
 .h3-title {
   font-size: 12px;
-  color: gray;
-  margin-top: 5px;
+  color: #909399;
+  margin: 10px 0 8px;
 }
 
 .duplicate-image-box {
-  transition: all 0.3s;
-  margin-right: 10px;
-  max-width: 200px;
-  height: fit-content;
-  padding: 0 0 5px 0;
-  border-bottom: 1px solid rgba(128, 128, 128, 0.185);
+  width: 220px;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #ebeef5;
 
-  .button-flex {
+  .uploaded-list {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 35px;
+    gap: 4px;
+    flex-wrap: wrap;
+    max-height: 55px;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
 
-    .el-button {
-      width: 90px;
+    &.expanded {
+      max-height: none;
+      overflow-y: auto;
     }
   }
 
-  .upload-image-box {
-    transition: 0.3s height;
-    height: fit-content;
+  .uploaded-actions {
+    padding: 8px 0;
   }
 }
 
-
+.upload-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 0;
+}
 
 .upload-img-card {
   display: flex;
+  align-items: center;
   position: relative;
-  max-width: 300px;
-  margin-right: 3px;
-  border-width: 1px;
-  border-style: solid;
-  border-color: rgba(0, 0, 0, 0);
-  padding: 5px;
-  border-radius: 5px;
-  margin-top: 5px;
-  transition: 0.3s;
+  max-width: 320px;
+  padding: 6px 8px;
+  margin-bottom: 6px;
+  background: #fff;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  transition: all 0.2s;
+  overflow: hidden;
 
-  h1 {
-    font-size: 12px;
+  &:hover {
+    background: #f0f7ff;
+    border-color: #409eff;
+    box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+
+    .upload-buttons {
+      transform: translateX(0);
+      opacity: 1;
+    }
   }
 
   .image-info {
-    margin-right: 20px;
-  }
-
-  .uplod-delete-buttons {
-    width: 40px;
-    height: 100%;
-    opacity: 0;
-    position: absolute;
+    flex: 1;
+    min-width: 0;
     display: flex;
-    flex-direction: column;
-    top: 0;
-    right: 0;
-    font-size: 12px;
-    color: white;
-    background-color: rgb(154, 154, 154);
+    align-items: center;
+    gap: 10px;
 
-    div {
-      cursor: pointer;
+    .thumb {
+      width: 50px;
+      height: 50px;
+      object-fit: cover;
+      flex-shrink: 0;
+      border-radius: 4px;
+      will-change: transform;
+    }
+
+    .info-text {
       flex: 1;
+      min-width: 0;
       display: flex;
       flex-direction: column;
       justify-content: center;
+      gap: 4px;
+    }
+
+    .name-text {
+      display: block;
+      width: 150px;
+      font-size: 12px;
+      color: #303133;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .gps-text {
+      font-size: 11px;
+      color: #909399;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+  }
+
+  .upload-buttons {
+    position: absolute;
+    right: 8px;
+    top: 30%;
+    transform: translateX(calc(100% + 8px));
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: all 0.25s ease;
+
+    .action-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
       align-items: center;
+      justify-content: center;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.2s;
+
+      img {
+        width: 16px;
+        height: 16px;
+      }
+
+      &.upload {
+        background: #67c23a;
+
+        &:hover {
+          background: #85ce61;
+          transform: scale(1.1);
+        }
+      }
+
+      &.locate {
+        background: #409eff;
+
+        &:hover {
+          background: #66b1ff;
+          transform: scale(1.1);
+        }
+      }
+
+      &.group {
+        background: #e6a23c;
+
+        &:hover {
+          background: #ebb563;
+          transform: scale(1.1);
+        }
+
+        &.disabled {
+          background: #c0c4cc;
+          cursor: not-allowed;
+          transform: none;
+        }
+      }
+
+      &.delete {
+        background: #f56c6c;
+
+        &:hover {
+          background: #f89898;
+          transform: scale(1.1);
+        }
+      }
     }
   }
 }
 
-.upload-img-card:hover {
-  background-color: rgba(232, 232, 232, 0.4);
-  border-color: rgba(0, 0, 0, 0.2);
+.upload-progress {
+  padding: 12px 8px;
+  margin: 8px 0;
+  background: linear-gradient(135deg, #f0f7ff 0%, #e6f0ff 100%);
+  border-radius: 6px;
 
-  .uplod-delete-buttons {
-    opacity: 1;
-
-    div:hover {
-      background-color: rgb(114, 114, 114);
-    }
+  .el-progress {
+    --el-progress-text-color: #409eff;
   }
 }
 
-.disabled-button {
-  opacity: 0.5;
-  cursor: not-allowed;
-  pointer-events: none;
+.bottom-button {
+  margin: 8px 4px !important;
 }
 
 .duplicate-upload-img-card {
-  display: inline-block;
-  margin: 1px 2px;
+  .thumb {
+    width: 50px;
+    height: 50px;
+    object-fit: cover;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: transform 0.2s;
+    will-change: transform;
+
+    &:hover {
+      transform: scale(1.05);
+    }
+  }
 }
 
 img {
   cursor: pointer;
 }
 
-.dialog-footer {
-  display: flex;
-  justify-content: flex-end;
-
-  .locate-button {
-    flex: 1;
-    margin-right: 50px;
-    margin-left: 10px;
-    justify-self: flex-start
-  }
+:deep(.el-form-item__label) {
+  line-height: 14px;
 }
 
-:deep() {
-  .el-form-item--default .el-form-item__label {
-    line-height: 16px;
-    align-items: center;
-  }
+.edit-button {
+  width: 100px;
 }
 </style>
