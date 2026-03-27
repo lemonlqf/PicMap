@@ -1,7 +1,7 @@
 <!--
  * @Author: Do not edit
  * @Date: 2026-03-04
- * @LastEditTime: 2026-03-26 22:47:08
+ * @LastEditTime: 2026-03-27 15:12:32
  * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
  *   - 使用Leaflet展示分组中图片的位置
@@ -12,7 +12,7 @@
 <template>
   <div class="map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }" @mousemove="handleMouseMove">
     <!-- 全屏按钮 -->
-    <button class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
+    <button v-if="showFullscreenButton" class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
       <el-icon :size="16">
         <Close v-if="isFullscreen"></Close>
         <FullScreen v-else></FullScreen>
@@ -60,6 +60,11 @@ const props = defineProps({
   trackIds: {
     type: Object as PropType<string[]>,
     default: () => []
+  },
+  // 是否展示全屏按钮
+  showFullscreenButton: {
+    type: Object as PropType<boolean>,
+    default: true
   }
 })
 

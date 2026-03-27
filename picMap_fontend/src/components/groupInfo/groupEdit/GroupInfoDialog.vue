@@ -81,6 +81,11 @@ const schemaStore = useSchemaStore()
 const show = defineModel({ default: false })
 const groupFormRef = ref()
 
+// 分组设置完成事件，如果图片还未上传则触发自动上传
+const emit = defineEmits<{
+  (e: 'groupSetupComplete', imageIds: string[]): void
+}>()
+
 type ISingleImageGroupInfoFormData = {
   groupIds: string[]
   imageIds: string[]
@@ -179,6 +184,8 @@ async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData, dragg
     ElMessage.success(t('description.editGroupInfoSuccess'))
     // 更新地图中的节点
     updateVisibleMarkersByFormData(newGroupInfo, hiddenImageIds, draggable)
+    // 通知父组件，分组设置完成，需要自动上传这些图片
+    emit('groupSetupComplete', hiddenImageIds)
   } else {
     ElMessage.error(t('description.editGroupInfoFail'))
   }

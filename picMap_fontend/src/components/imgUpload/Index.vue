@@ -75,7 +75,8 @@
               <img src="@/assets/icon/上传 (白色).png" width="16px">{{ $t('upload') }}</img>
             </div>
             <!-- 分组信息 -->
-            <div @click="showGroupDialog(item.id)">
+            <div :class="{ 'disabled-button': !item?.GPSInfo?.GPSLatitude || !item?.GPSInfo?.GPSLongitude }"
+              @click="item?.GPSInfo?.GPSLatitude && item?.GPSInfo?.GPSLongitude && showGroupDialog(item.id)">
               <img src="@/assets/icon/分组（白色）.png" width="16px">{{ $t('group') }}</img>
             </div>
             <div @click="deleteImage(item.name)">
@@ -98,7 +99,7 @@
   <LocateDialog v-model="locateDialogShow" :image-id="needLocateImageIdFormData.id" @confirm="handleLocateConfirm"
     @manual-locate="handleManualLocate"></LocateDialog>
   <!-- 单张图片分组设置弹框 -->
-  <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds"></GroupInfoDialog>
+  <GroupInfoDialog v-model="groupDialogShow" :imageIds="editImageIds" @group-setup-complete="handleGroupSetupComplete"></GroupInfoDialog>
   <!-- 上传轨迹弹框 -->
   <TrackUploadDialog v-model="trackUploadDialogShow"></TrackUploadDialog>
 </template>
@@ -609,6 +610,20 @@ function showGroupDialog(imageId: string) {
   groupDialogShow.value = true
 }
 
+/**
+ * @description: 分组设置完成后的回调，自动上传设置了分组的图片
+ * @param {string[]} imageIds - 需要自动上传的图片ID列表
+ */
+function handleGroupSetupComplete(imageIds: string[]) {
+  // 筛选出未上传且有GPS信息的图片
+  const imagesToUpload = needUploadImageInfos.value.filter(item => {
+    return imageIds.includes(item.id) && item.GPSInfo?.GPSLatitude && item.GPSInfo?.GPSLongitude
+  })
+  if (imagesToUpload.length > 0) {
+    uploadImages(imagesToUpload)
+  }
+}
+
 // TODO:更新图片信息
 function updateImgs() { }
 
@@ -744,6 +759,12 @@ defineExpose({
       background-color: rgb(114, 114, 114);
     }
   }
+}
+
+.disabled-button {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
 }
 
 .duplicate-upload-img-card {
