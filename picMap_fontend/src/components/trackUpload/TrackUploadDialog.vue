@@ -47,7 +47,6 @@ import TrackUploadTable from './TrackUploadTable.vue'
 import { useSchemaStore } from '@/store/schema'
 import type { ITrackInfo } from '@/type/schema'
 import { getGroupIdAndNameLists, updateGroupInfoToSchema } from '@/utils/group'
-import { editSchemaAttrAndSave } from '@/utils/schema'
 
 const { t } = useI18n()
 const schemaStore = useSchemaStore()
@@ -284,19 +283,7 @@ async function uploadRow(row: TrackData) {
     const res = await trackService.uploadTrack(row.file)
     if (res.code === 200) {
       // 更新schema中的轨迹信息
-      await updateTrackSchema(row.id)
-      // 如果行数据中有颜色设置，则保存到schema
-      if (row.setting?.lineColor) {
-        const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
-        const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
-        if (trackIndex >= 0) {
-          if (!trackInfoList[trackIndex].setting) {
-            trackInfoList[trackIndex].setting = {}
-          }
-          trackInfoList[trackIndex].setting!.lineColor = row.setting.lineColor
-          await editSchemaAttrAndSave('trackInfo', trackInfoList)
-        }
-      }
+      await updateTrackSchema(row.id, row.setting?.lineColor)
       row.uploaded = true
       row.file = null
       // 从上传列表中移除已上传的文件

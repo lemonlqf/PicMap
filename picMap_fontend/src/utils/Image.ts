@@ -62,6 +62,16 @@ class ImageCacheManager {
     }
   }
 
+  updateImageUrl(imageId: string, imageUrl: string) {
+    try {
+      this.imageUrlsMap.set(imageId, imageUrl)
+      return true
+    } catch {
+      console.error('error in ImageCacheManager updateImageUrl')
+      return false
+    }
+  }
+
   /**
    * 根据图片ID获取图片URL
    * @param {string} imageId - 图片的唯一标识符
@@ -224,6 +234,12 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
     if (res1.code !== 200) {
       ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.uploadFailed')}`)
       continue
+    }
+    // 使用返回的缩略图替换原图
+    const uploadedImageData = res1.data?.images?.[0]
+    if (uploadedImageData?.thumbnailBase64) {
+      const thumbnailUrl = `data:image/jpeg;base64,${uploadedImageData.thumbnailBase64}`
+      ImageCacheManager.getInstance().updateImageUrl(imageInfo.id, thumbnailUrl)
     }
     // 将图片保存到已经上传的地方
     schemaStore.pushImageToUploadedImageIds(imageInfo.id)

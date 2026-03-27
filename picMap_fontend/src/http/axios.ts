@@ -15,7 +15,7 @@ const port = '5120'
 
 const http = axios.create({
   baseURL: `${ip}:${port}`,
-  timeout: 10000
+  timeout: 60000
 })
 
 // 添加请求拦截器

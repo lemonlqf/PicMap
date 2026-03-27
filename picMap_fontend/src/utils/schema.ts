@@ -185,9 +185,7 @@ export async function editSchemaAttrAndSave(attr: string, value: any) {
   const schemaStore = useSchemaStore()
   const schema = schemaStore.getSchema
   set(schema, attr, value)
-  const newSchema = cloneDeep(schemaStore.getSchema)
-  // 单独掉接口，不要走处理图片的逻辑
-  await schemaHttp.setSchema({ schema: JSON.stringify(newSchema) })
+  await saveSchema()
 }
 
 /**

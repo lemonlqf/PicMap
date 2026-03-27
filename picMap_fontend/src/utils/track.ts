@@ -43,8 +43,9 @@ export function getDefaultLineColor(changeColor: boolean = false): string {
  * 如果已存在相同id则覆盖，否则添加新对象
  * 同时保存到服务器
  * @param {string} fileName - 轨迹文件名（如 PMmytrack.gpx）
+ * @param {string} lineColor - 轨迹线颜色（可选）
  */
-export async function updateTrackSchema(fileName: string) {
+export async function updateTrackSchema(fileName: string, lineColor?: string) {
   const schemaStore = useSchemaStore()
   const tracksInfo = [...(schemaStore.getSchema.trackInfo || [])]
   const existIndex = tracksInfo.findIndex(item => item.id === fileName)
@@ -54,10 +55,15 @@ export async function updateTrackSchema(fileName: string) {
   const existingSetting = existIndex >= 0 ? tracksInfo[existIndex].setting : undefined
   if (existIndex >= 0) {
     // 存在相同id则覆盖，但保留setting字段
-    tracksInfo[existIndex] = { id: fileName, ...trackInfo, setting: existingSetting }
+    const newSetting = { ...existingSetting }
+    if (lineColor) {
+      newSetting.lineColor = lineColor
+    }
+    tracksInfo[existIndex] = { id: fileName, ...trackInfo, setting: newSetting }
   } else {
     // 不存在则添加新对象
-    tracksInfo.push({ id: fileName, ...trackInfo })
+    const newSetting = lineColor ? { lineColor } : undefined
+    tracksInfo.push({ id: fileName, ...trackInfo, setting: newSetting })
   }
   await editSchemaAttrAndSave('trackInfo', tracksInfo)
 }

@@ -703,7 +703,7 @@ async function handleBatchUploadToGroup(groupIds: string[]) {
   groupIds.forEach(groupId => {
     const group = schema.groupInfo.find(item => item.id === groupId)
     if (group) {
-      group.groupNumbers = [...new Set([...group.groupNumbers, ...imageIds])]
+      group.groupNumbers = [...new Set([...(group.groupNumbers || []), ...imageIds])]
       updateGroupMarkerImage(group)
     }
   })

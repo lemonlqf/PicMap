@@ -76,8 +76,8 @@ router.post('/getJPGImage', async function (req, res, next) {
 router.post('/uploadImages', async function (req, res, next) {
   const bodyData = req.body.images
   const { currentUserId } = req.body
-  // console.log('bodyData', bodyData)
-  bodyData?.forEach?.(item => {
+  const uploadedImages = []
+  for (const item of bodyData || []) {
     let extension = item.name ? nodePath.extname(item.name) : '.jpg'
     // 写入本地图片文件
     writeBase64File(item.url, item.id, extension, getImageFilePath(currentUserId))
@@ -87,8 +87,14 @@ router.post('/uploadImages', async function (req, res, next) {
       extension = '.jpg' // 缩略图统一使用jpg格式
       writeBase64File(item.thumbnailUrl, item.id, extension, getImageFilePath(currentUserId), THUMBNAIL_PREFIX)
     }
-  })
-  res.send(Result.success('上传成功'))
+    // 获取缩略图内容用于返回
+    const thumbnailBase64 = await getSmallImageFileById(item.id, currentUserId)
+    uploadedImages.push({
+      id: item.id,
+      thumbnailBase64
+    })
+  }
+  res.send(Result.success({ images: uploadedImages }))
 })
 
 // 获取缩略图

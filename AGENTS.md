@@ -382,3 +382,4 @@ User context passed via `currentUserId` in request body/params.
 - Images require EXIF GPS data for auto-location
 - Use `npm run install:all` for fresh dependency installation
 - **性能优化**: 遵循 `PERFORMANCE.md` 中的规范，避免同步阻塞、无限制并发、大文件无限制等问题
+- **Schema 保存规范**: 任何保存 schema 的操作都必须使用 `saveSchema()` 函数，不要直接调用 `schemaHttp.setSchema()` 接口。`saveSchema()` 会自动清理图片的 `url`、`blobUrl`、`thumbnailUrl` 字段，减小数据体积
