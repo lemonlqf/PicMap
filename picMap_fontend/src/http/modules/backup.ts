@@ -56,7 +56,8 @@ export default {
     return http({
       url: 'backup/import',
       method: 'post',
-      data
+      data,
+      timeout: 0
     })
   },
   

@@ -147,6 +147,7 @@ export default {
   backupSuccess: '备份成功',
   backupFailed: '备份失败',
   backupLargeWarning: '存档较大，备份时间可能较长，请耐心等待',
+  backupLoading: '正在备份，请稍候...',
   restoreSuccess: '恢复成功，请刷新页面',
   restoreFailed: '恢复失败',
   confirmDeleteBackup: '确定要删除此备份吗？',

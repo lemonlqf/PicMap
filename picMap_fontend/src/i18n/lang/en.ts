@@ -148,6 +148,7 @@ export default {
   backupSuccess: 'Backup success',
   backupFailed: 'Backup failed',
   backupLargeWarning: 'Archive is large, backup may take longer, please be patient',
+  backupLoading: 'Backing up, please wait...',
   restoreSuccess: 'Restore success, please refresh page',
   restoreFailed: 'Restore failed',
   confirmDeleteBackup: 'Are you sure you want to delete this backup?',

@@ -48,8 +48,12 @@
           @keyup.enter="handleBackup"
         />
       </div>
+      <div v-if="backupLoading" class="backup-loading">
+        <el-icon class="loading-icon"><Loading /></el-icon>
+        <span>{{ $t('backupLoading') }}</span>
+      </div>
       <template #footer>
-        <el-button @click="backupDialogVisible = false">{{ $t('cancel') }}</el-button>
+        <el-button @click="backupDialogVisible = false" :disabled="backupLoading">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('confirm') }}</el-button>
       </template>
     </el-dialog>
@@ -65,7 +69,7 @@
         </div>
       </div>
       <template #footer>
-        <el-button @click="restoreDialogVisible = false">{{ $t('cancel') }}</el-button>
+        <el-button @click="restoreDialogVisible = false" :disabled="restoreLoading">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="confirmRestore" :loading="restoreLoading">{{ $t('confirm') }}</el-button>
       </template>
     </el-dialog>
@@ -74,7 +78,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { ElMessage, ElMessageBox, ElIcon } from 'element-plus'
+import { Loading } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import API from '@/http'
 import Backup from '@/http/modules/backup'
@@ -335,6 +340,27 @@ function formatTime(date: string): string {
     margin-top: 10px;
     color: #666;
     font-size: 14px;
+  }
+}
+
+.backup-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  color: #666;
+
+  .loading-icon {
+    font-size: 32px;
+    color: #409eff;
+    margin-bottom: 10px;
+    animation: rotate 1s linear infinite;
+  }
+
+  @keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
   }
 }
 </style>
