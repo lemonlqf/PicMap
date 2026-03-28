@@ -641,6 +641,19 @@ function updateFromLocateInfo(marker: any, fileInfo: any) {
  * @return {*}
  */
 function deleteAll() {
+  // 删除所有未上传图片的marker
+  needUploadImageInfos.value.forEach(item => {
+    const marker = markerService.getMarkerById(item.id)
+    if (marker) {
+      markerService.deleteMarkerInMap(marker)
+    }
+  })
+  // 清空imageUrls缓存
+  needUploadImageInfos.value.forEach(item => {
+    delete imageUrls.value[item.id]
+  })
+  // 清空列表
+  hasUrlFileList.value = []
   elUploadFileList.value = []
 }
 
