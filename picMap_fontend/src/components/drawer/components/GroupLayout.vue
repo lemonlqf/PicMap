@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:36:26
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-18 13:52:07
+ * @LastEditTime: 2026-03-28 14:48:46
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\GroupLayout.vue
  * @Description: 分组布局组件
  *   - 按时间分组展示图片
@@ -28,7 +28,7 @@
                 :image-id="item.id">
               </Image>
               <!-- 退出分组 -->
-              <div class="exit-group" @click="removeGroupImage(groupId, item.id)">
+              <div class="exit-group" @click="clickExitGroup($event, groupId, item.id)">
                 <img src="@/assets/icon/退出.png" alt="" width="30px" :title="$t('exitGroup')" />
               </div>
             </div>
@@ -97,6 +97,11 @@ function handleImageClick(e: MouseEvent, id: string) {
   // 通知父组件显示图片详情
   emit('showImageInfo', id)
 }
+
+function clickExitGroup(e: MouseEvent, groupId: string, imageId: string) {
+  e.stopPropagation() // 阻止事件冒泡，避免触发图片预览
+  removeGroupImage(groupId, imageId)
+}
 </script>
 
 <style lang="scss" scoped>
@@ -153,7 +158,6 @@ function handleImageClick(e: MouseEvent, id: string) {
       cursor: pointer;
       pointer-events: all;
       opacity: 0;
-      z-index: 999;
     }
 
     .exit-group:hover {

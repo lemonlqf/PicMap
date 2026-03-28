@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-12 15:50:25
+ * @LastEditTime: 2026-03-28 14:56:56
  * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
@@ -78,7 +78,8 @@ watch(() => props.imageId, () => {
  * @description: 下载原图
  * @return {*}
  */
-async function downloadImage() {
+async function downloadImage(e: MouseEvent) {
+  e.stopPropagation() // 阻止事件冒泡，避免触发图片预览
   const imageId = props.imageId
   const schemaInfo = getSchemaInfoById(imageId)
   if (imageId) {
@@ -114,7 +115,6 @@ async function downloadImage() {
     cursor: pointer;
     pointer-events: all;
     opacity: 0;
-    z-index: 999;
   }
 
   .download-button:hover {
