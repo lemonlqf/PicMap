@@ -63,7 +63,7 @@ const props = defineProps({
   },
   // 是否展示全屏按钮
   showFullscreenButton: {
-    type: Object as PropType<boolean>,
+    type: Boolean,
     default: true
   }
 })

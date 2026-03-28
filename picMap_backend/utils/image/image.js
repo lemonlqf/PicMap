@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-01-26 13:17:04
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-21 09:02:47
+ * @LastEditTime: 2026-03-28 14:21:27
  * @FilePath: \PicMap\picMap_backend\utils\image\image.js
  * @Description:
  */
@@ -522,6 +522,10 @@ async function getSmallImageFileById(id, userId) {
       const baseUrl = data.toString('base64')
       return baseUrl
     } catch (error) {
+      // 对于如heic和raw等特殊格式,没有缩略图就返回null,因为就算返回原图也不会显示，干脆不返回
+      if (isHeicImage(id, '') || isRawImage(id, '')) {
+        return null
+      }
       // 获取缩略图失败直接返回原图
       // 读取文件
       const file = fs.readFileSync(filesPath[0])

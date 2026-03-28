@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-02-05 19:51:22
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-27 15:44:26
+ * @LastEditTime: 2026-03-28 14:29:38
  * @FilePath: \PicMap\picMap_fontend\src\utils\Image.ts
  * @Description: 图片相关的工具函数，提供图片的上传、删除、获取等功能
  */
@@ -237,6 +237,7 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
     }
     // 使用返回的缩略图替换原图
     const uploadedImageData = res1.data?.images?.[0]
+    // 如果有缩略图，则使用缩略图替换原图，否则保持不变（对于如heic和raw等特殊格式,没有缩略图就返回null,直接保持不变）
     if (uploadedImageData?.thumbnailBase64) {
       const thumbnailUrl = `data:image/jpeg;base64,${uploadedImageData.thumbnailBase64}`
       ImageCacheManager.getInstance().updateImageUrl(imageInfo.id, thumbnailUrl)
