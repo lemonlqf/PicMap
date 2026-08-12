@@ -4,15 +4,16 @@
 
 ---
 
-> 一个基于 Vue3 前端和 Express 后端的图片地图应用，你可以在地图上展示和管理你的图片。
+> 一个基于 Vue3 前端和 Go 后端的图片地图应用，你可以在地图上展示和管理你的图片。
 
 ![Vue 3](https://img.shields.io/badge/Vue-3.3.4-brightgreen)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue)
-![Electron](https://img.shields.io/badge/Electron-36+-gray)
+![Go](https://img.shields.io/badge/Go-1.26-blue)
+![Wails](https://img.shields.io/badge/Wails-v2-red)
 
 本应用除了地图瓦片需要在线获取外，其他的所有功能都无需联网，您的所有信息和图片都**保存在本地**，无个人信息泄露风险。
 
-适配系统：Windows  
+适配系统：Windows
 数据保存目录：`D:\PicMap`
 
 ---
@@ -39,84 +40,43 @@
 
 ## 快速开始
 
-### 1. 安装依赖
+### 环境要求
+
+- Go 1.21+（[下载](https://go.dev/dl/)）
+- Wails CLI
+- Node.js 18+
 
 ```bash
-npm run install:all
-```
+# 安装 Wails CLI
+go install github.com/wailsapp/wails/v2/cmd/wails@latest
 
-或手动安装：
+# 国内用户需设置 Go 代理
+go env -w GOPROXY=https://goproxy.cn,direct
 
-```bash
-# 前端
-cd picMap_fontend
-npm install
+# 安装前端依赖
+cd frontend && npm install
 
-# 后端
-cd picMap_backend
-npm install
-```
-
-### 2. 启动开发环境
-
-```bash
-npm run dev
-```
-
-这将同时启动前端和后端。
-
-或分别启动：
-
-```bash
-# 前端 (端口 5173)
-cd picMap_fontend
-npm run dev
-
-# 后端 (端口 3000)
-cd picMap_backend
-npm start
+# 启动开发模式
+cd .. && wails dev
 ```
 
 ---
 
-## 构建 Electron 应用
-
-### 方式一：一键构建（推荐）
+## 构建
 
 ```bash
-npm run build:auto
+wails build -platform windows/amd64
 ```
 
-这将自动完成：
-1. 打包前端
-2. 打包后端
-3. 打包 Electron 应用
-4. 清理 dist 中的 node_modules
-
-### 方式二：手动构建
-
-```bash
-# 1. 打包前端
-cd picMap_fontend
-npm run build
-
-# 2. 打包后端
-cd picMap_backend
-npm run build
-
-# 3. 根目录打包应用
-npm run build
-```
-
-打包成功后会在根目录下生成 `dist` 目录。
+打包成功后会在 `build/bin/` 目录下生成可执行文件。
 
 ---
 
 ## 技术栈
 
 - **前端**：Vue 3 + TypeScript + Vite + Leaflet + Element Plus + Pinia
-- **后端**：Node.js + Express
-- **打包**：Electron + electron-builder
+- **后端**：Go（Wails 绑定）
+- **打包**：Wails v2 + WebView2
 - **地图**：Leaflet 并支持 GPX 轨迹插件
 
 ---

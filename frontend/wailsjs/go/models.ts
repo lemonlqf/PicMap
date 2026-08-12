@@ -1,0 +1,41 @@
+export namespace model {
+	
+	export class Result {
+	    code: number;
+	    msg: string;
+	    data: any;
+	    time: number;
+	
+	    static createFrom(source: any = {}) {
+	        return new Result(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.code = source["code"];
+	        this.msg = source["msg"];
+	        this.data = source["data"];
+	        this.time = source["time"];
+	    }
+	}
+	export class UploadImage {
+	    id: string;
+	    name: string;
+	    url: string;
+	    thumbnailUrl?: string;
+	
+	    static createFrom(source: any = {}) {
+	        return new UploadImage(source);
+	    }
+	
+	    constructor(source: any = {}) {
+	        if ('string' === typeof source) source = JSON.parse(source);
+	        this.id = source["id"];
+	        this.name = source["name"];
+	        this.url = source["url"];
+	        this.thumbnailUrl = source["thumbnailUrl"];
+	    }
+	}
+
+}
+
