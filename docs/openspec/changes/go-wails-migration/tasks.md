@@ -53,3 +53,30 @@
 - [ ] **T6.4** 使用 `wails build -platform windows/amd64` 打包
 - [ ] **T6.5** 验证安装包大小（目标 < 25MB）和启动速度
 - [ ] **T6.6** 回归测试所有功能（地图、分组、时间轴、GPX、备份、多用户）
+
+## 阶段七：图片路径上传（替代 base64 载体）
+
+### 1. 后端：文件选择与路径上传
+
+- [x] **P1.1** 新增 `SelectImages()` 绑定：调用 Wails 原生对话框（`OpenMultipleFilesDialog`）返回所选图片绝对路径数组
+- [x] **P1.2** 修改 `internal/model/result.go`：新增 `SelectedImage`/`ImportFile` 模型，路径语义取代 base64 URL
+- [x] **P1.3** 修改 `internal/handler/handler.go`：新增 `ImportImages` 按路径 `os.Stat` 校验 + `io.Copy` 写入 `images/{id}.{ext}`，保留 4 并发限流，ID 做 `filepath.Base` 清理
+- [x] **P1.4** 在 `app.go` 暴露 `SelectImages`/`ImportImages` 绑定，ctx 传入 handler
+- [x] **P1.5** EXIF 解析下沉 Go 端（`internal/service/exif.go`）：GPS/相机/作者/图像信息全字段，GPS 在 Go 端完成 WGS84→GCJ02
+- [x] **P1.6** 预览图生成服务（`internal/service/preview.go`）：标准格式 imaging 缩略 800px，HEIC/RAW 经外部工具转 JPEG；HEIC/RAW 导入时生成 `_THUMBNAIL_PM_` 缩略图文件
+
+### 2. 前端：调用与解析改造
+
+- [x] **P2.1** 修改 `frontend/src/wails/api.ts`：新增 `selectImages`/`importImages`
+- [x] **P2.2** 修改 `frontend/src/components/imgUpload/Index.vue`：选文件改走后端对话框，移除 el-upload/exifreader/`readFileAsDataURL`/canvas 缩略图逻辑
+- [x] **P2.3** 修改 `frontend/src/utils/Image.ts` 的 `uploadImages`：以路径数组驱动，4 张一批调用 `importImages`
+- [x] **P2.4** `utils/eventBus.ts` 补充事件类型定义；`type/image.ts` 增加 `path`/`preview`/`type` 字段
+
+### 3. 验证
+
+- [x] **P3.1** `go build ./...` 与 `go vet ./...` 通过
+- [x] **P3.2** `cd frontend && npx vue-tsc --noEmit --skipLibCheck` 通过（修改文件零错误）
+- [x] **P3.3** `wails dev` 启动无报错
+- [ ] **P3.4** 手工验证：单张 50MB HEIC 上传前端内存不随图暴涨、无卡顿
+- [ ] **P3.5** 手工验证：批量多张含 GPS 图片上传成功、地图标记正确、进度可追踪
+- [ ] **P3.6** 手工验证：文件在确认前被删除时返回明确错误、不写脏数据、不影响同批其他图片
