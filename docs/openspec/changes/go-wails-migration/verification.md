@@ -18,3 +18,9 @@
 路径上传（P1.1-P1.4 / P2.1-P2.4）落地状态：**已落地**（git stash "1111" 恢复后，SelectImages/ImportImages 后端绑定、前端 api.ts/Index.vue/Image.ts 改造均在工作区）。
 
 对后续任务的影响：Task 8（P3.4-P3.6 手工验证）可以正常执行，不做 BLOCKED 处置。tasks.md 的 P1.x/P2.x 勾选状态与实际代码一致，无需修正。
+
+## T5.4 axios 清理（Task 2，日期：2026-08-13）
+
+- package.json / package-lock.json / src 引用：均已无 axios（仅 api.ts 一处陈旧注释，已清理）
+- node_modules/axios：不存在
+- 技术债：exif-js、exifreader、heic2any 依赖仍保留——旧上传链路（el-upload）已移除，路径上传（P1/P2）落地后这些依赖为死依赖，待后续清理

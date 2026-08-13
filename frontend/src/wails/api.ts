@@ -24,6 +24,31 @@ function unwrapResult(result: any) {
 
 // ---- Image ----
 
+// 路径方案：打开原生文件选择框，返回带 EXIF 和预览图的图片信息
+export async function selectImages() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.SelectImages()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// 路径方案：将选中的图片文件导入到用户目录
+export async function importImages(data: { images: any[] }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const files = (data.images || []).map((img: any) => ({
+      id: img.id,
+      name: img.name,
+      path: img.path,
+    }))
+    const result = await binding.ImportImages(getCurrentUserId(), files)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 export async function uploadImages(data: any) {
   const binding = getGoBinding()
   if (binding) {
@@ -254,8 +279,10 @@ export async function deleteUserDir(data: { userId: string }) {
   throw new Error('Wails bindings not available')
 }
 
-// Export as module objects matching the original http/modules structure
+// 以模块对象导出，保持与原 HTTP API 相同的调用形态（API.image.xxx / API.schema.xxx）
 const image = {
+  selectImages,
+  importImages,
   uploadImages,
   getImage,
   getImages,
