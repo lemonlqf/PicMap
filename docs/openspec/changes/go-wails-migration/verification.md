@@ -24,3 +24,11 @@
 - package.json / package-lock.json / src 引用：均已无 axios（仅 api.ts 一处陈旧注释，已清理）
 - node_modules/axios：不存在
 - 技术债：exif-js、exifreader、heic2any 依赖仍保留——旧上传链路（el-upload）已移除，路径上传（P1/P2）落地后这些依赖为死依赖，待后续清理
+
+## T5.6 前端构建验证（Task 4，日期：2026-08-13）
+
+- npm install：通过（与 package-lock.json 一致）
+- npm run build：通过（built in 20.53s，产物含 index.html 449B + assets/）
+- npm run typecheck：153 个预存错误（基线一致，本次变更文件零错误）
+- dist/ 产物生成正常，未被 git 跟踪
+- 非阻塞警告：主 chunk 1.8MB 超 500kB 提示（可后续 code-split 优化）
