@@ -61,3 +61,18 @@
 - **Bug 3（已修复）**：schema 版本字段 Go 端用 `verison`（历史文档误传），实际磁盘数据与 Node 版 defaultSchema 均用 `version`。修复：Go model/config/前端类型统一 `version`（commit d6e1457 + 文档修正）
 - schema.json `version` 字段保留；无 .tmp 残留
 - 备份 ZIP 内部结构：`appSchema.json` + `<userId>/images/PM*.jpg` 正斜杠路径，与 Node 版一致
+
+## T6.4 生产打包（Task 9，日期：2026-08-13）
+
+- `wails build -platform windows/amd64` 成功（22.5s）
+- 产物：`build/bin/picmap.exe` 15.7MB
+- tools 部署：`build/bin/tools/` 含 imagemagick/magick.exe、libraw/（dcraw_emu.exe + libraw.dll + simple_dcraw.exe）；工具已入库根 `tools/` 目录（含 dcraw.exe 备用）
+- 独立启动：窗口 2.2s 就绪（见 T6.5）
+
+## T6.5 体积与启动速度（Task 10，日期：2026-08-13）
+
+| 指标 | 实测值 | 目标 | 结论 |
+|---|---|---|---|
+| picmap.exe 体积 | 15.7 MB | < 25MB | 达标 |
+| 冷启动到窗口就绪 | 2.2s | ≤ 5s | 达标 |
+| 空闲内存 | 79.6 MB | - | 远低于 Electron 版（~300MB） |
