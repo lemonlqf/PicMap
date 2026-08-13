@@ -4,7 +4,7 @@
 
 - [x] **T1.1** 安装 Go 1.21+ 和 Wails CLI v2，验证 `go version` 和 `wails version`
 - [x] **T1.2** 手动搭建 Wails 项目脚手架（main.go, app.go, wails.json, go.mod）
-- [x] **T1.3** 创建 Go 数据模型 (`internal/model/`)，对齐 TypeScript 类型定义（含 `verison` 拼写兼容）
+- [x] **T1.3** 创建 Go 数据模型 (`internal/model/`)，对齐 TypeScript 类型定义（`version` 字段，历史文档曾误记为 `verison`）
 - [x] **T1.4** 实现配置模块 (`internal/config/`)，复刻 `globalVariable.js` 的路径逻辑
 - [x] **T1.5** 实现文件工具 (`internal/util/fileutil.go`)，路径构建、glob 查找
 - [x] **T1.6** 实现坐标工具 (`internal/util/coordinate.go`)，WGS84↔GCJ02 转换

@@ -66,7 +66,7 @@ picmap-go/
 ## 数据兼容性
 
 - appSchema.json: 相同 JSON 结构
-- schema.json: 保留 `verison` 拼写 (`json:"verison"`)
+- schema.json: 字段名为 `version`（历史文档曾误记为 `verison`）
 - 图片/GPX 文件: 相同命名规则
 - 备份 ZIP: 相同内部结构
 - 目录结构: 完全不变

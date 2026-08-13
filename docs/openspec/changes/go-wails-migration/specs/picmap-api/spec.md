@@ -51,7 +51,7 @@
 - **验收**:
   - 模拟进程崩溃，schema.json 保持完整
   - 不存在的用户自动创建默认 schema
-  - 保留 `verison` 字段拼写
+  - 保留 `version` 字段（历史文档曾误记为 `verison`，实际磁盘数据与 Node 版 defaultSchema 均使用 `version`）
 
 ### 备份 API
 

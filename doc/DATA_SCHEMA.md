@@ -36,7 +36,7 @@ RootObject
 
 ```
 RootObject
-├── verison: string                    # 版本号 (注意: 拼写为 verison)
+├── version: string                    # 版本号
 ├── mapInfo: MapConfig
 │   ├── center: number[]              # [纬度, 经度]
 │   ├── maxZoom: number               # 最大缩放级别
@@ -216,7 +216,7 @@ RootObject
 ┌─────────────────────────────────────────────────────────────┐
 │                         schema.json                           │
 ├─────────────────────────────────────────────────────────────┤
-│  verison (string) - 注意: 拼写为 verison                    │
+│  version (string)                                          │
 │  mapInfo ───────────────────► MapConfig                     │
 │  └── center, maxZoom, minZoom, zoom, activeTiles          │
 │  groupInfo [] ──────────────► GroupInfo                     │
@@ -243,7 +243,7 @@ RootObject
 ## 备注
 
 1. **时间戳**: 所有时间相关字段均为 **毫秒级** 时间戳
-2. **verison 拼写**: schema.json 中版本号字段拼写为 `verison`（而非 `version`），为历史遗留问题
+2. **version 字段**: schema.json 中版本号字段为 `version`（历史文档曾误记为 `verison`）
 3. **GPS 格式**: 经纬度为 `number` 类型
 4. **图片设备**: 数据中主要使用 **Samsung Galaxy S23/S24 Ultra** 系列手机拍摄
 5. **groupNumbers 关联**: `groupInfo[].groupNumbers` 数组中的值对应 `imageInfo[].id`
