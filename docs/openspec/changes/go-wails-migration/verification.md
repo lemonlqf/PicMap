@@ -32,3 +32,32 @@
 - npm run typecheck：153 个预存错误（基线一致，本次变更文件零错误）
 - dist/ 产物生成正常，未被 git 跟踪
 - 非阻塞警告：主 chunk 1.8MB 超 500kB 提示（可后续 code-split 优化）
+
+## T6.1 wails dev 集成冒烟（Task 5，日期：2026-08-13）
+
+启动方式：`wails dev` 后台启动 + 浏览器访问 http://localhost:34115（agent-browser 自动化）
+
+| 模块 | 操作 | 结果 | 备注 |
+|---|---|---|---|
+| 启动 | 应用启动 | Pass | 日志 `PicMap started, data dir: D:/PicMap`，无 panic |
+| 启动 | 前端加载 | Pass | 页面渲染地图、65 张图片列表、时间轴、分组面板 |
+| Wails 绑定 | runtime:ready | Pass | 控制台 `Connected to backend` |
+| Schema | GetSchema | Pass | code=200，34KB schema 返回 |
+| Schema | GetAppSchema | Pass | code=200，用户列表正确（lemonlqf + 222） |
+| 用户 | CreateUser(smoke_user_tmp) | Pass | 返回"创建成功"，目录 + 默认 schema 生成 |
+| 用户 | DeleteUser(smoke_user_tmp) | Pass | 返回"删除成功"，目录消失 |
+| 图片 | GetThumbnail | Pass | 修复 PM 前缀后 code=200 返回数据 |
+| 备份 | GetBackupSize | Pass | 433MB，sizeWarning=false |
+| 备份 | CreateBackup(smoke) | Pass | 451MB ZIP 生成（浏览器 eval 超时但实际成功） |
+| 备份 | DeleteBackup(smoke) | Pass | 删除成功，文件消失 |
+
+冒烟过程中发现并修复 3 个数据兼容性 bug（见 T6.2）。
+
+## T6.2 数据兼容性（Task 6，日期：2026-08-13）
+
+- 存量数据启动：65 张图片全部加载，用户列表与 Node 版一致
+- **Bug 1（已修复）**：Go 端图片文件命名缺少 `PM` 前缀，导致读取 Node 版创建的 `PM*.jpg` 文件失败（缩略图全空）。修复：写入/读取 glob 统一 `PM` 前缀 + 无扩展名 base（commit a9c05b0）
+- **Bug 2（已修复）**：备份 ZIP 条目路径用反斜杠，Node 版 archiver 用正斜杠。修复：zip 写入/解压统一正斜杠（commit ec45e60）
+- **Bug 3（已修复）**：schema 版本字段 Go 端用 `verison`（历史文档误传），实际磁盘数据与 Node 版 defaultSchema 均用 `version`。修复：Go model/config/前端类型统一 `version`（commit d6e1457 + 文档修正）
+- schema.json `version` 字段保留；无 .tmp 残留
+- 备份 ZIP 内部结构：`appSchema.json` + `<userId>/images/PM*.jpg` 正斜杠路径，与 Node 版一致
