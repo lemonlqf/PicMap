@@ -2,6 +2,7 @@ package handler
 
 import (
 	"archive/zip"
+	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/hex"
@@ -16,18 +17,22 @@ import (
 	"sync"
 	"time"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"picmap-go/internal/config"
 	"picmap-go/internal/model"
+	"picmap-go/internal/service"
 	"picmap-go/internal/util"
 )
 
 type Handler struct {
-	cfg      *config.Config
-	mu       sync.Mutex
+	cfg *config.Config
+	ctx context.Context
+	mu  sync.Mutex
 }
 
-func New(cfg *config.Config) *Handler {
-	return &Handler{cfg: cfg}
+func New(cfg *config.Config, ctx context.Context) *Handler {
+	return &Handler{cfg: cfg, ctx: ctx}
 }
 
 // ---- User ----
@@ -704,6 +709,241 @@ func (h *Handler) importMerge(filePath string) model.Result {
 	}
 
 	return model.NewSuccessResult("导入成功")
+}
+
+// ---- 路径方案：选择图片与导入 ----
+
+var imageDialogFilters = []runtime.FileFilter{
+	{DisplayName: "图片文件 (*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.heic;*.heif;*.raw;*.dng;*.arw;*.cr2;*.cr3;*.nef;*.orf;*.rw2;*.raf;*.erf)", Pattern: "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.heic;*.heif;*.raw;*.dng;*.arw;*.cr2;*.cr3;*.nef;*.orf;*.rw2;*.raf;*.erf"},
+	{DisplayName: "所有文件 (*.*)", Pattern: "*.*"},
+}
+
+// SelectImages 打开原生文件选择框，解析每个文件的 EXIF 并生成预览图
+func (h *Handler) SelectImages() model.Result {
+	if h.ctx == nil {
+		return model.NewFailResult("应用上下文未初始化")
+	}
+	selection, err := runtime.OpenMultipleFilesDialog(h.ctx, runtime.OpenDialogOptions{
+		Title:   "选择图片",
+		Filters: imageDialogFilters,
+	})
+	if err != nil {
+		return model.NewFailResult("打开文件选择框失败: " + err.Error())
+	}
+	if len(selection) == 0 {
+		return model.NewSuccessResult([]model.SelectedImage{})
+	}
+
+	results := make([]model.SelectedImage, len(selection))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	var mu sync.Mutex
+	errors := make([]string, 0)
+
+	for i, filePath := range selection {
+		wg.Add(1)
+		go func(index int, fp string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			item, err := h.processSelectedImage(fp)
+			if err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Sprintf("解析 %s 失败: %v", filepath.Base(fp), err))
+				mu.Unlock()
+				return
+			}
+			results[index] = item
+		}(i, filePath)
+	}
+	wg.Wait()
+
+	if len(errors) > 0 {
+		return model.Result{
+			Code: 200,
+			Msg:  "部分图片解析失败",
+			Data: map[string]interface{}{
+				"images": results,
+				"errors": errors,
+			},
+			Time: time.Now().UnixMilli(),
+		}
+	}
+	return model.NewSuccessResult(map[string]interface{}{"images": results})
+}
+
+func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, error) {
+	name := filepath.Base(filePath)
+	info, err := os.Stat(filePath)
+	if err != nil {
+		return model.SelectedImage{}, err
+	}
+
+	item := model.SelectedImage{
+		ID:           name,
+		Name:         name,
+		Path:         filePath,
+		Size:         service.CalcMBSize(info.Size()),
+		Type:         service.GetImageTypeByName(name),
+		LastModified: info.ModTime().UnixMilli(),
+	}
+
+	// 解析 EXIF
+	exifData, err := service.ExtractExif(filePath)
+	if err == nil {
+		gcLat, gcLon := util.WGS84toGCJ02(exifData.GPSInfo.Latitude, exifData.GPSInfo.Longitude)
+		hasGPS := exifData.GPSInfo.Latitude != 0 || exifData.GPSInfo.Longitude != 0
+		gpsInfo := model.GPSInfo{}
+		if hasGPS {
+			gpsInfo = model.GPSInfo{
+				GPSLatitude:  gcLat,
+				GPSLongitude: gcLon,
+				GPSAltitude:  exifData.GPSInfo.Altitude,
+			}
+		}
+		item.GPSInfo = gpsInfo
+
+		// 分辨率
+		resolution := ""
+		if exifData.PixelXDimension > 0 || exifData.PixelYDimension > 0 {
+			resolution = fmt.Sprintf("%d x %d", exifData.PixelYDimension, exifData.PixelXDimension)
+		}
+		item.ImageInfo = map[string]interface{}{
+			"Resolution":      resolution,
+			"BrightnessValue": exifData.BrightnessValue,
+			"size":            item.Size,
+		}
+		item.CameraInfo = map[string]interface{}{
+			"Make":               exifData.Make,
+			"Model":              exifData.Model,
+			"FNumber":            exifData.FNumber,
+			"ExposureTime":       exifData.ExposureTime,
+			"ISOSpeedRatings":    exifData.ISOSpeedRatings,
+			"ExposureBiasValue":  exifData.ExposureBiasValue,
+			"FocalLength":        exifData.FocalLength,
+			"MaxApertureValue":   exifData.MaxApertureValue,
+		}
+		item.AuthorInfo = map[string]interface{}{
+			"DateTime": exifData.DateTime,
+			"Artis":    exifData.Artis,
+			"SoftWare": exifData.SoftWare,
+		}
+	} else {
+		item.GPSInfo = model.GPSInfo{}
+		item.ImageInfo = map[string]interface{}{
+			"Resolution":      "",
+			"BrightnessValue": nil,
+			"size":            item.Size,
+		}
+		item.CameraInfo = map[string]interface{}{}
+		item.AuthorInfo = map[string]interface{}{}
+	}
+
+	// 生成预览图
+	if preview, err := service.GeneratePreviewBase64(filePath); err == nil {
+		item.Preview = preview
+	}
+
+	return item, nil
+}
+
+// ImportImages 将选中的图片文件复制到用户图片目录
+func (h *Handler) ImportImages(userId string, files []model.ImportFile) model.Result {
+	imageDir := h.cfg.ImageDirPath(userId)
+	util.EnsureDir(imageDir)
+
+	results := make([]model.UploadResult, len(files))
+	errors := make([]string, 0)
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	var mu sync.Mutex
+
+	for i, f := range files {
+		wg.Add(1)
+		go func(index int, file model.ImportFile) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			result := model.UploadResult{ID: file.ID}
+
+			if file.Path == "" {
+				mu.Lock()
+				errors = append(errors, fmt.Sprintf("图片 %s 路径为空", file.Name))
+				mu.Unlock()
+				results[index] = result
+				return
+			}
+			if _, err := os.Stat(file.Path); err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Sprintf("图片 %s 源文件不存在", file.Name))
+				mu.Unlock()
+				results[index] = result
+				return
+			}
+
+			ext := filepath.Ext(file.Path)
+			if ext == "" {
+				ext = filepath.Ext(file.Name)
+			}
+			if ext == "" {
+				ext = ".jpg"
+			}
+
+			// 复制原图到用户目录
+			targetPath := filepath.Join(imageDir, file.ID+ext)
+			if err := copyFile(file.Path, targetPath); err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Sprintf("复制图片 %s 失败: %v", file.Name, err))
+				mu.Unlock()
+				results[index] = result
+				return
+			}
+
+			// HEIC/RAW 生成缩略图文件
+			if service.NeedsThumbnail(file.Name) {
+				if _, err := service.GenerateThumbnailFile(targetPath, imageDir); err != nil {
+					mu.Lock()
+					errors = append(errors, fmt.Sprintf("生成缩略图 %s 失败: %v", file.Name, err))
+					mu.Unlock()
+				}
+			}
+
+			results[index] = result
+		}(i, f)
+	}
+	wg.Wait()
+
+	if len(errors) > 0 {
+		return model.Result{
+			Code: 200,
+			Msg:  "部分图片导入失败",
+			Data: map[string]interface{}{
+				"images": results,
+				"errors": errors,
+			},
+			Time: time.Now().UnixMilli(),
+		}
+	}
+	return model.NewSuccessResult(map[string]interface{}{"images": results})
+}
+
+func copyFile(src, dst string) error {
+	source, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer source.Close()
+
+	destination, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer destination.Close()
+
+	_, err = io.Copy(destination, source)
+	return err
 }
 
 func generateID() string {

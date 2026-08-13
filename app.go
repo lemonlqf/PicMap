@@ -22,7 +22,7 @@ func (a *App) startup(ctx context.Context) {
 	a.ctx = ctx
 	cfg := config.New()
 	cfg.Init()
-	a.handler = handler.New(cfg)
+	a.handler = handler.New(cfg, ctx)
 	log.Println("PicMap started, data dir:", cfg.ArchiveDir())
 }
 
@@ -58,6 +58,16 @@ func (a *App) UpdateImages() model.Result {
 }
 func (a *App) DownloadImage(userId, imageId string) model.Result {
 	return a.handler.DownloadImage(userId, imageId)
+}
+
+// 路径方案：选择图片（原生对话框 + EXIF 解析 + 预览图）
+func (a *App) SelectImages() model.Result {
+	return a.handler.SelectImages()
+}
+
+// 路径方案：导入图片（从原路径复制到用户目录）
+func (a *App) ImportImages(userId string, files []model.ImportFile) model.Result {
+	return a.handler.ImportImages(userId, files)
 }
 
 func (a *App) UploadTrack(userId, fileData, fileName string) model.Result {

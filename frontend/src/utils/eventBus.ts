@@ -8,6 +8,17 @@
  */
 import mitt from 'mitt'
 
-const eventBus = mitt()
+export type EventMap = {
+  'hidden-content-menu': void
+  'show-content-menu': any
+  'show-image-data': any
+  'drawer-hidden': void
+  'drawer-show': any
+  'delete-image': string
+  'edit-group': string
+  [key: string]: any
+}
+
+const eventBus = mitt<EventMap>()
 
 export default eventBus

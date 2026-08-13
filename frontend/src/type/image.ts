@@ -12,12 +12,18 @@ export type IImageDetailInfo = {
   id: string;
   name: string;
   url: string;
+  // 图片格式（image/jpeg 等）
+  type: string;
   // 新增一个thumbnailUrl字段，用于存储缩略图的url,主要用于传递给后端用来保存
   thumbnailUrl?: string;
   Resolution?: any
   BrightnessValue?: any
   size?: any,
   GPSInfo: IGPSInfo,
+  // 源文件路径（路径方案）
+  path?: string;
+  // 预览图base64（路径方案）
+  preview?: string;
   [key: string]: any // 其他信息
 }
 

@@ -70,6 +70,14 @@ export function ImportBackup(arg1, arg2) {
   return window['go']['main']['App']['ImportBackup'](arg1, arg2);
 }
 
+export function ImportImages(arg1, arg2) {
+  return window['go']['main']['App']['ImportImages'](arg1, arg2);
+}
+
+export function SelectImages() {
+  return window['go']['main']['App']['SelectImages']();
+}
+
 export function SetAppSchema(arg1) {
   return window['go']['main']['App']['SetAppSchema'](arg1);
 }

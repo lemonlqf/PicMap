@@ -16,15 +16,12 @@
   <div class="img-upload">
     <!-- 上传图片 -->
     <div class="upload-button-group">
-      <el-upload :accept="acceptType.join(',')" v-model:file-list="elUploadFileList" class="upload-demo"
-        action="https://run.mocky.io/v3/9d059bf9-4660-45f2-925d-ce80ad6c4d15" :auto-upload="false" :multiple="true">
-        <el-button style="width: 180px;" type="primary" :disabled="isLoading">
-          {{ $t('uploadPicture') }}
-          <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
-            <Loading />
-          </el-icon>
-        </el-button>
-      </el-upload>
+      <el-button style="width: 180px;" type="primary" :disabled="isLoading" @click="selectImages">
+        {{ $t('uploadPicture') }}
+        <el-icon v-if="isLoading" class="is-loading" style="margin-left: 8px;">
+          <Loading />
+        </el-icon>
+      </el-button>
       <span v-if="hasUrlFileList.length" class="upload-count">{{ uploadedImageInfos.length }}/{{ hasUrlFileList.length }}</span>
     </div>
     <!-- 上传到表单中图片数据 -->
@@ -134,23 +131,20 @@
 
 <script lang="ts" setup>
 import { ref, watch, computed, onMounted } from 'vue'
-import ExifReader from 'exifreader'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
-import { judgeHadUploadImage, saveSchema as SaveSchema, exifDateToTimestamp } from '@/utils/schema'
+import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
 import { updateGroupMarkerImage } from '@/utils/group'
-import { uploadImages as UploadImages, calcMBSize, addImageUrl, getImageUrl, getImageTypeByName, getBlob, fileToBlobUrl, createThumbnailFromBlob } from '@/utils/Image'
+import { uploadImages as UploadImages, addImageUrl } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
-import { wgs84ToGcj02 } from '@/utils/WGS84-GCJ02'
+import API from '@/wails/api'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import BatchUploadToGroupDialog from '@/components/groupInfo/batchUploadToGroup/BatchUploadToGroupDialog.vue'
 import LocateDialog from './LocateDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
-import type { IImageDetailInfo, ICameraDetailInfo, IAuthorDetailInfo } from '@/type/image'
-import { ImageType } from '@/type/image'
-import type { IGPSInfo } from '@/type/schema'
+import type { IImageDetailInfo } from '@/type/image'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
 import markerService from '@/services/marker'
@@ -168,62 +162,7 @@ const emit = defineEmits<{
   (e: 'uploadSuccess'): void
 }>()
 
-const acceptType = [
-  ImageType.PNG,
-  ImageType.JPEG,
-  ImageType.JPG,
-  ImageType.GIF,
-  ImageType.WEBP,
-  ImageType.HEIC,
-  ImageType.HEIF,
-  ImageType.RAW,
-  ImageType.RAW_ADOBE_DNG,
-  ImageType.RAW_CANON_CR2,
-  ImageType.RAW_CANON_CR3,
-  ImageType.RAW_NIKON_NEF,
-  ImageType.RAW_OLYMPUS_ORF,
-  ImageType.RAW_SONY_ARW,
-  ImageType.RAW_FUJIFILM_RAF,
-  ImageType.RAW_PANASONIC_RW2,
-  ImageType.RAW_EPSON_ERF,
-  // 可能不是image/xxx的格式
-  '.raw',
-  '.dng',
-  '.arw',
-  '.cr2',
-  '.cr3',
-  '.nef',
-  '.orf',
-  '.rw2',
-  '.raf',
-  '.erf',
-  // 后端转换暂时不支持gopro的RAW格式，后续如果支持了再添加
-  // '.gpr'
-]
-
-// 需要生成缩略图的图片格式，后续经过测试如果有其他格式也需要生成缩略图再添加
-const needThumbnailType = [
-  ImageType.HEIC,
-  ImageType.HEIF,
-  ImageType.RAW,
-  ImageType.RAW_ADOBE_DNG,
-  ImageType.RAW_CANON_CR2,
-  ImageType.RAW_CANON_CR3,
-  ImageType.RAW_NIKON_NEF,
-  ImageType.RAW_OLYMPUS_ORF,
-  ImageType.RAW_SONY_ARW,
-  ImageType.RAW_FUJIFILM_RAF,
-  ImageType.RAW_PANASONIC_RW2,
-  ImageType.RAW_EPSON_ERF,
-  ImageType.RAW_GOPRO_GPR,
-]
-
-const imageUrls = ref<any>({})
-// 图片gps信息，通过el-upload获取的fileList没有这个数据，用这个额变量暂时存一下，后续在formData中添加对应数据
-const moreInfo = ref({})
-// 上传组件获取到的文件
-const elUploadFileList = ref([])
-// 最完整的，在el-upload获取到文件的基础上，解析到了GPS和base64Url等信息
+// 最完整的图片信息列表，在原生文件选择框返回的基础上，补充了预览图等信息
 const hasUrlFileList = ref<IImageDetailInfo[]>([])
 // 设置定位的弹框
 const locateDialogShow = ref(false)
@@ -255,69 +194,47 @@ function isInHasUrlFileList(id: string) {
   })
 }
 
-watch(
-  () => elUploadFileList.value,
-  async (newValue) => {
-    try {
-      isLoading.value = true
-      // 如果无值直接清空
-      if (newValue?.length === 0) {
-        hasUrlFileList.value = []
-      } else {
-        for (let i = 0; i < newValue.length; i++) {
-          const imageName = newValue[i].name
-          // 如果没有上传过的话，走上传图片逻辑
-          if (!isInHasUrlFileList(imageName)) {
-            let data: IImageDetailInfo;
-            const file = newValue[i].raw
-            // res包括id, lasetModified, name, size, type
-            const res1 = getFileInfoByFile(file)
-            // 通过exifReader插件获取包括GPSInfo，ImageInfo, CameraInfo, AuthorInfo等信息
-            const res2 = await setMoreInfoByExifReader(file)
-            const existUrl = imageUrls.value[imageName] || getImageUrl(imageName)
-            // 如果本身不在urls里面，说明是后面加的，需要获取到base64的url
-            if (!existUrl) {
-              // 完整的base64用于图片上传
-              const url = await readFileAsDataURL(file);
-              const type = file.type || getImageTypeByName(file.name)
-              console.log('file.type', type, newValue[i])
-              // 对于正常类型图片直接生成blob，对于HEIC/RAW等特殊格式的图片需要先后端转换成jpg格式后再生成blob
-              const blob = await getBlob(file, type);
-              // 相对路径，用于未上传前的展示，相较于使用url，dom性能更优化一些
-              const blobUrl = await fileToBlobUrl(blob)
-              imageUrls.value[imageName] = blobUrl
-              // 保存到imageUrlsMap中，后续图片详情展示使用
-              addImageUrl(imageName, blobUrl)
-              data = { ...res1, ...res2, url, blobUrl }
-              // HEIC/RAW 经过服务端转换后都需要保存缩略图，避免后端反复现算。
-              if (
-                needThumbnailType.includes(type as ImageType)
-              ) {
-                const thumbnail = await createThumbnailFromBlob(blob)
-                const thumbnailUrl = await readFileAsDataURL(thumbnail)
-                data.thumbnailUrl = thumbnailUrl
-              }
-            } else {
-              // 如果已经有了，直接拿过来用
-              data = { ...res1, ...res2, url: existUrl }
-            }
-            hasUrlFileList.value[i] = data
-            // 如果有坐标内容的话，在地图上添加对应的marker
-            if (res2?.GPSInfo?.GPSLatitude && res2?.GPSInfo?.GPSLongitude) {
-              // 只有还没有上传过的图片需要添加到地图中
-              !judgeHadUploadImage(imageName) && markerService.addImageMarkerToMap(hasUrlFileList.value[i])
-            }
-          }
-        }
-      }
-    } catch (error) {
-      console.error('解析图片失败', error)
-      ElMessage.error(t('description.parsePictureFailed') + error)
-    } finally {
-      isLoading.value = false
+/**
+ * @description: 打开原生文件选择框选择图片
+ * @return {*}
+ */
+async function selectImages() {
+  isLoading.value = true
+  try {
+    const res = await API.image.selectImages()
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || t('description.parsePictureFailed'))
+      return
     }
+    const images = res.data?.images ?? []
+    for (const img of images) {
+      // 如果已经存在，跳过
+      if (isInHasUrlFileList(img.id)) {
+        continue
+      }
+      // 预览图
+      const previewUrl = img.preview ? `data:image/jpeg;base64,${img.preview}` : ''
+      const data: IImageDetailInfo = {
+        ...img,
+        url: previewUrl,
+        blobUrl: previewUrl,
+      }
+      hasUrlFileList.value.push(data)
+      // 保存到imageUrlsMap中，后续图片详情展示使用
+      addImageUrl(img.id, previewUrl)
+      // 如果有坐标内容的话，在地图上添加对应的marker
+      if (img.GPSInfo?.GPSLatitude && img.GPSInfo?.GPSLongitude) {
+        // 只有还没有上传过的图片需要添加到地图中
+        !judgeHadUploadImage(img.id) && markerService.addImageMarkerToMap(data)
+      }
+    }
+  } catch (error) {
+    console.error('选择图片失败', error)
+    ElMessage.error(t('description.parsePictureFailed') + error)
+  } finally {
+    isLoading.value = false
   }
-)
+}
 
 
 
@@ -349,130 +266,6 @@ function clearUploadImage() {
   hasUrlFileList.value = hasUrlFileList.value.filter(item => {
     return !judgeHadUploadImage(item.id)
   })
-  elUploadFileList.value = elUploadFileList.value.filter(item => {
-    return !judgeHadUploadImage(item.name)
-  })
-}
-
-
-// 通过raw文件获取相关的文件数据
-function getFileInfoByFile(file: File) {
-  const { lastModified, name, size, type } = file
-  // id通过name和type来生成
-  const id = name
-  return { id, lastModified, name, size, type }
-}
-
-
-// 从图片信息对象中提取GPS信息，并添加到地图里面
-async function setMoreInfoByExifReader(file: File, name?: string) {
-  try {
-    const tags = await ExifReader.load(file, { expanded: true })
-    console.log('--', tags)
-    // 设置经纬度到moreInfo中
-    const GPSInfo: IGPSInfo = getGPSInfo(tags)
-    // 图片信息
-    const imageInfo: IImageDetailInfo = getImageInfo(tags, file)
-    // 相机信息
-    const cameraInfo: ICameraDetailInfo = getCameraInfo(tags)
-    // 作者信息
-    const authorInfo: IAuthorDetailInfo = getAuthorInfo(tags)
-    // TODO:设置其他值
-    // setxxxInfo(tags, name)
-
-    return { GPSInfo, imageInfo, cameraInfo, authorInfo }
-  } catch (error) {
-    console.error('exifReader解析失败', error)
-    return {
-      imageInfo: {},
-      GPSInfo: {},
-      cameraInfo: {},
-      authorInfo: {}
-    }
-  }
-}
-
-// 获取不同图片经纬度信息
-function getGPSInfo(info) {
-  let GPSLatitude = null
-  let GPSLongitude = null
-  let GPSAltitude = 0
-  if (info.gps) {
-    // 坐标是WGS84标准的，国内坐标是GCJ02标准的，需要转化
-    const GcjGPSInfo = wgs84ToGcj02(info.gps.Longitude, info.gps.Latitude)
-    GPSLongitude = GcjGPSInfo[0] === '' ? null : GcjGPSInfo[0]
-    GPSLatitude = GcjGPSInfo[1] === '' ? null : GcjGPSInfo[1]
-    // 海拔（m）
-    GPSAltitude = info?.gps?.Altitude
-  }
-  return { GPSLatitude, GPSLongitude, GPSAltitude }
-}
-
-/**
- * @description: 作者相关信息
- * @param {*} tags
- * @param {*} name
- * @return {*}
- */
-function getAuthorInfo(info) {
-  const exif = info.exif
-  return {
-    // 拍摄时间，转化为时间戳
-    DateTime: exifDateToTimestamp(exif?.DateTime?.value[0]),
-    // 图像作者
-    Artis: exif?.Artis?.value,
-    // 图像软件
-    SoftWare: exif?.SoftWare?.value,
-  }
-}
-
-/**
- * @description: 设置相机参数信息
- * @param {*} tags
- * @param {*} name
- * @return {*}
- */
-function getCameraInfo(info) {
-  const exif = info.exif
-  return {
-    // 相机制造商
-    Make: exif?.Make?.value,
-    // 相机型号
-    Model: exif?.Model?.value,
-    // 光圈值
-    FNumber: exif?.FNumber?.value,
-    // 曝光时间
-    ExposureTime: exif?.ExposureTime?.value,
-    // ISO速度
-    ISOSpeedRatings: exif?.ISOSpeedRatings?.value,
-    // 曝光补偿
-    ExposureBiasValue: exif?.ExposureBiasValue?.value,
-    // 焦距（mm）
-    FocalLength: exif?.FocalLength?.value,
-    // 最大光圈
-    MaxApertureValue: exif?.MaxApertureValue?.value,
-    // 其他数据......
-  }
-}
-
-/**
- * @description: 图片相关的信息
- * @param {*} tags
- * @param {*} name
- * @return {*}
- */
-function getImageInfo(info, file) {
-  const exif = info.exif
-  const width = exif?.PixelXDimension?.value || exif?.ImageWidth?.value
-  const height = exif?.PixelYDimension?.value || exif?.ImageLength?.value
-  return {
-    // 分辨率
-    Resolution: `${height} x ${width}`,
-    // 亮度
-    BrightnessValue: exif?.BrightnessValue?.value,
-    // 大小
-    size: calcMBSize(file.size)
-  }
 }
 
 const needUploadImageLoading = ref(false)
@@ -505,7 +298,7 @@ function uploadImage(name: string) {
   const data = needUploadImageInfos.value.filter(item => {
     return item.id === name
   })
-  if (data[0].GPSInfo.GPSLongitude !== '' && data[0].GPSInfo.GPSLatitude !== '') {
+  if (data[0].GPSInfo.GPSLongitude != null && data[0].GPSInfo.GPSLatitude != null) {
     uploadImages(data)
   } else {
     ElMessage.error(t('description.needGPSInfo'))
@@ -519,29 +312,14 @@ function uploadImage(name: string) {
  * @return {*}
  */
 function deleteImage(name: string) {
-  // 删除原来解析好的base64
-  delete imageUrls.value[name]
   // 删除上传文件中的图片
   hasUrlFileList.value = hasUrlFileList.value.filter(item => {
-    return item.name !== name
-  })
-  // 删除上传文件中的图片
-  elUploadFileList.value = elUploadFileList.value.filter(item => {
     return item.name !== name
   })
   // 获取对应的marker，name和id是一样的
   const marker = markerService.getMarkerById(name)
   // 删除掉marker
   markerService.deleteMarkerInMap(marker)
-}
-
-async function readFileAsDataURL(file): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const fr = new FileReader();
-    fr.onload = () => resolve(fr.result);
-    fr.onerror = () => reject(fr.error);
-    fr.readAsDataURL(file);
-  });
 }
 
 // 添加图片
@@ -603,8 +381,8 @@ function handleLocateConfirm(data: { id: string | null; GPSLatitude: number | nu
     const imageInfo = needUploadImageInfos.value.find(item => {
       return item.id === data.id
     })
-    if (imageInfo) {
-      imageInfo.GPSInfo = { GPSLatitude, GPSAltitude, GPSLongitude }
+    if (imageInfo && GPSLatitude != null && GPSLongitude != null) {
+      imageInfo.GPSInfo = { GPSLatitude, GPSAltitude: GPSAltitude ?? undefined, GPSLongitude }
     }
   }
 }
@@ -619,6 +397,7 @@ function handleManualLocate(data: { id: string | null; lat: number; lng: number 
   const fileInfo = hasUrlFileList.value.find(item => {
     return item.id === data.id
   })
+  if (!fileInfo) return
   const marker = markerService.addManualLocateImageMarkerToMap(fileInfo, data.lat, data.lng)
   mapStore.addMarkerId(marker.options.id)
   markerService.addVisibleMarkerById(marker.options.id)
@@ -648,13 +427,8 @@ function deleteAll() {
       markerService.deleteMarkerInMap(marker)
     }
   })
-  // 清空imageUrls缓存
-  needUploadImageInfos.value.forEach(item => {
-    delete imageUrls.value[item.id]
-  })
   // 清空列表
   hasUrlFileList.value = []
-  elUploadFileList.value = []
 }
 
 const groupIdAndNameLists = ref([])

@@ -6,6 +6,7 @@ import (
 	"image/jpeg"
 	"image/png"
 	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -92,6 +93,31 @@ func ResizeToJPEGBytes(inputPath string, width int) ([]byte, error) {
 	}
 
 	return buf.Bytes(), nil
+}
+
+// GenerateThumbnailFile 为 HEIC/RAW 等特殊格式生成缩略图文件（_THUMBNAIL_PM_ 前缀）
+// 先经外部工具转 JPEG，再缩略为 1000px 宽保存到输出目录
+func GenerateThumbnailFile(inputPath, outputDir string) (string, error) {
+	// 先转换为临时 JPEG
+	jpegPath, err := convertToTempJPEG(inputPath)
+	if err != nil {
+		return "", err
+	}
+	defer os.Remove(jpegPath)
+
+	// 转成缩略图文件
+	thumbName := ThumbnailPrefix + strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath)) + ".jpg"
+	outputPath := filepath.Join(outputDir, thumbName)
+
+	src, err := imaging.Open(jpegPath, imaging.AutoOrientation(true))
+	if err != nil {
+		return "", err
+	}
+	resized := imaging.Resize(src, ThumbnailWidth, 0, imaging.Lanczos)
+	if err := imaging.Save(resized, outputPath, imaging.JPEGQuality(80)); err != nil {
+		return "", err
+	}
+	return outputPath, nil
 }
 
 

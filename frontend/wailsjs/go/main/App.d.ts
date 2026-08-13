@@ -36,6 +36,10 @@ export function GetUserInfos():Promise<model.Result>;
 
 export function ImportBackup(arg1:string,arg2:string):Promise<model.Result>;
 
+export function ImportImages(arg1:string,arg2:Array<model.ImportFile>):Promise<model.Result>;
+
+export function SelectImages():Promise<model.Result>;
+
 export function SetAppSchema(arg1:string):Promise<model.Result>;
 
 export function SetSchema(arg1:string,arg2:string):Promise<model.Result>;

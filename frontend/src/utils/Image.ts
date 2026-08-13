@@ -216,43 +216,48 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
   const total = imageInfos.length
   let current = 0
 
-  for (let i = 0; i < imageInfos.length; i++) {
-    const imageInfo = imageInfos[i]
+  // 筛选出符合上传条件的图片
+  const uploadableImageInfos = [] as IImageDetailInfo[]
+  for (const imageInfo of imageInfos) {
     // 如果不符合上传条件的，先不上传
     if (!canUpload(imageInfo)) {
       continue
     }
-    if (!imageSizeunderLimit(imageInfo.url)) {
-      ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.largeSize')} ${LARGE_IMAGE_SIZE}MB`)
-      continue
-    }
-    // 请求后端接口上传图片，保存本地文件目录下
-    const res1 = await API.image.uploadImages({ images: [imageInfo] })
+    uploadableImageInfos.push(imageInfo)
+  }
+
+  // 每批最多 4 张图片并发导入
+  const BATCH_SIZE = 4
+  for (let i = 0; i < uploadableImageInfos.length; i += BATCH_SIZE) {
+    const batch = uploadableImageInfos.slice(i, i + BATCH_SIZE)
+    // 请求后端接口导入图片，从原路径复制到用户图片目录
+    const res1 = await API.image.importImages({ images: batch })
     // 保存返回的接口结果
     res.push(res1)
     if (res1.code !== 200) {
-      ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.uploadFailed')}`)
+      batch.forEach(imageInfo => {
+        ElMessage.warning(`${imageInfo.name} ${i18n.global.t('description.uploadFailed')}`)
+      })
       continue
     }
-    // 使用返回的缩略图替换原图
-    const uploadedImageData = res1.data?.images?.[0]
-    // 如果有缩略图，则使用缩略图替换原图，否则保持不变（对于如heic和raw等特殊格式,没有缩略图就返回null,直接保持不变）
-    if (uploadedImageData?.thumbnailBase64) {
-      const thumbnailUrl = `data:image/jpeg;base64,${uploadedImageData.thumbnailBase64}`
-      ImageCacheManager.getInstance().updateImageUrl(imageInfo.id, thumbnailUrl)
-    }
-    // 将图片保存到已经上传的地方
-    schemaStore.pushImageToUploadedImageIds(imageInfo.id)
-    // marker中可以移动的图片重新设置为不可移动
-    const marker = markerService.getMarkerById(imageInfo.id)
-    if (marker) {
-      // 将 marker 设置为不可移动
-      marker?.dragging?.disable?.()
-    }
-
-    // 更新进度
-    current++
-    onProgress?.(current, total)
+    batch.forEach((imageInfo) => {
+      // 上传成功后，将预览图作为缩略图缓存
+      if (imageInfo.preview) {
+        const previewUrl = `data:image/jpeg;base64,${imageInfo.preview}`
+        ImageCacheManager.getInstance().updateImageUrl(imageInfo.id, previewUrl)
+      }
+      // 将图片保存到已经上传的地方
+      schemaStore.pushImageToUploadedImageIds(imageInfo.id)
+      // marker中可以移动的图片重新设置为不可移动
+      const marker = markerService.getMarkerById(imageInfo.id)
+      if (marker) {
+        // 将 marker 设置为不可移动
+        marker?.dragging?.disable?.()
+      }
+      // 更新进度
+      current++
+      onProgress?.(current, total)
+    })
   }
   return res
 }
@@ -263,11 +268,11 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
  * @return {*}
  */
 function canUpload(imageInfo: IImageDetailInfo): boolean {
-  const hasUrl = !!imageInfo.url
+  const hasPath = !!imageInfo.path
   const hasGPS = !!imageInfo.GPSInfo
 
-  // 仅允许“有图片内容 + 有GPS信息”的图片进入上传流程
-  return hasUrl && hasGPS
+  // 仅允许“有源文件路径 + 有GPS信息”的图片进入上传流程
+  return hasPath && hasGPS
 }
 
 function imageSizeunderLimit(url: any) {
