@@ -19,7 +19,7 @@ import (
 const (
 	ThumbnailWidth  = 1000
 	FallbackWidth   = 800
-	ThumbnailPrefix = "_THUMBNAIL_PM_"
+	ThumbnailPrefix = "_THUMBNAIL_PM"
 )
 
 func init() {
@@ -105,8 +105,10 @@ func GenerateThumbnailFile(inputPath, outputDir string) (string, error) {
 	}
 	defer os.Remove(jpegPath)
 
-	// 转成缩略图文件
-	thumbName := ThumbnailPrefix + strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath)) + ".jpg"
+	// 转成缩略图文件（Node 版命名：_THUMBNAIL_PM<baseName>.jpg，baseName 不含 PM 前缀与扩展名）
+	base := strings.TrimSuffix(filepath.Base(inputPath), filepath.Ext(inputPath))
+	base = strings.TrimPrefix(base, "PM")
+	thumbName := ThumbnailPrefix + base + ".jpg"
 	outputPath := filepath.Join(outputDir, thumbName)
 
 	src, err := imaging.Open(jpegPath, imaging.AutoOrientation(true))

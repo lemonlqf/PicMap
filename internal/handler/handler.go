@@ -184,7 +184,8 @@ func (h *Handler) UploadImages(userId string, images []model.UploadImage) model.
 					mu.Unlock()
 					return
 				}
-				filePath := filepath.Join(imageDir, img.ID+ext)
+				// 磁盘文件名与 Node 版一致：PM 前缀 + 无扩展名 id + 扩展名
+				filePath := filepath.Join(imageDir, "PM"+util.BaseWithoutExt(img.ID)+ext)
 				if err := os.WriteFile(filePath, data, 0644); err != nil {
 					mu.Lock()
 					errors = append(errors, fmt.Sprintf("写入图片 %s 失败: %v", img.Name, err))
@@ -216,8 +217,9 @@ func (h *Handler) UploadImages(userId string, images []model.UploadImage) model.
 
 func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 	imageDir := h.cfg.ImageDirPath(userId)
-	// First try thumbnail
-	pattern := filepath.Join(imageDir, "_THUMBNAIL_*"+imageId+"*")
+	baseName := util.BaseWithoutExt(imageId)
+	// First try thumbnail（Node 版命名：_THUMBNAIL_PM<baseName>.jpg）
+	pattern := filepath.Join(imageDir, "_THUMBNAIL_PM"+baseName+"*")
 	matches, _ := filepath.Glob(pattern)
 	if len(matches) > 0 {
 		data, err := os.ReadFile(matches[0])
@@ -226,8 +228,8 @@ func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 		}
 		return model.NewSuccessResult(map[string]string{"file": base64.StdEncoding.EncodeToString(data)})
 	}
-	// Fallback to original image
-	pattern = filepath.Join(imageDir, imageId+".*")
+	// Fallback to original image（Node 版命名：PM<baseName>.<ext>）
+	pattern = filepath.Join(imageDir, "PM"+baseName+".*")
 	matches, _ = filepath.Glob(pattern)
 	if len(matches) == 0 {
 		return model.NewSuccessResult(map[string]string{"file": ""})
@@ -256,7 +258,8 @@ func (h *Handler) GetThumbnails(userId string, imageIds []string) model.Result {
 
 func (h *Handler) GetFullImage(userId, imageId string) model.Result {
 	imageDir := h.cfg.ImageDirPath(userId)
-	pattern := filepath.Join(imageDir, imageId+".*")
+	baseName := util.BaseWithoutExt(imageId)
+	pattern := filepath.Join(imageDir, "PM"+baseName+".*")
 	matches, _ := filepath.Glob(pattern)
 	if len(matches) == 0 {
 		return model.NewFailResult("图片不存在")
@@ -277,14 +280,15 @@ func (h *Handler) DeleteImages(userId string, imageIds []string) model.Result {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
-			// Delete original
-			pattern := filepath.Join(imageDir, id+".*")
+			baseName := util.BaseWithoutExt(id)
+			// Delete original（PM<baseName>.*）
+			pattern := filepath.Join(imageDir, "PM"+baseName+".*")
 			matches, _ := filepath.Glob(pattern)
 			for _, m := range matches {
 				os.Remove(m)
 			}
-			// Delete thumbnails
-			thumbPattern := filepath.Join(imageDir, "_THUMBNAIL_*"+id+"*")
+			// Delete thumbnails（_THUMBNAIL_PM<baseName>*）
+			thumbPattern := filepath.Join(imageDir, "_THUMBNAIL_PM"+baseName+"*")
 			thumbMatches, _ := filepath.Glob(thumbPattern)
 			for _, m := range thumbMatches {
 				os.Remove(m)
@@ -891,8 +895,8 @@ func (h *Handler) ImportImages(userId string, files []model.ImportFile) model.Re
 				ext = ".jpg"
 			}
 
-			// 复制原图到用户目录
-			targetPath := filepath.Join(imageDir, file.ID+ext)
+			// 复制原图到用户目录（PM 前缀 + 无扩展名 id + 扩展名，与 Node 版一致）
+			targetPath := filepath.Join(imageDir, "PM"+util.BaseWithoutExt(file.ID)+ext)
 			if err := copyFile(file.Path, targetPath); err != nil {
 				mu.Lock()
 				errors = append(errors, fmt.Sprintf("复制图片 %s 失败: %v", file.Name, err))
