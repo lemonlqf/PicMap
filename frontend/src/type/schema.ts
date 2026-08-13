@@ -16,7 +16,7 @@ export type IResult = {
 }
 
 export type ISchema = {
-  verison: string,
+  version: string,
   mapInfo: IMapInfo,
   groupInfo: IGroupInfo[],
   imageInfo: IImageInfo[],

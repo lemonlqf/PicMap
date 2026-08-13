@@ -117,7 +117,7 @@ func (c *Config) BackupDir() string {
 
 func (c *Config) DefaultSchema() model.Schema {
 	return model.Schema{
-		Verison: "1.0.0",
+		Version: "1.0.0",
 		MapInfo: model.MapInfo{
 			Center: DefaultCenter,
 			ActiveTiles: []string{

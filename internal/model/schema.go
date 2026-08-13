@@ -63,7 +63,7 @@ type MapInfo struct {
 }
 
 type Schema struct {
-	Verison    string      `json:"verison"`
+	Version    string      `json:"version"`
 	MapInfo    MapInfo     `json:"mapInfo"`
 	GroupInfo  []GroupInfo `json:"groupInfo"`
 	ImageInfo  []ImageInfo `json:"imageInfo"`
