@@ -549,6 +549,8 @@ func (h *Handler) createZip(outputPath string) error {
 				return nil
 			}
 			relPath, _ := filepath.Rel(userDir, path)
+			// zip 条目统一正斜杠（与 Node 版 archiver 输出一致）
+			relPath = strings.ReplaceAll(relPath, "\\", "/")
 			return addFileToZip(w, path, prefix+relPath)
 		})
 	}
@@ -589,7 +591,9 @@ func (h *Handler) importCover(filePath string) model.Result {
 
 	os.MkdirAll(h.cfg.ArchiveDir(), 0755)
 	for _, f := range reader.File {
-		targetPath := filepath.Join(h.cfg.ArchiveDir(), f.Name)
+		// zip 条目可能含正斜杠，filepath.Join 在 Windows 会归一化处理
+		relName := strings.ReplaceAll(f.Name, "\\", "/")
+		targetPath := filepath.Join(h.cfg.ArchiveDir(), filepath.FromSlash(relName))
 		if f.FileInfo().IsDir() {
 			os.MkdirAll(targetPath, 0755)
 			continue
@@ -619,7 +623,8 @@ func (h *Handler) importMerge(filePath string) model.Result {
 		if f.FileInfo().IsDir() || f.Name == config.AppSchemaFileName {
 			continue
 		}
-		targetPath := filepath.Join(h.cfg.ArchiveDir(), f.Name)
+		relName := strings.ReplaceAll(f.Name, "\\", "/")
+		targetPath := filepath.Join(h.cfg.ArchiveDir(), filepath.FromSlash(relName))
 		if util.FileExists(targetPath) {
 			continue
 		}
@@ -633,10 +638,11 @@ func (h *Handler) importMerge(filePath string) model.Result {
 
 	// Merge schema.json for each user
 	for _, f := range reader.File {
-		if !strings.HasSuffix(f.Name, "/"+config.SchemaFileName) {
+		normalizedName := strings.ReplaceAll(f.Name, "\\", "/")
+		if !strings.HasSuffix(normalizedName, "/"+config.SchemaFileName) {
 			continue
 		}
-		parts := strings.Split(f.Name, "/")
+		parts := strings.Split(normalizedName, "/")
 		if len(parts) < 3 {
 			continue
 		}
