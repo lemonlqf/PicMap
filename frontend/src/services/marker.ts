@@ -10,7 +10,6 @@ import {
   createImageMarkerIcon,
   createGroupMarkerIcon,
   createClusterIcon,
-  popInMarker,
   type MarkerIcon,
 } from '@/services/markerAdapter'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
@@ -67,6 +66,10 @@ class MarkerService {
   private lastShownImageIds: Set<string> = new Set()
   // 上次渲染时每个单点所属的 cluster 中心（imageId -> [lng, lat]）
   private lastClusterCenters: Map<string, [number, number]> = new Map()
+  // 上次渲染的聚合点 id 集合（避免聚合点反复重建导致闪烁）
+  private lastClusterIds: Set<number> = new Set()
+  // 上次渲染的缩放级别（区分缩放导致的聚合/离散 vs 平移导致的视野变化）
+  private lastZoom: number = -1
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -304,11 +307,15 @@ class MarkerService {
       bounds.getNorth(),
     ]
     const zoom = Math.floor(map.getZoom())
+    // 缩放级别是否变化：变化时才做飞散合体动画，平移（视野变化）时直接显示/隐藏，不做动画
+    const zoomChanged = zoom !== this.lastZoom
 
     const clusters = this.clusterIndex.getClusters(bbox, zoom)
     const visibleImageIds = new Set<string>()
     // 当前渲染中每个单点所属的 cluster 中心（imageId -> [lng, lat]）
     const currentClusterCenters = new Map<string, [number, number]>()
+    // 当前渲染的聚合点 id 集合
+    const currentClusterIds = new Set<number>()
 
     clusters.forEach((feature: any) => {
       const coords = feature.geometry.coordinates as [number, number]
@@ -316,6 +323,7 @@ class MarkerService {
       if (isCluster) {
         const count = feature.properties.point_count
         const clusterId = feature.properties.cluster_id
+        currentClusterIds.add(clusterId)
         const icon = createClusterIcon(count)
         const marker = new MapMarkerAdapter(icon, coords, { id: `cluster-${clusterId}`, type: 'cluster' })
         marker.addTo(map)
@@ -323,7 +331,7 @@ class MarkerService {
           this.onClusterClick(clusterId, coords)
         })
         this.clusterMarkers.set(clusterId, marker)
-        popInMarker(marker)
+        // 聚合点不做弹出动画（避免拖动/缩放时从无到有的闪烁）
         // 记录该聚合点的成员（用于离散时从中心飞散）
         const leaves = this.clusterIndex.getLeaves(clusterId, Infinity, 0) as any[]
         leaves.forEach((leaf) => {
@@ -347,19 +355,26 @@ class MarkerService {
       const latlng = m.getLatLng()
 
       if (shouldShow && !wasShown) {
-        // 离散：从上次所属 cluster 中心飞散到单点位置
-        const from = this.lastClusterCenters.get(m.options.id)
-        if (from) {
-          this.animateFlyIn(m, from, [latlng.lng, latlng.lat])
+        // 离散：缩放时从 cluster 中心飞散到单点位置，平移时直接显示
+        if (zoomChanged) {
+          const from = this.lastClusterCenters.get(m.options.id)
+          if (from) {
+            this.animateFlyIn(m, from, [latlng.lng, latlng.lat])
+          } else {
+            m.addTo(map)
+          }
         } else {
           m.addTo(map)
-          popInMarker(m)
         }
       } else if (!shouldShow && wasShown) {
-        // 聚合：飞向当前所属 cluster 中心，缩小淡出
-        const to = currentClusterCenters.get(m.options.id)
-        if (to) {
-          this.animateFlyOut(m, [latlng.lng, latlng.lat], to)
+        // 聚合：缩放时飞向 cluster 中心缩小，平移时直接移除
+        if (zoomChanged) {
+          const to = currentClusterCenters.get(m.options.id)
+          if (to) {
+            this.animateFlyOut(m, [latlng.lng, latlng.lat], to)
+          } else {
+            m.remove()
+          }
         } else {
           m.remove()
         }
@@ -385,6 +400,8 @@ class MarkerService {
     currentClusterCenters.forEach((center, id) => {
       this.lastClusterCenters.set(id, center)
     })
+    this.lastClusterIds = currentClusterIds
+    this.lastZoom = zoom
   }
 
   // 聚合动画：单点飞向 cluster 中心，缩小淡出
@@ -405,8 +422,8 @@ class MarkerService {
 
     const anim = el.animate(
       [
-        { transform: `translate(-50%, -100%) translate(${from.x}px, ${from.y}px)`, opacity: '1' },
-        { transform: `translate(-50%, -100%) translate(${to.x}px, ${to.y}px) scale(0.3)`, opacity: '0' },
+        { transform: `translate(-50%, -100%) translate(${from.x}px, ${from.y}px)` },
+        { transform: `translate(-50%, -100%) translate(${to.x}px, ${to.y}px) scale(0.3)` },
       ],
       { duration: 260, easing: 'ease-in' }
     )
@@ -415,7 +432,7 @@ class MarkerService {
     }
   }
 
-  // 离散动画：单点从 cluster 中心飞散到各自位置，放大淡入
+  // 离散动画：单点从 cluster 中心飞散到各自位置，放大出现
   private animateFlyIn(marker: MapMarkerAdapter, fromLngLat: [number, number], toLngLat: [number, number]) {
     const map = this.MAP_INSTANCE
     if (!map) {
@@ -432,18 +449,16 @@ class MarkerService {
     map.getCanvasContainer().appendChild(el)
     el.style.zIndex = '1000'
     inner.style.transform = 'scale(0.3)'
-    el.style.opacity = '0'
 
     const anim = el.animate(
       [
-        { transform: `translate(-50%, -100%) translate(${from.x}px, ${from.y}px)`, opacity: '0' },
-        { transform: `translate(-50%, -100%) translate(${to.x}px, ${to.y}px)`, opacity: '1' },
+        { transform: `translate(-50%, -100%) translate(${from.x}px, ${from.y}px)` },
+        { transform: `translate(-50%, -100%) translate(${to.x}px, ${to.y}px)` },
       ],
       { duration: 260, easing: 'ease-out' }
     )
     anim.onfinish = () => {
       inner.style.transform = 'scale(1)'
-      el.style.opacity = '1'
       // 交还给 MapLibre 定位
       marker.addTo(map)
     }

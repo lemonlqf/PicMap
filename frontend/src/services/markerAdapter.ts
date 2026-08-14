@@ -198,14 +198,34 @@ export function createGroupMarkerElement(
   }
 }
 
-// 聚合点图标：圆形 + 数量徽标（单层，无 hover 缩放）
+// 聚合点图标：圆形 + 数量徽标（两层：外层定位，内层弹出动画）
 export function createClusterIcon(count: number): MarkerIcon {
-  const el = document.createElement('div')
-  el.className = 'cluster-marker'
-  el.style.cssText =
-    'width:40px;height:40px;border-radius:50%;background:#51bbd6;color:#fff;' +
+  const inner = document.createElement('div')
+  inner.className = 'cluster-marker-inner'
+  inner.style.cssText =
+    'width:100%;height:100%;border-radius:50%;background:#51bbd6;color:#fff;' +
     'display:flex;align-items:center;justify-content:center;font-weight:bold;' +
     'font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer;'
-  el.textContent = String(count)
-  return { element: el }
+  inner.textContent = String(count)
+  const outer = document.createElement('div')
+  outer.className = 'map-marker'
+  outer.style.width = '40px'
+  outer.style.height = '40px'
+  outer.style.boxSizing = 'border-box'
+  outer.appendChild(inner)
+  return { element: outer, inner }
+}
+
+// 弹出动画：聚合点/离散单点出现时 scale 0.3→1，只做缩放不做透明度（避免闪烁）
+export function popInMarker(marker: MapMarkerAdapter) {
+  const inner = marker.getInnerElement()
+  if (inner && typeof inner.animate === 'function') {
+    inner.animate(
+      [
+        { transform: 'scale(0.3)' },
+        { transform: 'scale(1)' },
+      ],
+      { duration: 200, easing: 'cubic-bezier(0.175, 0.885, 0.32, 1.275)' }
+    )
+  }
 }
