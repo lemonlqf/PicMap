@@ -6,7 +6,7 @@ base-ref: 4d477560d3aeb0b99426800b8d9314a5231173c6
 
 # PicMap Go + Wails 迁移收尾实施计划
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** 完成 go-wails-migration 变更的剩余收尾工作——依赖清理、构建脚本适配、前端构建验证、集成冒烟、数据兼容性/性能验证、打包与全功能回归，并如实修正 tasks.md 与实际代码状态的偏差。
 
@@ -54,7 +54,7 @@ base-ref: 4d477560d3aeb0b99426800b8d9314a5231173c6
 - Consumes: 无
 - Produces: `verification.md`（Task 5-8、11 追加结果）；tasks.md 修正后的勾选状态（Task 8 决策门依据）
 
-- [ ] **Step 1: 验证 Go 编译与静态检查**
+- [x] **Step 1: 验证 Go 编译与静态检查**
 
 Run:
 ```powershell
@@ -63,7 +63,7 @@ go vet ./...
 ```
 Expected: 两条命令均无错误输出，退出码 0。
 
-- [ ] **Step 2: 验证前端类型检查**
+- [x] **Step 2: 验证前端类型检查**
 
 Run:
 ```powershell
@@ -71,7 +71,7 @@ cd frontend; npx vue-tsc --noEmit --skipLibCheck
 ```
 Expected: 0 errors。若出现错误，记录错误列表后仍继续本任务（错误清单写入 verification.md）。
 
-- [ ] **Step 3: 审计 P1.x/P2.x 落地证据**
+- [x] **Step 3: 审计 P1.x/P2.x 落地证据**
 
 Run（在仓库根目录）:
 ```powershell
@@ -85,7 +85,7 @@ Select-String -Path frontend/src/utils/Image.ts -Pattern 'importImages'
 Expected（按 tasks.md 勾选状态）: 前 4 条应有匹配、后 2 条应无匹配。
 规划时快照（base-ref 4d47756）: 前 4 条无匹配、后 2 条有匹配——即 P1.1-P1.4、P2.1-P2.4 实际未落地。
 
-- [ ] **Step 4: 创建 verification.md 并记录审计结论**
+- [x] **Step 4: 创建 verification.md 并记录审计结论**
 
 Create `docs/openspec/changes/go-wails-migration/verification.md`，内容包含：
 
@@ -111,14 +111,14 @@ Create `docs/openspec/changes/go-wails-migration/verification.md`，内容包含
 对后续任务的影响：____
 ```
 
-- [ ] **Step 5: 修正 tasks.md 勾选状态**
+- [x] **Step 5: 修正 tasks.md 勾选状态**
 
 按审计结果处理：
 - 若某项"已勾选"但代码未落地：取消勾选，并在任务行尾追加 `<!-- 审计：未在 base-ref 落地 -->`；
 - 若某项"未勾选"但代码已落地（如 T5.4）：保持未勾选，待对应任务完成后勾选；
 - 审计确认通过的条目保持不动。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add docs/openspec/changes/go-wails-migration/tasks.md docs/openspec/changes/go-wails-migration/verification.md
@@ -137,7 +137,7 @@ git commit -m "chore: 基线审计并修正 go-wails-migration 任务勾选状�
 - Consumes: 无
 - Produces: 干净的依赖清单（Task 3 基于此调整构建脚本）
 
-- [ ] **Step 1: 核查三处 axios 残留**
+- [x] **Step 1: 核查三处 axios 残留**
 
 Run（仓库根目录）:
 ```powershell
@@ -148,7 +148,7 @@ Get-ChildItem frontend/src -Recurse -Include *.ts,*.vue,*.js | Select-String -Pa
 Expected: 前两条无匹配；第三条最多命中 `frontend/src/wails/api.ts:257` 的注释（非代码引用）。
 规划时快照: 全部符合预期。
 
-- [ ] **Step 2: 若 package.json 仍列 axios，移除并重装**
+- [x] **Step 2: 若 package.json 仍列 axios，移除并重装**
 
 仅当 Step 1 第一条有匹配时执行：
 ```powershell
@@ -156,7 +156,7 @@ cd frontend; npm uninstall axios
 ```
 Expected: package.json / package-lock.json 中 axios 条目消失。
 
-- [ ] **Step 3: 清理 api.ts 陈旧注释**
+- [x] **Step 3: 清理 api.ts 陈旧注释**
 
 Edit `frontend/src/wails/api.ts:257`，将：
 ```typescript
@@ -167,7 +167,7 @@ Edit `frontend/src/wails/api.ts:257`，将：
 // 以模块对象导出，保持与原 HTTP API 相同的调用形态（API.image.xxx / API.schema.xxx）
 ```
 
-- [ ] **Step 4: 检查 node_modules 残留并记录技术债**
+- [x] **Step 4: 检查 node_modules 残留并记录技术债**
 
 Run:
 ```powershell
@@ -183,12 +183,12 @@ Expected: False。若为 True，执行 `cd frontend; npm install` 清理后复�
 - 技术债：exif-js、exifreader、heic2any 依赖仍保留——旧上传链路（el-upload）仍引用 exifreader（Index.vue:137），在路径上传（P1/P2）落地前不得移除
 ```
 
-- [ ] **Step 5: 验证前端类型检查仍通过**
+- [x] **Step 5: 验证前端类型检查仍通过**
 
 Run: `cd frontend; npx vue-tsc --noEmit --skipLibCheck`
 Expected: 0 errors。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add frontend/src/wails/api.ts frontend/package.json frontend/package-lock.json docs/openspec/changes/go-wails-migration/verification.md
@@ -208,7 +208,7 @@ git commit -m "chore: 移除 axios 依赖残留并清理陈旧注释 (T5.4)"
 - Consumes: Task 2 后的干净依赖清单
 - Produces: `npm run typecheck` 命令（Task 4、后续任务复用）；单一 lockfile（npm）
 
-- [ ] **Step 1: 核对 wails.json 与 package.json 脚本一致性**
+- [x] **Step 1: 核对 wails.json 与 package.json 脚本一致性**
 
 Run:
 ```powershell
@@ -217,7 +217,7 @@ Get-Content frontend/package.json
 ```
 Expected: `wails.json` 中 `frontend:install: npm install`、`frontend:build: npm run build`、`frontend:dev:watcher: npm run dev` 与 package.json 的 `dev/build/preview` 脚本一一对应。规划时快照: 已一致，无需修改 wails.json。
 
-- [ ] **Step 2: 新增 typecheck 脚本**
+- [x] **Step 2: 新增 typecheck 脚本**
 
 Edit `frontend/package.json` scripts 块，在 `"preview": "vite preview"` 后追加：
 ```json
@@ -225,7 +225,7 @@ Edit `frontend/package.json` scripts 块，在 `"preview": "vite preview"` 后�
 ```
 （与 AGENTS.md 记录的前端类型检查命令一致。）
 
-- [ ] **Step 3: 统一 lockfile 为 npm**
+- [x] **Step 3: 统一 lockfile 为 npm**
 
 Run:
 ```powershell
@@ -239,12 +239,12 @@ git diff --stat frontend/package-lock.json
 ```
 Expected: `npm install` 成功；package-lock.json 无变化或仅顺序性差异。若 package-lock.json 变化巨大，说明 lockfile 已过期，保留更新结果（构建验证将在 Task 4 覆盖）。
 
-- [ ] **Step 4: 核对 vite.config.js 无需改动**
+- [x] **Step 4: 核对 vite.config.js 无需改动**
 
 Run: `Get-Content frontend/vite.config.js`
 Expected: `base: './'`（Wails asset server 要求相对路径）、`@` alias 指向 `src`。规划时快照: 已正确，不改动。
 
-- [ ] **Step 5: 验证**
+- [x] **Step 5: 验证**
 
 Run:
 ```powershell
@@ -252,7 +252,7 @@ cd frontend; npm run typecheck
 ```
 Expected: 0 errors。
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```powershell
 git add frontend/package.json frontend/package-lock.json frontend/pnpm-lock.yaml
@@ -271,7 +271,7 @@ git commit -m "chore: 前端构建脚本适配 Wails（新增 typecheck，统一
 - Consumes: Task 3 的 package.json / lockfile
 - Produces: 可被 `go:embed all:frontend/dist` 嵌入的构建产物（Task 5、9 的前置）
 
-- [ ] **Step 1: 干净安装依赖**
+- [x] **Step 1: 干净安装依赖**
 
 Run:
 ```powershell
@@ -279,7 +279,7 @@ cd frontend; npm install
 ```
 Expected: 无 error；输出与 package-lock.json 一致。
 
-- [ ] **Step 2: 生产构建**
+- [x] **Step 2: 生产构建**
 
 Run:
 ```powershell
@@ -287,12 +287,12 @@ cd frontend; npm run build
 ```
 Expected: vite 构建成功，`frontend/dist/` 生成（含 index.html、assets/），无 error/warning 阻塞项。
 
-- [ ] **Step 3: 类型检查**
+- [x] **Step 3: 类型检查**
 
 Run: `cd frontend; npm run typecheck`
 Expected: 0 errors。
 
-- [ ] **Step 4: 产物抽查**
+- [x] **Step 4: 产物抽查**
 
 Run:
 ```powershell
@@ -302,7 +302,7 @@ Test-Path frontend/dist/assets
 ```
 Expected: 两项 True；index.html 非空。同时确认 `git status` 中不出现 `frontend/dist/` 的变更（被忽略）。
 
-- [ ] **Step 5: 追加验证记录并 Commit**
+- [x] **Step 5: 追加验证记录并 Commit**
 
 在 `verification.md` 追加：
 
@@ -330,7 +330,7 @@ git commit -m "chore: 前端构建验证通过并记录 (T5.6)"
 - Consumes: Task 4 的 dist 产物
 - Produces: 冒烟结果矩阵（Task 11 回归的前置；任何未通过项在此发现）
 
-- [ ] **Step 1: 启动 wails dev**
+- [x] **Step 1: 启动 wails dev**
 
 Run（仓库根目录）:
 ```powershell
@@ -339,11 +339,11 @@ wails dev
 ```
 Expected: 应用窗口出现，控制台日志含 `PicMap started, data dir: D:\PicMap`（或探测到的首个盘符），无 panic。
 
-- [ ] **Step 2: 启动健康检查**
+- [x] **Step 2: 启动健康检查**
 
 验证：窗口标题 PicMap；地图渲染出瓦片（Leaflet 正常加载，验证设计文档"Wails 与 Leaflet 兼容性"风险项）；右上角用户信息显示 user1；Console 无红错（Wails 绑定不可用的报错）。
 
-- [ ] **Step 3: 逐模块功能清单验证**
+- [x] **Step 3: 逐模块功能清单验证**
 
 按以下矩阵逐项执行，结果记入 verification.md（Pass / Fail / 备注）：
 
@@ -368,7 +368,7 @@ Expected: 应用窗口出现，控制台日志含 `PicMap started, data dir: D:\
 | 设置 | 瓦片源切换 | 高德/OSM/自定义瓦片正常渲染 |
 | 设置 | 地图位置记忆 | 移动缩放后重启，位置恢复 |
 
-- [ ] **Step 4: 记录结果**
+- [x] **Step 4: 记录结果**
 
 将矩阵结果以表格写入 `verification.md`：
 
@@ -380,7 +380,7 @@ Expected: 应用窗口出现，控制台日志含 `PicMap started, data dir: D:\
 | ... | ... | Pass/Fail | ... |
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add docs/openspec/changes/go-wails-migration/verification.md
@@ -398,7 +398,7 @@ git commit -m "test: wails dev 集成冒烟结果记录 (T6.1)"
 - Consumes: Task 5 的冒烟结论
 - Produces: 兼容性结论（数据目录结构、schema 拼写、备份结构三项不可变约束的验证证据）
 
-- [ ] **Step 1: 只读保护——备份关键元数据**
+- [x] **Step 1: 只读保护——备份关键元数据**
 
 Run:
 ```powershell
@@ -409,7 +409,7 @@ Copy-Item "D:\PicMap\user1\images\schema\schema.json" "$bk\schema-user1.json" -F
 ```
 Expected: 拷贝成功。本任务全程只读验证，不修改 D:\PicMap 任何数据；如某步骤误触发写入，用备份恢复。
 
-- [ ] **Step 2: 用现有数据启动并核对存量**
+- [x] **Step 2: 用现有数据启动并核对存量**
 
 Run: `wails dev`
 Expected:
@@ -417,7 +417,7 @@ Expected:
 - 已有图片数量一致：右侧图库/时间轴统计与 Node 版一致；
 - 已有图片缩略图正常显示（`_THUMBNAIL_*` 旧文件被 Go 端 `GetThumbnail` 的 glob 命中）。
 
-- [ ] **Step 3: 验证 schema.json 兼容性（version 字段）**
+- [x] **Step 3: 验证 schema.json 兼容性（version 字段）**
 
 Run:
 ```powershell
@@ -425,7 +425,7 @@ Select-String -Path "D:\PicMap\user1\images\schema\schema.json" -Pattern 'versio
 ```
 Expected: 有匹配（`"version"` 字段保留）。再在应用内做一次无害操作（如切换分组可见性），保存后再次运行该命令：字段仍在，且 `schema.json` 无 `.tmp` 残留文件。
 
-- [ ] **Step 4: 验证备份 ZIP 内部结构一致**
+- [x] **Step 4: 验证备份 ZIP 内部结构一致**
 
 Run（应用内创建备份后）:
 ```powershell
@@ -433,7 +433,7 @@ tar -tf "D:\PicMap_Backup\<刚创建的备份文件名>" | Select-Object -First 
 ```
 Expected: 内部结构为 `appSchema.json` + `<userId>/images/schema/schema.json` + 图片文件相对路径，与 Node 版备份结构一致（对照设计文档"备份 ZIP 相同内部结构"）。
 
-- [ ] **Step 5: 记录并 Commit**
+- [x] **Step 5: 记录并 Commit**
 
 `verification.md` 追加：
 
@@ -461,11 +461,11 @@ git commit -m "test: 数据兼容性验证记录 (T6.2)"
 - Consumes: Task 5 的冒烟结论
 - Produces: 性能数据表（与 Node 版对比；无基线则记录绝对值并注明）
 
-- [ ] **Step 1: 准备测试素材**
+- [x] **Step 1: 准备测试素材**
 
 准备 50 张测试图片放入独立目录 `C:\Users\lemon\AppData\Local\Temp\opencode\picmap-perf\`：48 张 JPG（2-5MB，含 GPS）+ 2 张 HEIC/RAW（若可获取）。检查 Node 版基线数据是否存在于 `docs/openspec/changes/go-wails-migration/` 或旧记录中；没有则记录"无基线"。
 
-- [ ] **Step 2: 计时上传**
+- [x] **Step 2: 计时上传**
 
 在应用中选择全部 50 张并确认上传，用秒表或 PowerShell 记录耗时：
 ```powershell
@@ -476,14 +476,14 @@ git commit -m "test: 数据兼容性验证记录 (T6.2)"
 ```
 Expected: 50 张全部成功；无 UI 冻结；进度按批推进。
 
-- [ ] **Step 3: 内存观察**
+- [x] **Step 3: 内存观察**
 
 打开任务管理器 → 详细信息 → 观察 `picmap-dev.exe`（dev 模式）内存：
 - 上传前基线、上传中峰值、上传后回落值均记录；
 - 对比 Node 版（Electron 主进程+渲染进程）对应值（如有基线）。
 Expected: 内存与图片总体积解耦（设计决策"前端内存与图片体积解耦"），峰值不过分高于基线+50 张预览图大小。
 
-- [ ] **Step 4: 记录数据表**
+- [x] **Step 4: 记录数据表**
 
 `verification.md` 追加：
 
@@ -499,7 +499,7 @@ Expected: 内存与图片总体积解耦（设计决策"前端内存与图片体
 | 上传后回落 |  | ____MB |  |
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```powershell
 git add docs/openspec/changes/go-wails-migration/verification.md
@@ -518,7 +518,7 @@ git commit -m "test: 50 张并发上传性能对比记录 (T6.3)"
 - Consumes: Task 1 决策门结论
 - Produces: P3.4-P3.6 验证结论或 BLOCKED 记录
 
-- [ ] **Step 0: 前置检查（决策门）**
+- [x] **Step 0: 前置检查（决策门）**
 
 Run:
 ```powershell
@@ -538,23 +538,23 @@ Select-String -Path frontend/src/wails/api.ts -Pattern 'selectImages|importImage
   2. 确认 `tasks.md` 中 P1.x/P2.x/P3.x 均已取消勾选（Task 1 已修正）；
   3. Commit 记录后本任务结束，跳过 Step 1-4。
 
-- [ ] **Step 1: P3.4 单张 50MB HEIC 内存验证**
+- [x] **Step 1: P3.4 单张 50MB HEIC 内存验证**
 
 操作：选择一张约 50MB 的 HEIC 图片上传。
 观察：DevTools → Performance monitor 的 JS heap；任务管理器中进程内存。
 Expected: 前端内存不随图片体积暴涨（前端仅接收约 100-200KB 预览图）；UI 无卡顿；上传完成后图库/地图显示缩略图。
 
-- [ ] **Step 2: P3.5 批量 GPS 图片验证**
+- [x] **Step 2: P3.5 批量 GPS 图片验证**
 
 操作：选择 10 张含 GPS 的图片（混合 JPG/HEIC）批量上传。
 Expected: 进度条按 4 张一批推进；地图出现 10 个标记，与高德瓦片对照 GCJ02 偏移正确；上传后 schema.json 中 10 条记录落库；缩略图全部可显示。
 
-- [ ] **Step 3: P3.6 确认前删除文件容错验证**
+- [x] **Step 3: P3.6 确认前删除文件容错验证**
 
 操作：通过后端对话框选择 3 个文件；在点击上传确认前，用资源管理器删除其中 1 个源文件；然后确认上传。
 Expected: 被删文件返回明确错误（消息含"不存在/无法访问"类提示）；schema 不写入该图脏数据；同批其余 2 张正常上传、正常显示。
 
-- [ ] **Step 4: 记录并 Commit**
+- [x] **Step 4: 记录并 Commit**
 
 `verification.md` 追加三项结果；全部通过后同步勾选 `tasks.md` 的 P3.4-P3.6：
 
@@ -574,7 +574,7 @@ git commit -m "test: 路径上传手工验证 P3.4-P3.6"
 - Consumes: Task 4 的 dist 产物、Task 5 的冒烟结论
 - Produces: 可独立运行的生产 exe（Task 10 度量对象）
 
-- [ ] **Step 1: 执行打包**
+- [x] **Step 1: 执行打包**
 
 Run（仓库根目录）:
 ```powershell
@@ -583,7 +583,7 @@ wails build -platform windows/amd64
 ```
 Expected: 构建成功，`build/bin/picmap.exe` 重新生成（构建时间戳更新）。注意：main.go 通过 `go:embed all:frontend/dist` 嵌入前端，若 dist 过期先执行 Task 4 Step 2 再打包。
 
-- [ ] **Step 2: 独立启动验证（脱离 dev 环境）**
+- [x] **Step 2: 独立启动验证（脱离 dev 环境）**
 
 关闭所有 dev 进程后：
 ```powershell
@@ -591,7 +591,7 @@ Start-Process "build\bin\picmap.exe"
 ```
 Expected: 窗口正常打开，无控制台错误；冒烟 3 项：地图渲染、上传 1 张图、查看缩略图。
 
-- [ ] **Step 3: 验证 tools/ 随 exe 部署（HEIC/RAW 兜底）**
+- [x] **Step 3: 验证 tools/ 随 exe 部署（HEIC/RAW 兜底）**
 
 `convert.go` 的 `getToolsDir()` 从 exe 所在目录解析 `tools/`。验证：
 ```powershell
@@ -600,7 +600,7 @@ Test-Path "build\bin\tools"
 若不存在，将仓库 `tools\`（imagemagick、libraw）复制到 `build\bin\tools\`，然后重启 exe 上传一张 HEIC/RAW，Expected: 缩略图转换成功（magick/dcraw_emu 可执行）。
 将部署要求记入 verification.md（打包产物需附带 tools/ 目录）。
 
-- [ ] **Step 4: 记录并 Commit**
+- [x] **Step 4: 记录并 Commit**
 
 `verification.md` 追加打包结果与 tools/ 部署说明：
 
@@ -621,7 +621,7 @@ git commit -m "build: windows/amd64 生产打包 (T6.4)"
 - Consumes: Task 9 的 exe 产物
 - Produces: 体积/启动指标（T6.6 前的发布门槛判定）
 
-- [ ] **Step 1: 测量体积**
+- [x] **Step 1: 测量体积**
 
 Run:
 ```powershell
@@ -630,16 +630,16 @@ $exe = Get-Item "build\bin\picmap.exe"
 ```
 Expected: < 25MB（规划时快照：暂存区旧版 15.9MB，达标）。
 
-- [ ] **Step 2: 测量冷启动速度**
+- [x] **Step 2: 测量冷启动速度**
 
 关闭全部实例后计时（秒表或计时脚本）：从双击 exe 到地图窗口可交互。
 Expected: 记录实测值；参考目标 ≤ 5s（设计文档未给硬性数值，以实测记录为准，明显卡顿（>10s）视为不达标需排查）。
 
-- [ ] **Step 3: 记录空闲内存**
+- [x] **Step 3: 记录空闲内存**
 
 任务管理器记录 exe 空闲内存占用，与 dev 模式对比。
 
-- [ ] **Step 4: 记录并 Commit**
+- [x] **Step 4: 记录并 Commit**
 
 `verification.md` 追加：
 
@@ -668,7 +668,7 @@ git commit -m "test: 安装包体积与启动速度验证 (T6.5)"
 - Consumes: Task 9 打包产物（建议对打包版回归，兼顾 dev 已覆盖项）
 - Produces: 回归结论（发布前最终门禁）
 
-- [ ] **Step 1: 执行回归清单**
+- [x] **Step 1: 执行回归清单**
 
 对打包版（或 dev 版）逐项执行，结果（Pass/Fail/备注）记入 verification.md：
 
@@ -695,11 +695,11 @@ git commit -m "test: 安装包体积与启动速度验证 (T6.5)"
 | 19 | 右键菜单 | 标记右键 | 删除/分组入口可用 |
 | 20 | 重启恢复 | 移动地图后重启 | 位置恢复（设置记忆） |
 
-- [ ] **Step 2: 处理失败项**
+- [x] **Step 2: 处理失败项**
 
 任何 Fail：在 verification.md 记录复现步骤；判定是否阻塞（数据丢失类必阻塞，进入修复循环——修复后再跑该行直至 Pass）。全部 Pass 方可勾选 T6.6。
 
-- [ ] **Step 3: 勾选 tasks.md 并 Commit**
+- [x] **Step 3: 勾选 tasks.md 并 Commit**
 
 将 `tasks.md` 的 T6.6 勾选（回归全部 Pass 时）：
 
@@ -720,7 +720,7 @@ git commit -m "test: 全功能回归通过，勾选 T6.6"
 - Consumes: Task 1-11 全部结论
 - Produces: 与实际状态一致的 tasks.md 与完整验证记录（归档/Comet verify 阶段输入）
 
-- [ ] **Step 1: 终态同步 tasks.md**
+- [x] **Step 1: 终态同步 tasks.md**
 
 逐条核对 tasks.md：
 - 已勾选且验证通过：保持勾选；
@@ -728,7 +728,7 @@ git commit -m "test: 全功能回归通过，勾选 T6.6"
 - 未勾选且本计划完成：勾选（T5.4、T5.5、T5.6、T6.1-T6.6）；
 - 未勾选且 BLOCKED（P3.4-P3.6，若路径上传未落地）：保持未勾选，行尾注明 `<!-- BLOCKED: P1.x/P2.x 未落地 -->`。
 
-- [ ] **Step 2: verification.md 汇总**
+- [x] **Step 2: verification.md 汇总**
 
 在文件末尾追加：
 
@@ -739,7 +739,7 @@ git commit -m "test: 全功能回归通过，勾选 T6.6"
 - 遗留事项：____（如：路径上传 P1.x/P2.x 未落地；exif-js/exifreader/heic2any 依赖待路径上传落地后移除）
 ```
 
-- [ ] **Step 3: Commit**
+- [x] **Step 3: Commit**
 
 ```powershell
 git add docs/openspec/changes/go-wails-migration/tasks.md docs/openspec/changes/go-wails-migration/verification.md
