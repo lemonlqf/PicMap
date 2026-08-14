@@ -90,15 +90,6 @@ export async function getMarkerImage(data: { imageId: string }) {
   throw new Error('Wails bindings not available')
 }
 
-export async function getImages(data: { imageIds: string[] }) {
-  const binding = getGoBinding()
-  if (binding) {
-    const result = await binding.GetThumbnails(getCurrentUserId(), data.imageIds)
-    return unwrapResult(result)
-  }
-  throw new Error('Wails bindings not available')
-}
-
 export async function deleteImages(data: { deleteImages: string[] }) {
   const binding = getGoBinding()
   if (binding) {
@@ -281,7 +272,6 @@ const image = {
   importImages,
   getImage,
   getMarkerImage,
-  getImages,
   deleteImages,
   updateImages,
   downloadImage,

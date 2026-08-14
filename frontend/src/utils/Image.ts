@@ -200,46 +200,12 @@ export async function getMarkerImageUrlById(imageId: string) {
 }
 
 /**
- * @description: 获取多张图片的url,传入完整的imageId数组，复用逻辑内部实现了
+ * @description: 批量获取 marker 专用小尺寸缩略图（120px），复用单张缓存与 in-flight 去重
  * @param {string[]} imageIds
  * @return {*}
  */
-export async function getImageUrlByIds(imageIds: string[]) {
-  // 返回的图片（与 imageIds 一一对应）
-  const resImageUrls = new Array<string | undefined>(imageIds.length).fill(undefined)
-  // 记录未缓存图片的原始下标与 ID，避免部分缓存时错位
-  const requestIndexes: number[] = []
-  const requestImageIds: string[] = []
-  imageIds.forEach((imageId, index) => {
-    const imageUrl = getImageUrl(imageId)
-    if (imageUrl) {
-      resImageUrls[index] = imageUrl
-    } else {
-      requestIndexes.push(index)
-      requestImageIds.push(imageId)
-    }
-  })
-  // 如果没有需要请求的图片，则直接返回
-  if (requestImageIds.length === 0) {
-    return resImageUrls
-  }
-  // 请求没有在Map中存在的图片
-  const res = await API.image.getImages({ imageIds: requestImageIds }) as any
-  if (res.code === 200) {
-    const files = (res.data?.files ?? []) as string[]
-    requestIndexes.forEach((originalIndex, k) => {
-      const file = files[k]
-      // 空文件不缓存，避免缓存坏 data URL
-      if (!file) {
-        resImageUrls[originalIndex] = ''
-        return
-      }
-      const imageUrl = fileToBase64(file)
-      resImageUrls[originalIndex] = imageUrl
-      addImageUrl(imageIds[originalIndex], imageUrl)
-    })
-  }
-  return resImageUrls
+export async function getMarkerImageUrlByIds(imageIds: string[]) {
+  return Promise.all(imageIds.map((imageId) => getMarkerImageUrlById(imageId)))
 }
 
 // 计算MB大小

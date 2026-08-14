@@ -12,7 +12,7 @@ import { ElMessage } from 'element-plus';
 import eventBus from '@/utils/eventBus'
 import API from '@/wails/api'
 import L from 'leaflet'
-import { getImageUrlByIds, isImageExistInImageInfo } from '@/utils/Image'
+import { getMarkerImageUrlByIds, isImageExistInImageInfo } from '@/utils/Image'
 import { cloneDeep } from 'lodash-es';
 import type { IGPSInfo, IGroupInfo } from '@/type/schema';
 import type { ICreateGroupInfoData } from '@/type/group'
@@ -310,8 +310,8 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     return
   }
   const groupMark = markerService.getMarkerById(groupInfo.id)
-  // 先只获取前4张图片
-  const resImageUrls = await getImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER))
+  // 先只获取前4张图片（marker 小图 120px）
+  const resImageUrls = await getMarkerImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER))
   if (!resImageUrls || resImageUrls.length === 0) {
     ElMessage.error('获取图片失败')
     return

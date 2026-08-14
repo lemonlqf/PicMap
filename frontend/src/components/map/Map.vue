@@ -36,7 +36,7 @@ import 'leaflet/dist/leaflet.css';
 import { ElIcon } from 'element-plus';
 import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
-import { getImageUrlById } from '@/utils/Image';
+import { getMarkerImageUrlById } from '@/utils/Image';
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, imageMarkerTranslateY } from '@/utils/constant'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML';
 import { useAppStore } from '@/store/appSchema';
@@ -361,8 +361,8 @@ async function updateMarkers() {
 
   // 为每张图片创建marker
   for (const img of validImages) {
-    // 获取图片URL
-    const imageUrl = await getImageUrlById(img.id)
+    // 获取 marker 专用小图（120px）
+    const imageUrl = await getMarkerImageUrlById(img.id)
     let icon: L.DivIcon
 
     if (imageUrl) {

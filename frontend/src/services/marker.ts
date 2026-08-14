@@ -23,7 +23,7 @@ import {
   groupMarkerTranslateY,
 } from "@/utils/constant";
 import { judgeHadUploadImage } from "@/utils/schema";
-import { getImageUrlById, getImageUrlByIds, getMarkerImageUrlById } from "@/utils/Image";
+import { getMarkerImageUrlById, getMarkerImageUrlByIds } from "@/utils/Image";
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from "@/utils/group";
 import eventBus from "@/utils/eventBus";
 import { GPSInfoLegality } from "@/utils/map";
@@ -488,8 +488,8 @@ class MarkerService {
     if (groupNumbers && groupNumbers.length > 0) {
       // 请求前几张图片，并保存到
       console.log("groupInfo---", groupInfo);
-      // 先只获取前4张图片
-      const resImageUrls = await getImageUrlByIds(
+      // 先只获取前4张图片（marker 小图 120px）
+      const resImageUrls = await getMarkerImageUrlByIds(
         groupInfo.groupNumbers!.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER)
       );
       if (!resImageUrls || resImageUrls.length === 0) {
