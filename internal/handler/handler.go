@@ -147,76 +147,6 @@ func (h *Handler) SetSchema(userId, schemaJSON string) model.Result {
 
 // ---- Image ----
 
-func (h *Handler) UploadImages(userId string, images []model.UploadImage) model.Result {
-	imageDir := h.cfg.ImageDirPath(userId)
-	util.EnsureDir(imageDir)
-
-	sem := make(chan struct{}, 4)
-	var wg sync.WaitGroup
-	var mu sync.Mutex
-	results := make([]model.UploadResult, 0, len(images))
-	errors := make([]string, 0)
-
-	for _, img := range images {
-		wg.Add(1)
-		go func(img model.UploadImage) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
-
-			result := model.UploadResult{ID: img.ID}
-
-			// Decode base64 and write original image
-			if img.URL != "" {
-				ext := filepath.Ext(img.Name)
-				if ext == "" {
-					ext = ".jpg"
-				}
-
-				// Strip data URL prefix (e.g. "data:image/jpeg;base64,")
-				b64 := img.URL
-				if idx := strings.Index(b64, ";base64,"); idx != -1 {
-					b64 = b64[idx+8:]
-				}
-
-				data, err := base64.StdEncoding.DecodeString(b64)
-				if err != nil {
-					mu.Lock()
-					errors = append(errors, fmt.Sprintf("解码图片 %s 失败: %v", img.Name, err))
-					mu.Unlock()
-					return
-				}
-				// 磁盘文件名与 Node 版一致：PM 前缀 + 无扩展名 id + 扩展名
-				filePath := filepath.Join(imageDir, "PM"+util.BaseWithoutExt(img.ID)+ext)
-				if err := os.WriteFile(filePath, data, 0644); err != nil {
-					mu.Lock()
-					errors = append(errors, fmt.Sprintf("写入图片 %s 失败: %v", img.Name, err))
-					mu.Unlock()
-					return
-				}
-			}
-
-			mu.Lock()
-			results = append(results, result)
-			mu.Unlock()
-		}(img)
-	}
-	wg.Wait()
-
-	if len(errors) > 0 {
-		return model.Result{
-			Code: 200,
-			Msg:  "部分图片上传失败",
-			Data: map[string]interface{}{
-				"images": results,
-				"errors": errors,
-			},
-			Time: time.Now().UnixMilli(),
-		}
-	}
-	return model.NewSuccessResult(map[string]interface{}{"images": results})
-}
-
 func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 	imageDir := h.cfg.ImageDirPath(userId)
 	baseName := util.BaseWithoutExt(imageId)
@@ -244,17 +174,25 @@ func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 }
 
 func (h *Handler) GetThumbnails(userId string, imageIds []string) model.Result {
-	files := make([]string, 0, len(imageIds))
-	for _, id := range imageIds {
-		r := h.GetThumbnail(userId, id)
-		if r.Code == 200 {
-			if m, ok := r.Data.(map[string]string); ok {
-				files = append(files, m["file"])
+	files := make([]string, len(imageIds))
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 4)
+	for i, id := range imageIds {
+		wg.Add(1)
+		go func(index int, imageId string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			r := h.GetThumbnail(userId, imageId)
+			if r.Code == 200 {
+				if m, ok := r.Data.(map[string]string); ok {
+					files[index] = m["file"]
+				}
 			}
-		} else {
-			files = append(files, "")
-		}
+		}(i, id)
 	}
+	wg.Wait()
 	return model.NewSuccessResult(map[string][]string{"files": files})
 }
 
@@ -276,12 +214,15 @@ func (h *Handler) GetFullImage(userId, imageId string) model.Result {
 func (h *Handler) DeleteImages(userId string, imageIds []string) model.Result {
 	imageDir := h.cfg.ImageDirPath(userId)
 	var wg sync.WaitGroup
-	successCount := 0
+	sem := make(chan struct{}, 4)
 
 	for _, id := range imageIds {
 		wg.Add(1)
 		go func(id string) {
 			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
 			baseName := util.BaseWithoutExt(id)
 			// Delete original（PM<baseName>.*）
 			pattern := filepath.Join(imageDir, "PM"+baseName+".*")
@@ -299,7 +240,6 @@ func (h *Handler) DeleteImages(userId string, imageIds []string) model.Result {
 	}
 	wg.Wait()
 
-	_ = successCount
 	return model.NewSuccessResult("图片删除成功！")
 }
 
@@ -754,7 +694,10 @@ func (h *Handler) SelectImages() model.Result {
 		return model.NewFailResult("打开文件选择框失败: " + err.Error())
 	}
 	if len(selection) == 0 {
-		return model.NewSuccessResult([]model.SelectedImage{})
+		return model.NewSuccessResult(map[string]interface{}{
+			"filePaths": []string{},
+			"total":     0,
+		})
 	}
 
 	h.parsing.Store(true)

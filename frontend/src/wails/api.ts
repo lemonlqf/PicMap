@@ -71,22 +71,6 @@ export async function importImages(data: { images: any[] }) {
   throw new Error('Wails bindings not available')
 }
 
-export async function uploadImages(data: any) {
-  const binding = getGoBinding()
-  if (binding) {
-    const rawImages = data.images || data
-    const images = rawImages.map((img: any) => ({
-      id: img.id,
-      name: img.name,
-      url: img.url || '',
-      thumbnailUrl: img.thumbnailUrl || '',
-    }))
-    const result = await binding.UploadImages(getCurrentUserId(), images)
-    return unwrapResult(result)
-  }
-  throw new Error('Wails bindings not available')
-}
-
 export async function getImage(data: { imageId: string }) {
   const binding = getGoBinding()
   if (binding) {
@@ -128,26 +112,6 @@ export async function downloadImage(data: { imageId: string }) {
   if (binding) {
     const result = await binding.DownloadImage(getCurrentUserId(), data.imageId)
     return unwrapResult(result)
-  }
-  throw new Error('Wails bindings not available')
-}
-
-export async function getJPGImage(file: File): Promise<{ code: number; msg: string; data: Blob }> {
-  // For Wails, convert File to base64 then call convert on Go side
-  const binding = getGoBinding()
-  if (binding) {
-    const buffer = await file.arrayBuffer()
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
-    const result = await binding.ConvertImage(base64, file.name)
-    if (result.code === 200 && result.data) {
-      const byteString = atob(result.data.file || result.data)
-      const bytes = new Uint8Array(byteString.length)
-      for (let i = 0; i < byteString.length; i++) {
-        bytes[i] = byteString.charCodeAt(i)
-      }
-      return { code: 200, msg: '成功', data: new Blob([bytes], { type: 'image/jpeg' }) }
-    }
-    return { code: result.code, msg: result.msg, data: new Blob() }
   }
   throw new Error('Wails bindings not available')
 }
@@ -305,13 +269,11 @@ export async function deleteUserDir(data: { userId: string }) {
 const image = {
   selectImages,
   importImages,
-  uploadImages,
   getImage,
   getImages,
   deleteImages,
   updateImages,
   downloadImage,
-  getJPGImage,
   onImagesParsed,
   onImagesProgress,
   onImagesDone,

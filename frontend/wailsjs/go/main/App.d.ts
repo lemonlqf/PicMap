@@ -46,6 +46,4 @@ export function SetSchema(arg1:string,arg2:string):Promise<model.Result>;
 
 export function UpdateImages():Promise<model.Result>;
 
-export function UploadImages(arg1:string,arg2:Array<model.UploadImage>):Promise<model.Result>;
-
 export function UploadTrack(arg1:string,arg2:string,arg3:string):Promise<model.Result>;

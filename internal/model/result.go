@@ -27,13 +27,6 @@ func NewFailResult(msg string) Result {
 	}
 }
 
-type UploadImage struct {
-	ID           string `json:"id"`
-	Name         string `json:"name"`
-	URL          string `json:"url"`
-	ThumbnailURL string `json:"thumbnailUrl,omitempty"`
-}
-
 type UploadResult struct {
 	ID              string `json:"id"`
 	ThumbnailBase64 string `json:"thumbnailBase64,omitempty"`

@@ -90,10 +90,6 @@ export function UpdateImages() {
   return window['go']['main']['App']['UpdateImages']();
 }
 
-export function UploadImages(arg1, arg2) {
-  return window['go']['main']['App']['UploadImages'](arg1, arg2);
-}
-
 export function UploadTrack(arg1, arg2, arg3) {
   return window['go']['main']['App']['UploadTrack'](arg1, arg2, arg3);
 }

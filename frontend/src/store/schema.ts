@@ -29,14 +29,14 @@ export const useSchemaStore = defineStore('schema', {
     setSchema(value) {
       this.schema = value
     },
-    setSchemaAttr(key, value) {
-      this.schema[key] = value
+    setSchemaAttr(key: string, value: any) {
+      ;(this.schema as Record<string, any>)[key] = value
     },
-    setMapAttr(key, value) {
+    setMapAttr(key: string, value: any) {
       if (!this.schema.mapInfo) {
         this.schema.mapInfo = {}
       }
-      this.schema.mapInfo[key] = value
+      ;(this.schema.mapInfo as Record<string, any>)[key] = value
     },
     pushImagesToImageInfo(value) {
       if (value.length) {

@@ -38,9 +38,6 @@ func (a *App) GetUserInfos() model.Result                    { return a.handler.
 func (a *App) GetSchema(userId string) model.Result          { return a.handler.GetSchema(userId) }
 func (a *App) SetSchema(userId, schemaJSON string) model.Result { return a.handler.SetSchema(userId, schemaJSON) }
 
-func (a *App) UploadImages(userId string, images []model.UploadImage) model.Result {
-	return a.handler.UploadImages(userId, images)
-}
 func (a *App) GetThumbnail(userId, imageId string) model.Result {
 	return a.handler.GetThumbnail(userId, imageId)
 }

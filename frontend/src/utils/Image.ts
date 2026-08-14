@@ -13,25 +13,9 @@ import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus';
 import { saveSchema } from './schema';
 import markerService from '@/services/marker'
-import { ImageType, type IImageDetailInfo } from '@/type/image'
+import type { IImageDetailInfo } from '@/type/image'
 import type { IResult } from '@/type/schema'
 import i18n from '@/i18n/index'
-
-// 单位MB
-const LARGE_IMAGE_SIZE = 100
-const RAW_IMAGE_TYPES = new Set<string>([
-  ImageType.RAW,
-  ImageType.RAW_ADOBE_DNG,
-  ImageType.RAW_CANON_CR2,
-  ImageType.RAW_CANON_CR3,
-  ImageType.RAW_NIKON_NEF,
-  ImageType.RAW_OLYMPUS_ORF,
-  ImageType.RAW_SONY_ARW,
-  ImageType.RAW_FUJIFILM_RAF,
-  ImageType.RAW_PANASONIC_RW2,
-  ImageType.RAW_EPSON_ERF,
-  ImageType.RAW_GOPRO_GPR
-])
 
 /**
  * @description: 图片缓存管理器, 单例模式
@@ -155,6 +139,10 @@ export async function getImageUrlById(imageId: string) {
   if (res.code !== 200) {
     return ''
   }
+  // 无缩略图（HEIC/RAW 未生成缩略图时后端返回空串），不缓存，避免缓存坏 data URL
+  if (!res.data?.file) {
+    return ''
+  }
   const imageUrl = fileToBase64(res.data.file)
   // 将图片保存到映射表中
   addImageUrl(imageId, imageUrl)
@@ -163,18 +151,21 @@ export async function getImageUrlById(imageId: string) {
 
 /**
  * @description: 获取多张图片的url,传入完整的imageId数组，复用逻辑内部实现了
- * @param {string} imageIds
+ * @param {string[]} imageIds
  * @return {*}
  */
 export async function getImageUrlByIds(imageIds: string[]) {
-  // 返回的图片
-  const resImageUrls = new Array(imageIds.length).fill(undefined)
-  const requestImageIds = [] as string[]
+  // 返回的图片（与 imageIds 一一对应）
+  const resImageUrls = new Array<string | undefined>(imageIds.length).fill(undefined)
+  // 记录未缓存图片的原始下标与 ID，避免部分缓存时错位
+  const requestIndexes: number[] = []
+  const requestImageIds: string[] = []
   imageIds.forEach((imageId, index) => {
     const imageUrl = getImageUrl(imageId)
     if (imageUrl) {
       resImageUrls[index] = imageUrl
     } else {
+      requestIndexes.push(index)
       requestImageIds.push(imageId)
     }
   })
@@ -185,18 +176,20 @@ export async function getImageUrlByIds(imageIds: string[]) {
   // 请求没有在Map中存在的图片
   const res = await API.image.getImages({ imageIds: requestImageIds }) as any
   if (res.code === 200) {
-    for (let i = 0; i < resImageUrls.length; i++) {
-      if (resImageUrls[i] === undefined) {
-        // 取第一个图片
-        const imageUrl = fileToBase64((res.data.files as string[]).shift())
-        // 设置到数组中空的地方
-        resImageUrls[i] = imageUrl
-        // 保存一下
-        addImageUrl(imageIds[i], imageUrl)
+    const files = (res.data?.files ?? []) as string[]
+    requestIndexes.forEach((originalIndex, k) => {
+      const file = files[k]
+      // 空文件不缓存，避免缓存坏 data URL
+      if (!file) {
+        resImageUrls[originalIndex] = ''
+        return
       }
-    }
-    return resImageUrls
+      const imageUrl = fileToBase64(file)
+      resImageUrls[originalIndex] = imageUrl
+      addImageUrl(imageIds[originalIndex], imageUrl)
+    })
   }
+  return resImageUrls
 }
 
 // 计算MB大小
@@ -275,24 +268,6 @@ function canUpload(imageInfo: IImageDetailInfo): boolean {
   return hasPath && hasGPS
 }
 
-function imageSizeunderLimit(url: any) {
-  let size = 0
-  if (typeof url === 'string' && url.startsWith('data:')) {
-    // base64 场景下按字符长度估算原始字节数
-    size = base64Size(url)
-  }
-  // 100MB = 100 * 1024 * 1024
-  const underLimit = (size <= LARGE_IMAGE_SIZE * 1024 * 1024)
-  return underLimit
-}
-
-function base64Size(base64: string): number {
-  // 去掉 data:image/png;base64, 头部
-  const base64Str = base64.split(',')[1] || ''
-  // 1 字节 = 8 bit，base64 每 4 个字符约代表 3 字节（用于体积预估）
-  return Math.floor(base64Str.length * 3 / 4)
-}
-
 /**
  * @description: 删除分组，会处理schema，marker中的图片
  * @param {*} imageId
@@ -330,160 +305,3 @@ export function isImageExistInImageInfo(imageId: string) {
     return item.id === imageId
   })
 }
-
-/**
- * @description: 获取图片类型
- * @param {string} name
- * @return {*}
- */
-export function getImageTypeByName(name: string) {
-  // 获取文件后缀，转小写
-  const suffix = name.split('.').pop()?.toLowerCase()
-  switch (suffix) {
-    case 'jpg':
-    case 'jpeg':
-      return ImageType.JPEG
-    case 'png':
-      return ImageType.PNG
-    case 'gif':
-      return ImageType.GIF
-    case 'webp':
-      return ImageType.WEBP
-    case 'heic':
-      return ImageType.HEIC
-    case 'heif':
-      return ImageType.HEIF
-    case 'raw':
-      return ImageType.RAW
-    case 'dng':
-      return ImageType.RAW_ADOBE_DNG
-    case 'arw':
-      return ImageType.RAW_SONY_ARW
-    case 'cr2':
-      return ImageType.RAW_CANON_CR2
-    case 'cr3':
-      return ImageType.RAW_CANON_CR3
-    case 'nef':
-      return ImageType.RAW_NIKON_NEF
-    case 'orf':
-      return ImageType.RAW_OLYMPUS_ORF
-    case 'rw2':
-      return ImageType.RAW_PANASONIC_RW2
-    case 'raf':
-      return ImageType.RAW_FUJIFILM_RAF
-    case 'erf':
-      return ImageType.RAW_EPSON_ERF
-    case 'gpr':
-      return ImageType.RAW_GOPRO_GPR
-    default:
-      return 'jpg'
-  }
-}
-
-function isRawImageType(type?: string) {
-  if (!type) return false
-  // type转小写
-  type = type.toLowerCase()
-  if (RAW_IMAGE_TYPES.has(type)) return true
-}
-
-export function fileToBlobUrl(file: File | Blob): string {
-  return URL.createObjectURL(file)
-}
-
-/**
- * @description: 获取图片的blobUrl，支持HEIC/RAW格式的图片
- * @param {File} file
- * @param {ImageType} type
- * @return {*}
- */
-export async function getBlobUrl(file: File, type: ImageType): Promise<string> {
-  let blobUrl;
-  switch (type) {
-    case ImageType.JPEG:
-    case ImageType.JPG:
-    case ImageType.PNG:
-    case ImageType.GIF:
-    case ImageType.WEBP:
-      blobUrl = await fileToBlobUrl(file);
-      break;
-    case ImageType.HEIC:
-    case ImageType.HEIF:
-    case ImageType.RAW:
-    case ImageType.RAW:
-    case ImageType.RAW_ADOBE_DNG:
-    case ImageType.RAW_CANON_CR2:
-    case ImageType.RAW_CANON_CR3:
-    case ImageType.RAW_NIKON_NEF:
-    case ImageType.RAW_OLYMPUS_ORF:
-    case ImageType.RAW_SONY_ARW:
-    case ImageType.RAW_FUJIFILM_RAF:
-    case ImageType.RAW_PANASONIC_RW2:
-      // HEIC/RAW格式的图片需要特殊处理，转换为JPEG格式
-      const blob = await convertSpecialImageToBlob(file);
-      blobUrl = await fileToBlobUrl(blob);
-      break
-    default:
-      throw new Error('不支持的图片类型')
-  }
-  return blobUrl
-}
-
-/**
- * @description: 获取图片的blob，支持HEIC/RAW格式的图片
- * @param {File} file
- * @param {ImageType} type
- * @return {*}
- */
-export async function getBlob(file: File, type: ImageType): Promise<Blob> {
-  if (type === ImageType.HEIC || type === ImageType.HEIF || isRawImageType(type)) {
-    return await convertSpecialImageToBlob(file)
-  }
-  return file
-}
-
-async function convertSpecialImageToBlob(file: File): Promise<Blob> {
-  const res = await API.image.getJPGImage(file)
-  if (res instanceof Blob) {
-    // 正常路径：后端直接返回二进制 Blob
-    return res
-  }
-
-  // 兼容异常情况下返回的非 Blob 数据（例如响应被中间层改写）
-  const blob = new Blob([res as any], { type: 'image/jpeg' })
-  return blob
-}
-
-// TypeScript: File -> 缩略图 Blob
-export async function createThumbnailFromBlob(
-  inputBlob: Blob,
-  opts: { maxW?: number; maxH?: number; type?: string; quality?: number } = {}
-): Promise<Blob> {
-  // 默认仅缩小不过放大，quality 取值范围 [0,1]
-  const { maxW = 1024, maxH = 1024, type = 'image/jpeg', quality = 1 } = opts
-  const safeQuality = Math.min(1, Math.max(0, quality))
-
-  const bitmap = await createImageBitmap(inputBlob)
-
-  const scale = Math.min(maxW / bitmap.width, maxH / bitmap.height, 1)
-  const w = Math.max(1, Math.round(bitmap.width * scale))
-  const h = Math.max(1, Math.round(bitmap.height * scale))
-
-  const canvas = document.createElement('canvas')
-  canvas.width = w
-  canvas.height = h
-  const ctx = canvas.getContext('2d')
-  if (!ctx) throw new Error('Canvas 2D context unavailable')
-
-  ctx.imageSmoothingEnabled = true
-  ctx.imageSmoothingQuality = 'high'
-
-  ctx.drawImage(bitmap, 0, 0, w, h)
-  bitmap.close()
-
-  return await new Promise<Blob>((resolve, reject) => {
-    canvas.toBlob((b) => (b ? resolve(b) : reject(new Error('toBlob failed'))), type, safeQuality)
-  })
-}
-
-

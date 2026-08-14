@@ -214,6 +214,10 @@ async function selectImages() {
     }
     const total = res.data?.total ?? 0
     parseProgress.value = { processed: 0, total }
+    // 空选择（取消）：Go 端不发 images-done 事件，需立即恢复按钮，避免永久 loading
+    if (total === 0) {
+      isLoading.value = false
+    }
   } catch (error) {
     console.error('选择图片失败', error)
     isLoading.value = false

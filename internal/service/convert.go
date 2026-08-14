@@ -67,42 +67,4 @@ func ConvertRAWToJPEG(inputPath, outputPath string) error {
 	return fmt.Errorf("RAW处理完成但未生成输出文件")
 }
 
-func ConvertImage(inputPath string) ([]byte, string, error) {
-	name := filepath.Base(inputPath)
-	ext := strings.ToLower(filepath.Ext(name))
-	mimeType := "image/jpeg"
-
-	tmpDir, err := os.MkdirTemp("", "picmap-convert-")
-	if err != nil {
-		return nil, "", err
-	}
-	defer os.RemoveAll(tmpDir)
-
-	outputPath := filepath.Join(tmpDir, "converted.jpg")
-
-	if IsHEICFormat(name) {
-		if err := ConvertHEICToJPEG(inputPath, outputPath); err != nil {
-			return nil, "", err
-		}
-	} else if IsRAWFormat(name) {
-		if err := ConvertRAWToJPEG(inputPath, outputPath); err != nil {
-			// Fallback: try ImageMagick
-			magickPath := filepath.Join(getToolsDir(), "imagemagick", "magick.exe")
-			cmd := exec.Command(magickPath, "convert", inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
-			if output, err := cmd.CombinedOutput(); err != nil {
-				return nil, "", fmt.Errorf("RAW fallback转换失败: %v, output: %s", err, string(output))
-			}
-		}
-	} else {
-		return nil, "", fmt.Errorf("不支持的图片格式: %s", ext)
-	}
-
-	data, err := os.ReadFile(outputPath)
-	if err != nil {
-		return nil, "", err
-	}
-
-	return data, mimeType, nil
-}
-
 
