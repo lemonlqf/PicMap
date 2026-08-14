@@ -2,19 +2,19 @@
 
 ## 1. 性能 spike 验证（前置 gate）
 
-- [ ] **1.1** 安装 `maplibre-gl` 依赖，移除 leaflet/leaflet.markercluster/leaflet-gpx
+- [x] **1.1** 安装 `maplibre-gl` 依赖，移除 leaflet/leaflet.markercluster/leaflet-gpx
 - [ ] **1.2** 搭建最小 MapLibre demo（高德瓦片 raster source + pitch 60° + 简单 marker）
 - [ ] **1.3** 在 wails dev 的 WebView2 里实测俯仰角 + 拖动流畅度，确认 WebGL 上下文正常创建
 - [ ] **1.4** 决策点：性能达标（≥30fps 或肉眼无卡顿）才继续，否则调整方案（降 pitch/关 antialias/限 maxZoom）
 
 ## 2. 核心迁移
 
-- [ ] **2.1** 重写 `services/map.ts`：`L.Map` → `maplibregl.Map`，保留 initMapInstance/observeMapChangeToUpgradeMarker/setViewByLatLng 接口
-- [ ] **2.2** 迁移瓦片图层：raster source + layer，显式 tileSize 256，切换先移除旧 layer+source
-- [ ] **2.3** 迁移 `views/picMap/Map.vue` 与 `components/map/Map.vue`：`L.map` → `maplibregl.Map`，加 pitch
-- [ ] **2.4** 迁移 `services/marker.ts` marker 渲染（先不做聚合）：`L.marker` → `Marker` + element，事件绑 element
-- [ ] **2.5** 迁移 `services/track.ts` GPX 渲染：自写 GPX 解析 + GeoJSON line layer（统计逻辑保留）
-- [ ] **2.6** 统一坐标反转：封装 toMapLibreLngLat，修正所有 [lat,lng] → [lng,lat]
+- [x] **2.1** 重写 `services/map.ts`：`L.Map` → `maplibregl.Map`，保留 initMapInstance/observeMapChangeToUpgradeMarker/setViewByLatLng 接口
+- [x] **2.2** 迁移瓦片图层：raster source + layer，显式 tileSize 256，切换先移除旧 layer+source
+- [x] **2.3** 迁移 `views/picMap/Map.vue` 与 `components/map/Map.vue`：`L.map` → `maplibregl.Map`，加 pitch
+- [x] **2.4** 迁移 `services/marker.ts` marker 渲染（先不做聚合）：`L.marker` → `Marker` + element，事件绑 element
+- [x] **2.5** 迁移 `services/track.ts` GPX 渲染：自写 GPX 解析 + GeoJSON line layer（统计逻辑保留）
+- [x] **2.6** 统一坐标反转：封装 toMapLibreLngLat，修正所有 [lat,lng] → [lng,lat]
 
 ## 3. 标记聚合攻坚
 
