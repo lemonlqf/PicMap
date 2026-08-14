@@ -76,13 +76,22 @@ export class MapMarkerAdapter {
     if (event === 'moveend' || event === 'dragend') {
       this.mlMarker.on('dragend', () => cb())
     } else if (event === 'click') {
-      el.addEventListener('click', (e: Event) => cb(e))
+      el.addEventListener('click', (e: Event) => cb(this.wrapEvent(e)))
     } else if (event === 'contextmenu') {
-      el.addEventListener('contextmenu', (e: Event) => cb(e))
+      el.addEventListener('contextmenu', (e: Event) => cb(this.wrapEvent(e)))
     } else if (event === 'mouseover') {
       el.addEventListener('mouseover', (e: Event) => cb(e))
     } else if (event === 'mouseout') {
       el.addEventListener('mouseout', (e: Event) => cb(e))
+    }
+  }
+
+  // 包装成 Leaflet 风格事件结构，兼容上层组件（event.target.options.id / event.originalEvent.x/y）
+  private wrapEvent(e: Event) {
+    return {
+      target: this,
+      originalEvent: e,
+      latlng: this.getLatLng(),
     }
   }
 }
