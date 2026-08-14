@@ -133,3 +133,15 @@ export function createGroupMarkerElement(
   }
   return { element: IconHTMLFactory.createIcon(IconType.NoImageGroup, name) }
 }
+
+// 聚合点图标：圆形 + 数量徽标
+export function createClusterIcon(count: number): MarkerIcon {
+  const el = document.createElement('div')
+  el.className = 'cluster-marker'
+  el.style.cssText =
+    'width:40px;height:40px;border-radius:50%;background:#51bbd6;color:#fff;' +
+    'display:flex;align-items:center;justify-content:center;font-weight:bold;' +
+    'font-size:14px;border:2px solid #fff;box-shadow:0 1px 4px rgba(0,0,0,0.3);cursor:pointer;'
+  el.textContent = String(count)
+  return { element: el }
+}

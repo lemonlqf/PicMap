@@ -1,4 +1,5 @@
 import * as maplibregl from 'maplibre-gl'
+import Supercluster from 'supercluster'
 import { ElMessage } from 'element-plus'
 
 import mapService from '@/services/map'
@@ -8,6 +9,8 @@ import {
   MapMarkerAdapter,
   createImageMarkerIcon,
   createGroupMarkerIcon,
+  createClusterIcon,
+  type MarkerIcon,
 } from '@/services/markerAdapter'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
 import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
@@ -19,42 +22,35 @@ import { toMapLibreLngLat } from '@/utils/mapLibre'
 import { MARKER_CONSTANT } from '@/utils/constant'
 import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo } from '@/type/schema'
 
-class ClusterGroupShim {
-  private clusterMembers: Set<MapMarkerAdapter> = new Set()
-  private map: maplibregl.Map | null = null
+interface ImagePointFeature {
+  type: 'Feature'
+  properties: { id: string }
+  geometry: { type: 'Point'; coordinates: [number, number] }
+}
 
-  constructor(map: maplibregl.Map | null) {
-    this.map = map
-  }
+// 兼容旧接口的簇组 shim：上层通过 getMarkerClusters() 调用 clearLayers
+class ClusterGroupShim {
+  private members: Set<MapMarkerAdapter> = new Set()
 
   addLayer(marker: MapMarkerAdapter) {
-    this.clusterMembers.add(marker)
-    if (this.map && !this.isOnMap(marker)) {
-      marker.addTo(this.map)
-    }
+    this.members.add(marker)
   }
 
   removeLayer(marker: MapMarkerAdapter) {
-    this.clusterMembers.delete(marker)
-    marker.remove()
+    this.members.delete(marker)
   }
 
   getLayers(): MapMarkerAdapter[] {
-    return Array.from(this.clusterMembers)
+    return Array.from(this.members)
   }
 
   clearLayers() {
-    this.clusterMembers.forEach((m) => m.remove())
-    this.clusterMembers.clear()
+    this.members.forEach((m) => m.remove())
+    this.members.clear()
   }
 
   on(_event: string, _cb: (...args: any[]) => void) {
-    // 阶段 2 无聚合，无 clusterclick 事件；阶段 3 重写
-  }
-
-  isOnMap(marker: MapMarkerAdapter): boolean {
-    const el = marker.getElement()
-    return !!el && !!el.parentNode
+    // 聚合点击由 MarkerService 内部处理
   }
 }
 
@@ -62,7 +58,10 @@ class MarkerService {
   private MAP_INSTANCE: maplibregl.Map | null = null
   private markers: Map<string, MapMarkerAdapter> = new Map()
   private hiddenMarkerIds: Set<string> = new Set()
-  private clusterGroup: ClusterGroupShim = new ClusterGroupShim(null)
+  private clusterMarkers: Map<number, MapMarkerAdapter> = new Map()
+  private imagePoints: ImagePointFeature[] = []
+  private clusterIndex: Supercluster | null = null
+  private clusterGroup: ClusterGroupShim = new ClusterGroupShim()
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -73,7 +72,14 @@ class MarkerService {
       throw new Error('地图实例不能为空')
     }
     this.MAP_INSTANCE = mapInstance
-    this.clusterGroup = new ClusterGroupShim(mapInstance)
+    this.rebuildClusterIndex()
+    this.renderClusters()
+  }
+
+  // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
+  private rebuildClusterIndex() {
+    this.clusterIndex = new Supercluster({ radius: 50, maxZoom: 14 })
+    this.clusterIndex.load(this.imagePoints as any)
   }
 
   getMarkerById(markerId: string): MapMarkerAdapter {
@@ -107,6 +113,18 @@ class MarkerService {
     this.clusterGroup.addLayer(marker)
     this.markerMouseListener(marker)
     mapStore.addMarkerId(imageInfo.id)
+
+    // 维护聚合索引
+    this.imagePoints.push({
+      type: 'Feature',
+      properties: { id: imageInfo.id },
+      geometry: {
+        type: 'Point',
+        coordinates: toMapLibreLngLat(imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude),
+      },
+    })
+    this.rebuildClusterIndex()
+    this.renderClusters()
   }
 
   async addGroupMarkerToMap(groupInfo: IGroupInfo) {
@@ -194,11 +212,15 @@ class MarkerService {
     const mapStore = useMapStore()
     if (!marker) return
     const id = marker.options.id
-    this.clusterGroup.removeLayer(marker)
     marker.remove()
     this.markers.delete(id)
     this.hiddenMarkerIds.delete(id)
     mapStore.deleteMarker(id)
+
+    // 维护聚合索引
+    this.imagePoints = this.imagePoints.filter((p) => p.properties.id !== id)
+    this.rebuildClusterIndex()
+    this.renderClusters()
   }
 
   deleteMarkerById(markerId: string) {
@@ -216,8 +238,8 @@ class MarkerService {
     const isImage = markerType === 'image' || markerType === 'temporary-image'
     const isGroup = markerType === 'group' || markerType === 'temporary-group'
     if (isImage) {
-      this.clusterGroup.removeLayer(marker)
       this.hiddenMarkerIds.add(markerId)
+      this.renderClusters()
     } else if (isGroup && hiddenGroupMarker) {
       marker.remove()
       this.hiddenMarkerIds.add(markerId)
@@ -231,11 +253,8 @@ class MarkerService {
       const isImage = markerType === 'image' || markerType === 'temporary-image'
       const isGroup = markerType === 'group' || markerType === 'temporary-group'
       if (isImage) {
-        const layers = this.clusterGroup.getLayers()
-        if (!layers.includes(marker)) {
-          this.clusterGroup.addLayer(marker)
-          this.hiddenMarkerIds.delete(markerId)
-        }
+        this.hiddenMarkerIds.delete(markerId)
+        this.renderClusters()
       } else if (isGroup) {
         if (!this.hiddenMarkerIds.has(markerId)) {
           marker.addTo(this.MAP_INSTANCE!)
@@ -245,7 +264,76 @@ class MarkerService {
   }
 
   observeClisterClick() {
-    // 阶段 2 无聚合；阶段 3 重写为 cluster click → expansion zoom
+    // 聚合点点击由 renderClusters 里绑定的 onClusterClick 处理
+  }
+
+  // 聚合点点击 → 展开
+  private onClusterClick(clusterId: number, coords: [number, number]) {
+    if (!this.clusterIndex) return
+    const zoom = this.clusterIndex.getClusterExpansionZoom(clusterId)
+    this.MAP_INSTANCE?.easeTo({ center: coords, zoom })
+  }
+
+  // 渲染聚合：moveend 时根据当前视野决定聚合点与单点
+  private renderClusters() {
+    const map = this.MAP_INSTANCE
+    if (!map || !this.clusterIndex) return
+
+    // 清除当前聚合点
+    this.clusterMarkers.forEach((m) => m.remove())
+    this.clusterMarkers.clear()
+
+    // 先移除所有单点（保留 markers Map 中的实例）
+    this.markers.forEach((m) => m.remove())
+
+    // 无图片点时直接返回
+    if (this.imagePoints.length === 0) return
+
+    const bounds = map.getBounds()
+    const bbox: [number, number, number, number] = [
+      bounds.getWest(),
+      bounds.getSouth(),
+      bounds.getEast(),
+      bounds.getNorth(),
+    ]
+    const zoom = Math.floor(map.getZoom())
+
+    const clusters = this.clusterIndex.getClusters(bbox, zoom)
+    clusters.forEach((feature: any) => {
+      const coords = feature.geometry.coordinates as [number, number]
+      const isCluster = !!feature.properties.cluster
+      if (isCluster) {
+        const count = feature.properties.point_count
+        const clusterId = feature.properties.cluster_id
+        const icon = createClusterIcon(count)
+        const marker = new MapMarkerAdapter(icon, coords, { id: `cluster-${clusterId}`, type: 'cluster' })
+        marker.addTo(map)
+        marker.on('click', () => {
+          this.onClusterClick(clusterId, coords)
+        })
+        this.clusterMarkers.set(clusterId, marker)
+      } else {
+        const id = feature.properties.id as string
+        const m = this.markers.get(id)
+        if (m && !this.hiddenMarkerIds.has(id)) {
+          m.addTo(map)
+        }
+      }
+    })
+
+    // 重新显示非聚合的分组 marker（分组不参与聚合）
+    this.markers.forEach((m) => {
+      if (m.options.type === 'group' && !this.hiddenMarkerIds.has(m.options.id)) {
+        if (!this.isMarkerOnMap(m)) {
+          m.addTo(map)
+        }
+      }
+    })
+  }
+
+  private isMarkerOnMap(marker: MapMarkerAdapter): boolean {
+    const el = marker.getElement()
+    return !!el && !!el.parentNode
   }
 
   setViewByMarkerId(id: string) {
@@ -268,23 +356,23 @@ class MarkerService {
   }
 
   isMarkerInCluster(marker: MapMarkerAdapter): boolean {
-    const layers = this.clusterGroup.getLayers()
-    return layers.includes(marker) && this.hiddenMarkerIds.has(marker.options.id)
+    return this.hiddenMarkerIds.has(marker.options.id)
   }
 
+  // moveend 时触发（由 map.ts 防抖调用）
   updateVisibleMarkers() {
+    this.renderClusters()
+    // 视口内的单点图片 marker 加载缩略图
     const mapStore = useMapStore()
     const visibleMarkerIdList = mapStore.getVisibleMarkerIdList
+    this.clusterMarkers.forEach((_m, clusterId) => {
+      // 聚合点不加载缩略图
+    })
     mapStore.getMarkerIdList.forEach((markerId: string) => {
       const marker = this.getMarkerById(markerId)
-      if (marker && this.isMarkerInView(marker)) {
+      if (marker && marker.options.type === 'image' && this.isMarkerInView(marker)) {
         if (!visibleMarkerIdList.includes(markerId)) {
-          if (marker.options.type === 'image') {
-            this.updateImageMarker(marker)
-          }
-          if (marker.options.type === 'group') {
-            this.updateGroupMarker(marker)
-          }
+          this.updateImageMarker(marker)
           this.addVisibleMarkerById(markerId)
         }
       }
@@ -312,7 +400,7 @@ class MarkerService {
   }
 
   updateGroupMarker(_marker: MapMarkerAdapter) {
-    // 分组封面更新逻辑保持惰性，阶段 4 回归时确认
+    // 分组封面更新逻辑保持惰性
   }
 
   isMarkerInView(marker: MapMarkerAdapter) {

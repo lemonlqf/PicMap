@@ -1,8 +1,16 @@
 <template>
-  <div id="map"></div>
+  <div class="map-wrap">
+    <div id="map"></div>
+    <!-- 俯仰角调节 -->
+    <div class="pitch-control">
+      <span class="pitch-label">{{ $t('pitch') || '俯仰角' }}: {{ pitch }}°</span>
+      <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import * as maplibregl from 'maplibre-gl'
 import mapService from '@/services/map'
 import { useMapStore } from '../../store/map'
@@ -13,6 +21,7 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 
 let map: maplibregl.Map | null = null
+const pitch = ref(45)
 
 const props = defineProps({
   // 瓦片信息
@@ -48,7 +57,7 @@ function initMap() {
       zoom: props.mapZoom,
       minZoom: 3,
       maxZoom: 18,
-      pitch: 45,
+      pitch: pitch.value,
       bearing: 0,
       attributionControl: false,
     })
@@ -59,6 +68,10 @@ function initMap() {
       zoom: props.mapZoom,
     })
   }
+}
+
+function setPitch() {
+  map?.setPitch(pitch.value)
 }
 
 // 保存当前瓦片 url，避免重复添加
@@ -138,8 +151,31 @@ defineExpose({
 </script>
 
 <style scoped>
+.map-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
 #map {
   height: 100vh;
   width: 100vw;
+}
+.pitch-control {
+  position: absolute;
+  right: 16px;
+  bottom: 120px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+.pitch-label {
+  font-size: 12px;
+  color: #333;
 }
 </style>

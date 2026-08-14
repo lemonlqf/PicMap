@@ -8,6 +8,9 @@ import svgLoader from 'vite-svg-loader'
 export default defineConfig({
   base: './',
   plugins: [vue(), svgLoader()],
+  optimizeDeps: {
+    exclude: ['maplibre-gl']
+  },
   css: {
     preprocessorOptions: {
       scss: {
