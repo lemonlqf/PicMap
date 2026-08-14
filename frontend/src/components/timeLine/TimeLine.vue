@@ -139,7 +139,7 @@ watch(() => timeRanges.value, (newVal) => {
 const minLeft = ref(0)
 const maxLeft = ref(0)
 
-const isExpanded = ref(true)
+const isExpanded = ref(false)
 const animateClass = ref('')
 
 function toggleExpand() {

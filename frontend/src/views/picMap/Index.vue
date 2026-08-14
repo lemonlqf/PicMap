@@ -278,12 +278,12 @@ onMounted(() => {
   position: absolute;
   left: 20px;
   top: 20px;
-  z-index: 800;
+  z-index: 1000;
 }
 
 .fix-group {
   position: fixed;
-  z-index: 800;
+  z-index: 1000;
 }
 
 .switch-group {
@@ -301,7 +301,7 @@ onMounted(() => {
 .group-info-group {
   top: 125px;
   right: 15px;
-  z-index: 800;
+  z-index: 1000;
 }
 
 .button {
@@ -312,7 +312,7 @@ onMounted(() => {
   position: absolute;
   top: 17px;
   left: 225px;
-  z-index: 801;
+  z-index: 1000;
 }
 
 .time-line {
@@ -321,7 +321,7 @@ onMounted(() => {
   left: 20px;
   right: 50vw;
   box-sizing: border-box;
-  z-index: 800;
+  z-index: 1000;
 }
 
 .no-pointer-events {
