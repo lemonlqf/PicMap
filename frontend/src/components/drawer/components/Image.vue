@@ -7,7 +7,7 @@
  * @Description: 
 -->
 <template>
-  <div class="img-box">
+  <div class="img-box" v-loading="isLoading">
     <div class="download-button" @click="downloadImage">
       <el-tooltip :content="$t('downloadPicture')" placement="top">
         <img src="@/assets/icon/下载.png" alt="" width="30px" />
@@ -54,6 +54,7 @@ const props = defineProps({
 const height = DRAWER_HEIGHT + 'px'
 const url = ref('')
 const name = ref('')
+const isLoading = ref(false)
 
 /**
  * @description: 通过imageId获取图片信息
@@ -61,11 +62,14 @@ const name = ref('')
  * @return {*}
  */
 async function setImageUrl(imageId: string) {
-  // 取值
+  // 先清空旧图并显示 loading，避免展示上一张图片
+  url.value = ''
+  isLoading.value = true
   const res = await getImageUrlById(imageId)
   const imageInfo = getSchemaInfoById(imageId) as any
   url.value = res
   name.value = imageInfo?.name
+  isLoading.value = false
 }
 
 watch(() => props.imageId, () => {
