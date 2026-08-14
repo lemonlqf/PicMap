@@ -83,9 +83,9 @@
 
 ### 4. 分批解析与事件推送
 
-- [ ] **P4.1** Go 端：`SelectImages` 拆分为「立即返回路径列表 + 后台 `parseImagesInBatches` 分批解析」，`Handler` 加 `parsing atomic.Bool` 防重入
-- [ ] **P4.2** Go 端：事件常量（images-parsed/images-progress/images-done）+ 首批 50ms 微延迟时序兜底 + ctx 有效性检查
-- [ ] **P4.3** 前端 api.ts：新增 `onImagesParsed/onImagesProgress/onImagesDone/offImagesEvents` 事件封装
-- [ ] **P4.4** 前端 Index.vue：`onMounted` 注册监听（先注册后触发）、批处理 push 一次写入、marker `nextTick` 延迟渲染、`onUnmounted` 清理监听
-- [ ] **P4.5** 前端模板：解析进度条（`v-show` 防 DOM 重建）
-- [ ] **P4.6** 验证：`go build`/`go vet`/`vue-tsc` 通过 + wails dev 实测逐批渲染
+- [x] **P4.1** Go 端：`SelectImages` 拆分为「立即返回路径列表 + 后台 `parseImagesInBatches` 分批解析」，`Handler` 加 `parsing atomic.Bool` 防重入
+- [x] **P4.2** Go 端：事件常量（images-parsed/images-progress/images-done）+ 首批 50ms 微延迟时序兜底 + ctx 有效性检查
+- [x] **P4.3** 前端 api.ts：新增 `onImagesParsed/onImagesProgress/onImagesDone/offImagesEvents` 事件封装
+- [x] **P4.4** 前端 Index.vue：`onMounted` 注册监听（先注册后触发）、批处理 push 一次写入、marker `nextTick` 延迟渲染、`onUnmounted` 清理监听
+- [x] **P4.5** 前端模板：解析进度条（`v-show` 防 DOM 重建 + percentage NaN 防护）
+- [x] **P4.6** 验证：`go build`/`go vet`/`vue-tsc` 通过 + wails dev 启动无报错
