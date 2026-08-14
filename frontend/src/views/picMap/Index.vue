@@ -9,7 +9,7 @@
 <template>
   <div class="home-page">
     <!-- 地图 -->
-    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" ref="mapRef"></Map>
+    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" :mapPitch="mapPitch" :mapBearing="mapBearing" ref="mapRef"></Map>
     <div :class="['fix-group switch-group', getAnimateClass('switch')]">
       <!-- 瓦片选择器 -->
       <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
@@ -75,6 +75,8 @@ const schemaStore = useSchemaStore()
 let currentMapTile = ref()
 const mapCenter = ref(DEFAULT_CENTER)
 const mapZoom = ref(DEFAULT_ZOOM)
+const mapPitch = ref(0)
+const mapBearing = ref(0)
 const mapRef = ref()
 const timeRanges = ref({
   min: new Date('2000-01-01').getTime(),
@@ -183,6 +185,8 @@ async function initSchema() {
     schemaStore.setSchema(JSON.parse(res.data))
     mapCenter.value = schema.mapInfo?.center ?? DEFAULT_CENTER
     mapZoom.value = schema.mapInfo?.zoom ?? 10
+    mapPitch.value = schema.mapInfo?.pitch ?? 0
+    mapBearing.value = schema.mapInfo?.bearing ?? 0
     timeLineData.value = getAllImageTimeTimeLineData()
     const imagesIds = getAllImageIdInSchema()
     const groupIds = getAllGroupIdInSchema()
@@ -206,9 +210,13 @@ function initMapInstance() {
 async function setMapCenter() {
   const { lat, lng } = map.value.getCenter()
   const zoom = map.value.getZoom()
+  const pitch = Math.round(map.value.getPitch())
+  const bearing = map.value.getBearing()
   if (lat && lng) {
     schemaStore.setMapAttr('center', [lat, lng])
     schemaStore.setMapAttr('zoom', zoom)
+    schemaStore.setMapAttr('pitch', pitch)
+    schemaStore.setMapAttr('bearing', bearing)
   }
   const res = await saveSchema()
   if (res.code === 200) {

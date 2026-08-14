@@ -20,9 +20,6 @@ import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 
-let map: maplibregl.Map | null = null
-const pitch = ref(45)
-
 const props = defineProps({
   // 瓦片信息
   tileLayer: {
@@ -41,8 +38,19 @@ const props = defineProps({
   mapCenter: {
     type: Array as () => number[],
     default: () => DEFAULT_CENTER
+  },
+  mapPitch: {
+    type: Number,
+    default: 0
+  },
+  mapBearing: {
+    type: Number,
+    default: 0
   }
 })
+
+let map: maplibregl.Map | null = null
+const pitch = ref(props.mapPitch)
 
 /**
  * @description: 初始化地图
@@ -50,6 +58,8 @@ const props = defineProps({
  */
 function initMap() {
   if (!map) {
+    // 同步滑块显示为恢复的俯仰角
+    pitch.value = props.mapPitch
     map = new maplibregl.Map({
       container: 'map',
       style: { version: 8, sources: {}, layers: [] },
@@ -57,8 +67,8 @@ function initMap() {
       zoom: props.mapZoom,
       minZoom: 3,
       maxZoom: 18,
-      pitch: pitch.value,
-      bearing: 0,
+      pitch: props.mapPitch,
+      bearing: props.mapBearing,
       attributionControl: false,
     })
     mapService.initMapInstance(map)

@@ -52,6 +52,8 @@ export type IMapInfo = {
   maxZoom: number,
   minZoom: number,
   zoom: number,
+  pitch?: number,
+  bearing?: number,
   activeTiles: string[],
   defaultTileId?: string
 }
