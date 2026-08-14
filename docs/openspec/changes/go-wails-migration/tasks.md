@@ -80,3 +80,12 @@
 - [ ] **P3.4** 手工验证：单张 50MB HEIC 上传前端内存不随图暴涨、无卡顿
 - [ ] **P3.5** 手工验证：批量多张含 GPS 图片上传成功、地图标记正确、进度可追踪
 - [ ] **P3.6** 手工验证：文件在确认前被删除时返回明确错误、不写脏数据、不影响同批其他图片
+
+### 4. 分批解析与事件推送
+
+- [ ] **P4.1** Go 端：`SelectImages` 拆分为「立即返回路径列表 + 后台 `parseImagesInBatches` 分批解析」，`Handler` 加 `parsing atomic.Bool` 防重入
+- [ ] **P4.2** Go 端：事件常量（images-parsed/images-progress/images-done）+ 首批 50ms 微延迟时序兜底 + ctx 有效性检查
+- [ ] **P4.3** 前端 api.ts：新增 `onImagesParsed/onImagesProgress/onImagesDone/offImagesEvents` 事件封装
+- [ ] **P4.4** 前端 Index.vue：`onMounted` 注册监听（先注册后触发）、批处理 push 一次写入、marker `nextTick` 延迟渲染、`onUnmounted` 清理监听
+- [ ] **P4.5** 前端模板：解析进度条（`v-show` 防 DOM 重建）
+- [ ] **P4.6** 验证：`go build`/`go vet`/`vue-tsc` 通过 + wails dev 实测逐批渲染

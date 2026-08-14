@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
@@ -26,9 +27,10 @@ import (
 )
 
 type Handler struct {
-	cfg *config.Config
-	ctx context.Context
-	mu  sync.Mutex
+	cfg     *config.Config
+	ctx     context.Context
+	mu      sync.Mutex
+	parsing atomic.Bool
 }
 
 func New(cfg *config.Config, ctx context.Context) *Handler {
@@ -723,15 +725,26 @@ func (h *Handler) importMerge(filePath string) model.Result {
 
 // ---- 路径方案：选择图片与导入 ----
 
+// 图片解析事件名
+const (
+	EventImagesParsed   = "images-parsed"   // 一批图片解析完成
+	EventImagesProgress = "images-progress" // 解析进度
+	EventImagesDone     = "images-done"     // 全部解析完成
+)
+
 var imageDialogFilters = []runtime.FileFilter{
 	{DisplayName: "图片文件 (*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.heic;*.heif;*.raw;*.dng;*.arw;*.cr2;*.cr3;*.nef;*.orf;*.rw2;*.raf;*.erf)", Pattern: "*.jpg;*.jpeg;*.png;*.gif;*.bmp;*.webp;*.heic;*.heif;*.raw;*.dng;*.arw;*.cr2;*.cr3;*.nef;*.orf;*.rw2;*.raf;*.erf"},
 	{DisplayName: "所有文件 (*.*)", Pattern: "*.*"},
 }
 
-// SelectImages 打开原生文件选择框，解析每个文件的 EXIF 并生成预览图
+// SelectImages 打开原生文件选择框，立即返回文件路径列表，后台分批解析并推送事件
 func (h *Handler) SelectImages() model.Result {
 	if h.ctx == nil {
 		return model.NewFailResult("应用上下文未初始化")
+	}
+	// 防重入：解析中拒绝二次进入
+	if h.parsing.Load() {
+		return model.NewFailResult("正在解析图片，请稍候")
 	}
 	selection, err := runtime.OpenMultipleFilesDialog(h.ctx, runtime.OpenDialogOptions{
 		Title:   "选择图片",
@@ -744,43 +757,85 @@ func (h *Handler) SelectImages() model.Result {
 		return model.NewSuccessResult([]model.SelectedImage{})
 	}
 
-	results := make([]model.SelectedImage, len(selection))
-	var wg sync.WaitGroup
-	sem := make(chan struct{}, 4)
-	var mu sync.Mutex
-	errors := make([]string, 0)
+	h.parsing.Store(true)
+	// 立即异步解析（不阻塞返回）
+	go h.parseImagesInBatches(selection)
 
-	for i, filePath := range selection {
-		wg.Add(1)
-		go func(index int, fp string) {
-			defer wg.Done()
-			sem <- struct{}{}
-			defer func() { <-sem }()
+	// 立即返回文件路径列表
+	return model.NewSuccessResult(map[string]interface{}{
+		"filePaths": selection,
+		"total":     len(selection),
+	})
+}
 
-			item, err := h.processSelectedImage(fp)
-			if err != nil {
-				mu.Lock()
-				errors = append(errors, fmt.Sprintf("解析 %s 失败: %v", filepath.Base(fp), err))
-				mu.Unlock()
-				return
-			}
-			results[index] = item
-		}(i, filePath)
-	}
-	wg.Wait()
+// parseImagesInBatches 分批解析图片，每批完成后通过事件推送给前端
+func (h *Handler) parseImagesInBatches(filePaths []string) {
+	defer h.parsing.Store(false)     // 解析结束，释放锁
+	defer func() { _ = recover() }() // 防崩溃
 
-	if len(errors) > 0 {
-		return model.Result{
-			Code: 200,
-			Msg:  "部分图片解析失败",
-			Data: map[string]interface{}{
-				"images": results,
-				"errors": errors,
-			},
-			Time: time.Now().UnixMilli(),
+	const batchSize = 4
+	total := len(filePaths)
+	processed := 0
+
+	// 首批微延迟，给前端事件通道就绪留时间窗口（时序兜底）
+	time.Sleep(50 * time.Millisecond)
+
+	for i := 0; i < total; i += batchSize {
+		end := i + batchSize
+		if end > total {
+			end = total
 		}
+		batch := filePaths[i:end]
+
+		// 解析当前批次（保持 4 并发）
+		results := make([]model.SelectedImage, len(batch))
+		errors := make([]string, 0)
+		var wg sync.WaitGroup
+		sem := make(chan struct{}, 4)
+		var mu sync.Mutex
+
+		for idx, fp := range batch {
+			wg.Add(1)
+			go func(index int, path string) {
+				defer wg.Done()
+				sem <- struct{}{}
+				defer func() { <-sem }()
+
+				item, err := h.processSelectedImage(path)
+				if err != nil {
+					mu.Lock()
+					errors = append(errors, fmt.Sprintf("解析 %s 失败: %v", filepath.Base(path), err))
+					mu.Unlock()
+					return
+				}
+				results[index] = item
+			}(idx, fp)
+		}
+		wg.Wait()
+
+		// 推送前判断 ctx 是否有效（应用关闭时避免崩溃）
+		if h.ctx.Err() != nil {
+			return
+		}
+
+		// 推送本批结果
+		runtime.EventsEmit(h.ctx, EventImagesParsed, map[string]interface{}{
+			"images": results,
+			"errors": errors,
+		})
+
+		// 更新进度
+		processed += len(batch)
+		runtime.EventsEmit(h.ctx, EventImagesProgress, map[string]interface{}{
+			"processed": processed,
+			"total":     total,
+		})
 	}
-	return model.NewSuccessResult(map[string]interface{}{"images": results})
+
+	// 全部完成
+	runtime.EventsEmit(h.ctx, EventImagesDone, map[string]interface{}{
+		"total": total,
+	})
 }
 
 func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, error) {

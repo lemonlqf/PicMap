@@ -35,6 +35,17 @@ EXIF 解析（`rwcarlsen/goexif`）与预览图生成全部下沉 Go 端：
 - `utils/Image.ts` 的 `uploadImages`：以路径数组驱动，4 张一批调用 `importImages`
 - 上传成功后以 Go 返回的预览图更新图片缓存
 
+### D6. 分批解析与事件推送（体验优化）
+
+`SelectImages` 改为「秒回路径 + 后台分批解析 + 事件推送」：
+
+- Go 端：弹框选文件后立即返回 `{ filePaths, total }`；后台 goroutine 每批 4 张解析（`processSelectedImage` 复用），批完成即 `runtime.EventsEmit` 推送
+- 事件契约：`images-parsed`（批结果 + 错误）、`images-progress`（processed/total）、`images-done`（全部完成）
+- 防重入：`Handler.parsing atomic.Bool`，解析中拒绝二次选择
+- 时序兜底：前端监听在 `onMounted` 注册一次（先注册后触发）；Go 端首批前 `time.Sleep(50ms)` 双保险
+- 性能：前端每批 `push(...batch)` 一次性写入（减少响应式更新）、marker 渲染 `nextTick` 延迟、进度条 `v-show` 防 DOM 反复创建
+- 清理：`onUnmounted` 中 `EventsOff` 移除全部监听，防重复注册与内存泄漏
+
 ## 风险与缓解
 
 | 风险 | 缓解 |

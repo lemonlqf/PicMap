@@ -97,6 +97,11 @@
       <el-progress :percentage="Math.round(uploadProgress.current / uploadProgress.total * 100)"
         :format="() => `${uploadProgress.current}/${uploadProgress.total}`" />
     </div>
+    <!-- 图片解析进度条（选择图片后分批解析） -->
+    <div v-show="parseProgress.total > 0 && parseProgress.processed < parseProgress.total" class="upload-progress">
+      <el-progress :percentage="parseProgress.total > 0 ? Math.round(parseProgress.processed / parseProgress.total * 100) : 0"
+        :format="() => `${parseProgress.processed}/${parseProgress.total}`" />
+    </div>
     <!-- 待上传图片操作按钮 -->
     <div v-if="needUploadImageInfos.length" class="upload-actions">
       <el-button-group>
@@ -130,7 +135,7 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, watch, computed, onMounted } from 'vue'
+import { ref, watch, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
@@ -195,7 +200,7 @@ function isInHasUrlFileList(id: string) {
 }
 
 /**
- * @description: 打开原生文件选择框选择图片
+ * @description: 打开原生文件选择框选择图片（秒回路径，后台分批解析经事件推送）
  * @return {*}
  */
 async function selectImages() {
@@ -203,36 +208,16 @@ async function selectImages() {
   try {
     const res = await API.image.selectImages()
     if (res.code !== 200) {
+      isLoading.value = false
       ElMessage.error(res.msg || t('description.parsePictureFailed'))
       return
     }
-    const images = res.data?.images ?? []
-    for (const img of images) {
-      // 如果已经存在，跳过
-      if (isInHasUrlFileList(img.id)) {
-        continue
-      }
-      // 预览图
-      const previewUrl = img.preview ? `data:image/jpeg;base64,${img.preview}` : ''
-      const data: IImageDetailInfo = {
-        ...img,
-        url: previewUrl,
-        blobUrl: previewUrl,
-      }
-      hasUrlFileList.value.push(data)
-      // 保存到imageUrlsMap中，后续图片详情展示使用
-      addImageUrl(img.id, previewUrl)
-      // 如果有坐标内容的话，在地图上添加对应的marker
-      if (img.GPSInfo?.GPSLatitude && img.GPSInfo?.GPSLongitude) {
-        // 只有还没有上传过的图片需要添加到地图中
-        !judgeHadUploadImage(img.id) && markerService.addImageMarkerToMap(data)
-      }
-    }
+    const total = res.data?.total ?? 0
+    parseProgress.value = { processed: 0, total }
   } catch (error) {
     console.error('选择图片失败', error)
-    ElMessage.error(t('description.parsePictureFailed') + error)
-  } finally {
     isLoading.value = false
+    ElMessage.error(t('description.parsePictureFailed') + error)
   }
 }
 
@@ -274,6 +259,45 @@ const loadingInstance = ref()
 const isLoading = ref(false)
 const isUploading = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
+// 图片解析进度（分批事件推送）
+const parseProgress = ref({ processed: 0, total: 0 })
+
+// 处理一批解析完成的图片（批量写入，marker 延迟渲染）
+function handleParsedBatch(images: any[]) {
+  const batch: IImageDetailInfo[] = []
+  const markers: IImageDetailInfo[] = []
+  for (const img of images) {
+    // 如果已经存在，跳过（去重兜底）
+    if (isInHasUrlFileList(img.id)) {
+      continue
+    }
+    // 预览图
+    const previewUrl = img.preview ? `data:image/jpeg;base64,${img.preview}` : ''
+    const data: IImageDetailInfo = {
+      ...img,
+      url: previewUrl,
+      blobUrl: previewUrl,
+    }
+    batch.push(data)
+    // 保存到imageUrlsMap中，后续图片详情展示使用
+    addImageUrl(img.id, previewUrl)
+    // 如果有坐标内容的话，稍后添加到地图中
+    if (img.GPSInfo?.GPSLatitude && img.GPSInfo?.GPSLongitude) {
+      // 只有还没有上传过的图片需要添加到地图中
+      !judgeHadUploadImage(img.id) && markers.push(data)
+    }
+  }
+  // 批量写入，只触发一次响应式更新
+  if (batch.length) {
+    hasUrlFileList.value.push(...batch)
+  }
+  // marker 渲染是 DOM 密集操作，延迟到下一帧批量执行
+  if (markers.length) {
+    nextTick(() => {
+      markers.forEach((data) => markerService.addImageMarkerToMap(data))
+    })
+  }
+}
 
 watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
   if (needUploadImageLoading.value || uploadedImageLoading.value) {
@@ -507,6 +531,32 @@ onMounted(() => {
   eventBus.on('delete-image', deleteImage)
   // 监听右键设置分组
   eventBus.on('edit-group', showGroupDialog)
+
+  // 监听一批图片解析完成（先注册后触发，规避事件时序）
+  API.image.onImagesParsed((payload: any) => {
+    const images = payload?.images ?? []
+    handleParsedBatch(images)
+  })
+
+  // 监听解析进度
+  API.image.onImagesProgress((payload: any) => {
+    parseProgress.value = {
+      processed: payload?.processed ?? 0,
+      total: payload?.total ?? 0,
+    }
+  })
+
+  // 监听全部解析完成
+  API.image.onImagesDone(() => {
+    isLoading.value = false
+  })
+})
+
+onUnmounted(() => {
+  // 清理事件监听，防止内存泄漏与重复注册
+  eventBus.off('delete-image', deleteImage)
+  eventBus.off('edit-group', showGroupDialog)
+  API.image.offImagesEvents()
 })
 
 defineExpose({

@@ -24,7 +24,7 @@ function unwrapResult(result: any) {
 
 // ---- Image ----
 
-// 路径方案：打开原生文件选择框，返回带 EXIF 和预览图的图片信息
+// 路径方案：打开原生文件选择框，立即返回文件路径列表，后台分批解析并推送事件
 export async function selectImages() {
   const binding = getGoBinding()
   if (binding) {
@@ -32,6 +32,28 @@ export async function selectImages() {
     return unwrapResult(result)
   }
   throw new Error('Wails bindings not available')
+}
+
+// 监听一批图片解析完成
+export function onImagesParsed(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('images-parsed', callback)
+}
+
+// 监听解析进度
+export function onImagesProgress(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('images-progress', callback)
+}
+
+// 监听全部解析完成
+export function onImagesDone(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('images-done', callback)
+}
+
+// 清理所有图片解析事件监听（组件卸载时调用，防止内存泄漏）
+export function offImagesEvents() {
+  window.runtime?.EventsOff?.('images-parsed')
+  window.runtime?.EventsOff?.('images-progress')
+  window.runtime?.EventsOff?.('images-done')
 }
 
 // 路径方案：将选中的图片文件导入到用户目录
@@ -290,6 +312,10 @@ const image = {
   updateImages,
   downloadImage,
   getJPGImage,
+  onImagesParsed,
+  onImagesProgress,
+  onImagesDone,
+  offImagesEvents,
 }
 
 const schema = {
