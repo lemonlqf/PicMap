@@ -78,6 +78,8 @@ class MarkerService {
   private clusterDirty = false
   // 进行中的飞行动画（地图移动时打断，避免错位）
   private animatingMarkers: Set<MapMarkerAdapter> = new Set()
+  // 时间轴筛选范围（null 表示不筛选，重建聚合索引时按此过滤图片点）
+  private timeRange: { min: number; max: number } | null = null
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -101,13 +103,32 @@ class MarkerService {
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
   private rebuildClusterIndex() {
     this.clusterIndex = new Supercluster({ radius: 50, maxZoom: 17 })
-    this.clusterIndex.load(this.imagePoints as any)
+    this.clusterIndex.load(this.getFilteredPoints() as any)
     // 索引重建后 cluster id 全部重新分配，清空旧状态避免 getChildren 报错
     this.lastClusterIds.clear()
     this.lastClusterCentersById.clear()
     this.lastClusterMarkers.clear()
     this.lastClusterCenters.clear()
     this.lastShownImageIds.clear()
+  }
+
+  // 按时间轴筛选范围过滤图片点（无时间信息的图片始终保留）
+  private getFilteredPoints(): ImagePointFeature[] {
+    if (!this.timeRange) return this.imagePoints
+    const schemaStore = useSchemaStore()
+    const imageInfo = schemaStore.getSchema.imageInfo ?? []
+    const timeMap = new Map<string, number>()
+    imageInfo.forEach((img) => {
+      const t = img.authorInfo?.DateTime
+      if (t && typeof t === 'number' && !isNaN(t)) {
+        timeMap.set(img.id, t)
+      }
+    })
+    return this.imagePoints.filter((p) => {
+      const t = timeMap.get(p.properties.id)
+      if (t === undefined) return true
+      return t >= this.timeRange!.min && t <= this.timeRange!.max
+    })
   }
 
   getMarkerById(markerId: string): MapMarkerAdapter {
@@ -688,25 +709,17 @@ class MarkerService {
   }
 
   filterMarkersByTimeRange(timeRange: { min: number; max: number }) {
-    const schemaStore = useSchemaStore()
-    this.markers.forEach((marker) => {
-      const markerId = marker.options.id
-      const markerType = marker.options.type
-      const isImage = markerType === 'image' || markerType === 'temporary-image'
-      if (isImage) {
-        const imageInfo = schemaStore.getSchema.imageInfo?.find((img) => img.id === markerId)
-        const imageTime = imageInfo?.authorInfo?.DateTime
-        if (imageTime && typeof imageTime === 'number' && !isNaN(imageTime)) {
-          if (imageTime >= timeRange.min && imageTime <= timeRange.max) {
-            this.showMarkerById(markerId)
-          } else {
-            this.hiddenMarkerById(markerId, false)
-          }
-        } else {
-          this.showMarkerById(markerId)
-        }
+    // 重建聚合索引（只包含时间范围内的图片点），使 cluster 数量与成员跟随筛选
+    this.timeRange = timeRange
+    // 先移除所有单点图片 marker，renderClusters 会重新添加时间范围内的
+    this.markers.forEach((m) => {
+      const t = m.options.type
+      if (t === 'image' || t === 'temporary-image') {
+        m.remove()
       }
     })
+    this.rebuildClusterIndex()
+    this.renderClusters()
   }
 
   getPermanentType(markerType: string) {
