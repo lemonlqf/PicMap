@@ -51,7 +51,7 @@
 <script lang="ts" setup>
 import { onBeforeMount, onMounted, ref, watch, nextTick, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
-import 'leaflet/dist/leaflet.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import ImageUpolad from '@/components/imgUpload/Index.vue'
 import TrackUpload from '@/components/trackUpload/index.vue'
 import Drawer from '@/components/drawer/Index.vue'

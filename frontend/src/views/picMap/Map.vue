@@ -3,19 +3,16 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeMount, onMounted, ref, watch, nextTick, reactive } from 'vue'
-import L from 'leaflet'
+import * as maplibregl from 'maplibre-gl'
 import mapService from '@/services/map'
 import { useMapStore } from '../../store/map'
 import markerService from '@/services/marker'
-import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
-import {
-  hiddenImageInfoDrawerMapClick,
-} from '@/utils/map'
+import { getGroupAndImageList } from '@/utils/schema'
+import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant'
+import { toMapLibreLngLat } from '@/utils/mapLibre'
 
-let map: L.map = null
-
+let map: maplibregl.Map | null = null
 
 const props = defineProps({
   // 瓦片信息
@@ -33,7 +30,7 @@ const props = defineProps({
     default: DEFAULT_ZOOM
   },
   mapCenter: {
-    type: Array,
+    type: Array as () => number[],
     default: () => DEFAULT_CENTER
   }
 })
@@ -42,39 +39,45 @@ const props = defineProps({
  * @description: 初始化地图
  * @return {*}
  */
-async function initMap() {
+function initMap() {
   if (!map) {
-    map = L.map('map', {
-      zoom: props.mapZoom, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+    map = new maplibregl.Map({
+      container: 'map',
+      style: { version: 8, sources: {}, layers: [] },
+      center: toMapLibreLngLat(props.mapCenter[0], props.mapCenter[1]),
+      zoom: props.mapZoom,
       minZoom: 3,
-      maxZoom: 18, // 目前小于18不显示了
-      center: props.mapCenter,
-      zoomControl: false, //缩放组件
-      attributionControl: false //去掉右下角logol
+      maxZoom: 18,
+      pitch: 45,
+      bearing: 0,
+      attributionControl: false,
     })
-    // 把地图实例保存一下，其他地方可以用
     mapService.initMapInstance(map)
   } else {
-    // 已经有值的话直接设置一下初始位置
-    map.setView(props.mapCenter, props.mapZoom)
+    map.jumpTo({
+      center: toMapLibreLngLat(props.mapCenter[0], props.mapCenter[1]),
+      zoom: props.mapZoom,
+    })
   }
 }
 
-// 保存一下瓦片图层的实例，方便后续切换瓦片图层时移除
-let currentTileLayer: any = null
+// 保存当前瓦片 url，避免重复添加
+let currentTileUrl: string | null = null
 
 /**
  * @description: 初始化地图瓦片
  * @return {*}
  */
 function initTile() {
-  // 移除旧的图层
-  if (currentTileLayer) {
-    map.removeLayer(currentTileLayer)
-  }
-  props.tileLayer?.url && (currentTileLayer = L.tileLayer(`${props.tileLayer?.url}`, {
-    attribution: '&copy; <p>OpenStreetMap</p> contributors'
-  })?.addTo?.(map))
+  if (!map) return
+  const url = props.tileLayer?.url
+  if (!url) return
+  if (currentTileUrl === url) return
+  if (map.getLayer('tile-layer')) map.removeLayer('tile-layer')
+  if (map.getSource('tile')) map.removeSource('tile')
+  map.addSource('tile', { type: 'raster', tiles: [url], tileSize: 256 })
+  map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
+  currentTileUrl = url
 }
 
 /**
@@ -103,12 +106,6 @@ function removeAllMarkers() {
   const mapStore = useMapStore()
   const markerClusters = markerService.getMarkerClusters()
   markerClusters && markerClusters.clearLayers()
-  map.eachLayer((layer: L.layer) => {
-    if (layer instanceof L.Marker) {
-      map.removeLayer(layer);
-    }
-  });
-  // 清理store中的值
   mapStore.init()
 }
 
@@ -130,7 +127,6 @@ async function init() {
   initMarker()
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
-  // 监听簇点击
   markerService.observeClisterClick()
 }
 

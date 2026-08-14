@@ -51,7 +51,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import ImageUpload from '@/components/imgUpload2/ImageUpload.vue'
 import { Delete, Edit, Back, Star, MapLocation } from '@element-plus/icons-vue'
-import L from 'leaflet'
+import * as maplibregl from 'maplibre-gl'
 import type { IMapTile } from '@/components/mapSelector/defaultMap';
 import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/store/appSchema';
@@ -59,6 +59,7 @@ import { cloneDeep } from 'lodash-es';
 import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
 import { useI18n } from 'vue-i18n'
 import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant';
+import { toMapLibreLngLat } from '@/utils/mapLibre';
 const { t } = useI18n()
 const props = defineProps({
   url: {
@@ -100,30 +101,30 @@ const active = computed({
   }
 })
 const mapRef = ref()
-let map: any = null
+let map: maplibregl.Map | null = null
 function initMap() {
   if (!map) {
-    map = L.map(mapRef.value, {
-      zoom: DEFAULT_ZOOM, //初始缩放，因为在下文写了展示全地图，所以这里不设置，也可以设置
+    map = new maplibregl.Map({
+      container: mapRef.value,
+      style: { version: 8, sources: {}, layers: [] },
+      zoom: DEFAULT_ZOOM,
       minZoom: 3,
-      maxZoom: 18, // 目前小于18不显示了
-      center: DEFAULT_CENTER,
-      zoomControl: false, //缩放组件
-      attributionControl: false //去掉右下角logol
+      maxZoom: 18,
+      center: toMapLibreLngLat(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
+      attributionControl: false,
     })
   }
 }
 
-let currentTileLayer: any = null
+let currentTileUrl: string | null = null
 function initTile() {
-  // 移除旧的图层
-  if (currentTileLayer) {
-    map.removeLayer(currentTileLayer)
-  }
-  // 添加瓦片图层（OpenStreetMap）
-  currentTileLayer = L.tileLayer(props.url, {
-    attribution: '&copy; <p>OpenStreetMap</p> contributors'
-  }).addTo(map);
+  if (!map) return
+  if (currentTileUrl === props.url) return
+  if (map.getLayer('tile-layer')) map.removeLayer('tile-layer')
+  if (map.getSource('tile')) map.removeSource('tile')
+  map.addSource('tile', { type: 'raster', tiles: [props.url], tileSize: 256 })
+  map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
+  currentTileUrl = props.url
 }
 
 

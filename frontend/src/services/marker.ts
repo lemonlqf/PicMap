@@ -1,910 +1,411 @@
-/*
-* @Author: your name
-* @Date: 2025-09-12 10:52:54
- * @LastEditTime: 2026-03-18 11:20:06
- * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @FilePath: \PicMap\picMap_fontend\src\services\marker.ts
- * @Description: 地图marker服务，提供marker的创建、删除、更新等功能
-*/
-import L from "leaflet";
-import { ElMessage } from "element-plus";
+import * as maplibregl from 'maplibre-gl'
+import { ElMessage } from 'element-plus'
 
-import mapService from '@/services/map';
-import { useMapStore } from "@/store/map";
-import { useSchemaStore } from "@/store/schema";
+import mapService from '@/services/map'
+import { useMapStore } from '@/store/map'
+import { useSchemaStore } from '@/store/schema'
+import {
+  MapMarkerAdapter,
+  createImageMarkerIcon,
+  createGroupMarkerIcon,
+} from '@/services/markerAdapter'
+import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
+import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
+import { judgeHadUploadImage } from '@/utils/schema'
+import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
+import eventBus from '@/utils/eventBus'
+import { GPSInfoLegality } from '@/utils/map'
+import { toMapLibreLngLat } from '@/utils/mapLibre'
+import { MARKER_CONSTANT } from '@/utils/constant'
+import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo } from '@/type/schema'
 
-import IconHTMLFactory, { IconType } from "@/utils/iconHTML";
-import { getImageUrl } from "@/utils/Image";
-import {
-  MAP_CONSTANT,
-  MARKER_CONSTANT,
-  GROUP_CONSTANT,
-  imageMarkerTranslateY,
-  groupMarkerTranslateY,
-} from "@/utils/constant";
-import { judgeHadUploadImage } from "@/utils/schema";
-import { getMarkerImageUrlById, getMarkerImageUrlByIds } from "@/utils/Image";
-import { getGroupIdsByImageId, getGroupInfoByGroupId } from "@/utils/group";
-import eventBus from "@/utils/eventBus";
-import { GPSInfoLegality } from "@/utils/map";
-import "leaflet.markercluster"
-import 'leaflet.markercluster/dist/MarkerCluster.css';
-import 'leaflet.markercluster/dist/MarkerCluster.Default.css';
-import {
-  type IImageInfo,
-  type INewGroupFormData,
-  type IGroupInfo,
-  type IGPSInfo,
-} from "@/type/schema";
+class ClusterGroupShim {
+  private clusterMembers: Set<MapMarkerAdapter> = new Set()
+  private map: maplibregl.Map | null = null
+
+  constructor(map: maplibregl.Map | null) {
+    this.map = map
+  }
+
+  addLayer(marker: MapMarkerAdapter) {
+    this.clusterMembers.add(marker)
+    if (this.map && !this.isOnMap(marker)) {
+      marker.addTo(this.map)
+    }
+  }
+
+  removeLayer(marker: MapMarkerAdapter) {
+    this.clusterMembers.delete(marker)
+    marker.remove()
+  }
+
+  getLayers(): MapMarkerAdapter[] {
+    return Array.from(this.clusterMembers)
+  }
+
+  clearLayers() {
+    this.clusterMembers.forEach((m) => m.remove())
+    this.clusterMembers.clear()
+  }
+
+  on(_event: string, _cb: (...args: any[]) => void) {
+    // 阶段 2 无聚合，无 clusterclick 事件；阶段 3 重写
+  }
+
+  isOnMap(marker: MapMarkerAdapter): boolean {
+    const el = marker.getElement()
+    return !!el && !!el.parentNode
+  }
+}
 
 class MarkerService {
-  // 地图实例
-  private MAP_INSTANCE: L.Map | null;
-  // 创建聚合组
-  private markerClusters: L.MarkerClusterGroup | null;
-  // 存储被隐藏的 markers，key 是 markerId
-  private hiddenMarkers: Map<string, L.Marker> = new Map();
-  constructor() {
-    this.markerClusters = L.markerClusterGroup({
-      // spiderfyOnMaxZoom: false,
-      maxClusterRadius: 50,
-      // 缩放比例为MAP_CONSTANT.MAX_ZOOM时不在成簇
-      disableClusteringAtZoom: MAP_CONSTANT.MAX_ZOOM,
-      // 距离视口过远的聚合点和标记会从地图中移除
-      // removeOutsideVisibleBounds: true,
-      // 样式
-      // iconCreateFunction: function (cluster: any) {
-      // return L.divIcon({ html: '<b>' + cluster.getChildCount() + '</b>' });
-      // }
-    });
-  }
+  private MAP_INSTANCE: maplibregl.Map | null = null
+  private markers: Map<string, MapMarkerAdapter> = new Map()
+  private hiddenMarkerIds: Set<string> = new Set()
+  private clusterGroup: ClusterGroupShim = new ClusterGroupShim(null)
 
-  /**
-   * @description: 获取markerClusters
-   * @param {*}
-   * @return {*}
-   */
   getMarkerClusters() {
-    return this.markerClusters;
+    return this.clusterGroup
   }
 
-  /**
-   * @description: 初始化地图实例
-   * @param {*}
-   * @return {*}
-   */
-  initMapInstance(mapInstance: L.Map) {
+  initMapInstance(mapInstance: maplibregl.Map) {
     if (!mapInstance) {
-      throw new Error("地图实例不能为空");
+      throw new Error('地图实例不能为空')
     }
-    this.MAP_INSTANCE = mapInstance;
+    this.MAP_INSTANCE = mapInstance
+    this.clusterGroup = new ClusterGroupShim(mapInstance)
   }
 
-  /**
-   * @description: 获取所有marker
-   * @return {*}
-   */
-  getAllMarkers(): L.Marker[] {
-    const markers: L.Marker[] = [];
-    // 获取 markerClusters 中的 markers
-    if (this.markerClusters) {
-      this.markerClusters.getLayers().forEach((layer: L.Layer) => {
-        if (layer instanceof L.Marker) {
-          markers.push(layer);
-        }
-      });
-    }
-    // 获取地图上的单独 markers
-    this.MAP_INSTANCE?.eachLayer((layer: L.Layer) => {
-      if (layer instanceof L.Marker) {
-        markers.push(layer);
-      }
-    });
-    // 获取被隐藏的 markers
-    this.hiddenMarkers.forEach((marker) => {
-      markers.push(marker);
-    });
-    return markers;
+  getMarkerById(markerId: string): MapMarkerAdapter {
+    return this.markers.get(markerId)!
   }
 
-  /**
-   * @description: 根据marker获取gps信息
-   * @param {*}
-   * @return {*}
-   */
-  getGPSInfoByMarkerInstance(marker: L.Marker): IGPSInfo {
+  getGPSInfoByMarkerInstance(marker: MapMarkerAdapter): IGPSInfo {
     if (!marker) {
-      ElMessage.error("没有传入marker实例");
-      return { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 };
+      ElMessage.error('没有传入marker实例')
+      return { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 }
     }
-    const { lat, lng, alt } = marker.getLatLng();
-    const GPSLatitude = lat;
-    const GPSLongitude = lng;
-    const GPSAltitude = alt;
-    return {
-      GPSAltitude,
-      GPSLongitude,
-      GPSLatitude,
-    };
+    const { lat, lng } = marker.getLatLng()
+    return { GPSLatitude: lat, GPSLongitude: lng, GPSAltitude: 0 }
   }
 
-  /**
-   * @description: 添加图片到地图中
-   * @param {*} imageUrl
-   * @return {*}
-   */
   addImageMarkerToMap(imageInfo: IImageInfo) {
     const mapStore = useMapStore()
-    const myIcon = this.createImageMarkerIcon(imageInfo);
-    if (imageInfo.GPSInfo.GPSLatitude && imageInfo.GPSInfo.GPSLongitude) {
-      const isExist = mapStore.getVisibleMarkerIdList.some(
-        (markerId: string) => {
-          return markerId === imageInfo.id;
-        }
-      );
-      if (!isExist) {
-        // 如果还没有需要新建，传参先纬度再经度
-        const marker = L.marker(
-          [imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude],
-          {
-            icon: myIcon,
-            title: imageInfo.name,
-            type: "image",
-            riseOnHover: true,
-            id: imageInfo.id,
-          }
-        );
-        this.markerClusters.addLayer(marker);
-        // 添加聚合组到地图
-        this.MAP_INSTANCE?.addLayer(this.markerClusters);
-        // marker.addTo(map)
-        // 添加id到store中
-        mapStore.addMarkerId(imageInfo.id);
-      } else {
-        // 如果已经有了就复用
-        const markerId = mapStore.getVisibleMarkerIdList.find(
-          (markerId: string) => {
-            return markerId === imageInfo.id;
-          }
-        );
-        const marker = this.getMarkerById(markerId);
-        marker?.setIcon(myIcon);
-      }
-    }
-  }
-
-  /**
-   * @description: 添加分组到地图中
-   * @param {*} map
-   * @param {*} groupInfo
-   * @return {*}
-   */
-  async addGroupMarkerToMap(groupInfo: IGroupInfo) {
-    const GPSInfo = groupInfo.GPSInfo;
-    // 定位无效，直接不加
-    if (!GPSInfoLegality(GPSInfo)) {
-      return;
-    }
-    const map = this.MAP_INSTANCE;
-    const mapStore = useMapStore();
-    let myIcon = await this.createGroupMarkerIcon(groupInfo);
-    // 先纬度再经度
-    const marker = L.marker([GPSInfo.GPSLatitude, GPSInfo.GPSLongitude], {
-      icon: myIcon,
-      title: groupInfo.name,
-      type: "group",
-      riseOnHover: true,
-      id: groupInfo.id,
-    });
-    
-    // 根据 visible 字段决定是否显示
-    if (groupInfo.visible === false) {
-      // 不添加到地图上，存入 hiddenMarkers
-      this.hiddenMarkers.set(groupInfo.id, marker);
-    } else {
-      marker.addTo(map);
-    }
-    
-    // 因为涉及到异步请求数据了，所以这里需要手动添加一下鼠标事件
-    this.markerMouseListener(marker);
-    // 添加到store中
-    mapStore.addMarkerId(groupInfo.id);
-  }
-
-  /**
-   * @description: 创建L.Icon实例，用于marke渲染
-   * @param {IImageInfo} imageInfo
-   * @return {*}
-   */
-  createImageMarkerIcon(imageInfo: IImageInfo): L.Icon {
-    let myIcon;
-    let imageUrl = getImageUrl(imageInfo.id) ?? imageInfo.url;
-    // 如果没有url直接用文字名称代替
-    if (!imageUrl) {
-      myIcon = L.divIcon({
-        html: IconHTMLFactory.createIcon(IconType.NoImage, imageInfo.name),
-        iconSize: MARKER_CONSTANT.IMAGE_MARKER_SIZE,
-        iconAnchor: [
-          MARKER_CONSTANT.IMAGE_MARKER_SIZE[0] / 2,
-          imageMarkerTranslateY,
-        ], // 设置锚点为底部中心
-      });
-    } else {
-      myIcon = L.divIcon({
-        // 传值使用
-        iconUrl: imageUrl,
-        html: IconHTMLFactory.createIcon(IconType.SingleImage, imageUrl),
-        iconSize: MARKER_CONSTANT.IMAGE_MARKER_SIZE,
-        iconAnchor: [
-          MARKER_CONSTANT.IMAGE_MARKER_SIZE[0] / 2,
-          imageMarkerTranslateY,
-        ], // 设置锚点为底部中心
-      });
-    }
-    return myIcon;
-  }
-
-  /**
-   * @description: 通过图片id添加已有的图片到地图，并修改visibleMarkerIdList
-   * @param {*} imageId
-   * @return {*}
-   */
-  addExistImageMarkerToMapById(imageId: string) {
-    const schemaStore = useSchemaStore();
-    const mapStore = useMapStore();
-    // 如果本来没有
-    if (!mapStore.visibleMarkerIdList.includes(imageId)) {
-      const imageInfo = schemaStore?.getSchema?.imageInfo?.filter?.(
-        (item: IImageInfo) => item.id === imageId
-      )[0];
-      if (imageInfo) {
-        this.addImageMarkerToMap(imageInfo);
-      } else {
-        console.error("不存在图片信息");
-        return;
-      }
-      // 用这个方法，有些特殊操作
-      this.addVisibleMarkerById(imageId);
-    } else {
-      this.showMarkerById(imageId);
-    }
-  }
-
-  /**
-   * @description: 添加可移动的图片marker
-   * @param {*} imageInfo
-   * @return {*}
-   */
-  addManualLocateImageMarkerToMap(
-    imageInfo: IImageInfo,
-    lat?: number,
-    Lng?: number
-  ) {
-    // 先判断一下是不是有marker了
-    const marker1 = this.getMarkerById(imageInfo.id);
-    if (marker1) {
-      // 定位到这个marker
-      this.setViewByMarkerId(imageInfo.id);
-      ElMessage.warning("节点已存在！，请编辑已有节点");
-      return;
-    }
-    const map = this.MAP_INSTANCE;
-    const myIcon = this.createImageMarkerIcon(imageInfo);
-    // 地图中心
-    const markerLatLng =
-      lat && Lng ? [lat, Lng] : [map.getCenter().lat, map.getCenter().lng];
-    const marker = L.marker(markerLatLng, {
-      icon: myIcon,
-      title: imageInfo.name,
-      type: "temporary-image",
-      riseOnHover: true,
-      id: imageInfo.id,
-      draggable: true,
-    });
-    marker.addTo(map);
-    this.markerMouseListener(marker);
-    return marker;
-  }
-
-  /**
-   * @description: 添加可移动的分组marker
-   * @param {*} groupInfo
-   * @return {*}
-   */
-  async addManualLocateGroupMarkerToMap(
-    groupInfo: INewGroupFormData,
-    lat?: number,
-    Lng?: number
-  ) {
-    // 先判断一下是不是有marker了
-    const marker1 = this.getMarkerById(groupInfo.id);
-    if (marker1) {
-      // 定位到这个marker
-      this.setViewByMarkerId(groupInfo.id);
-      ElMessage.warning("节点已存在！，请编辑已有节点");
-      return;
-    }
-    const map = this.MAP_INSTANCE;
-    const myIcon = await this.createGroupMarkerIcon(groupInfo);
-    // 地图中心
-    const markerLatLng =
-      lat && Lng ? [lat, Lng] : [map.getCenter().lat, map.getCenter().lng];
-    const marker = L.marker(markerLatLng, {
-      icon: myIcon,
-      title: groupInfo.name,
-      type: "temporary-group",
-      riseOnHover: true,
-      id: groupInfo.id,
-      draggable: true,
-    });
-    marker.addTo(map);
-    this.markerMouseListener(marker);
-    return marker;
-  }
-
-  /**
-   * @description: 删除地图中的marker
-   * @param {*} marker
-   * @return {*}
-   */
-  deleteMarkerInMap(marker: L.Marker) {
-    const map = this.MAP_INSTANCE;
-    const mapStore = useMapStore();
-    if (map && marker) {
-      // 删除聚合组中的节点
-      this.markerClusters.removeLayer(marker);
-      // 删除地图中的节点
-      map.removeLayer(marker);
-      mapStore.deleteMarker(marker?.options?.id);
-    }
-  }
-
-  /**
-   * @description: 根据markerId删除地图中的marker
-   * @param {*} markerId
-   * @param {*} map
-   * @return {*}
-   */
-  deleteMarkerById(markerId: string) {
-    const marker = this.getMarkerById(markerId);
-    this.deleteMarkerInMap(marker);
-  }
-
-  /**
-   * @description: 隐藏marker,默认不隐藏分组marker
-   * @param {*} markerId
-   * @param {*} hiddenGroupMarker 是否隐藏分组marker，可以通过传入false来保留分组marker
-   * @return {*}
-   */
-  hiddenMarkerById(markerId: string, hiddenGroupMarker: boolean = true) {
-    const marker = this.getMarkerById(markerId);
-    if (marker) {
-      const markerType = marker.options.type
-      const isImage = markerType === 'image' || markerType === 'temporary-image'
-      const isGroup = markerType === 'group' || markerType === 'temporary-group'
-
-      if (isImage) {
-        this.markerClusters.removeLayer(marker);
-        this.hiddenMarkers.set(markerId, marker);
-      } else if (isGroup && hiddenGroupMarker) {
-        this.MAP_INSTANCE.removeLayer(marker);
-        this.hiddenMarkers.set(markerId, marker);
-      }
-    } else {
-      console.warn('Marker not found when hiding:', markerId);
-    }
-  }
-
-  /**
-   * @description: 显示marker
-   * @param {string} markerId
-   * @return {*}
-   */
-  showMarkerById(markerId: string) {
-    const marker = this.getMarkerById(markerId);
-    if (marker) {
-      const markerType = marker.options.type
-      const isImage = markerType === 'image' || markerType === 'temporary-image'
-      const isGroup = markerType === 'group' || markerType === 'temporary-group'
-
-      if (isImage) {
-        const layers = this.markerClusters.getLayers()
-        if (!layers.includes(marker)) {
-          this.markerClusters.addLayer(marker);
-          this.hiddenMarkers.delete(markerId);
-        }
-      } else if (isGroup) {
-        if (!this.MAP_INSTANCE?.hasLayer?.(marker)) {
-          marker.addTo(this.MAP_INSTANCE);
-        }
-      }
-    } else {
-      const hiddenMarker = this.hiddenMarkers.get(markerId);
-      if (hiddenMarker) {
-        const markerType = hiddenMarker.options.type
-        const isImage = markerType === 'image' || markerType === 'temporary-image'
-        const isGroup = markerType === 'group' || markerType === 'temporary-group'
-        
-        if (isImage) {
-          this.markerClusters.addLayer(hiddenMarker);
-        } else if (isGroup) {
-          hiddenMarker.addTo(this.MAP_INSTANCE);
-        }
-        this.hiddenMarkers.delete(markerId);
-      } else {
-        console.warn('Marker not found in map or hiddenMarkers:', markerId);
-      }
-    }
-  }
-
-  /**
-   * @description: 簇点击事件，更新图片需要图片移动或缩放，有时候点击簇不会发生地图缩放
-   * ，导致图片不会加载，所有在点击时手动出发可视marker的更新
-   * @return {*}
-   */
-  observeClisterClick() {
-    const _this = this;
-    this.markerClusters.on("clusterclick", function (a: any) {
-      // a.layer is actually a cluster
-      setTimeout(() => {
-        _this.updateVisibleMarkers();
-      }, 100);
-    });
-  }
-
-  /**
-   * @description: 根据markerId设置地图中心
-   * @param {string} markerId
-   * @return {*}
-   */
-  setViewByMarkerId(id: string) {
-    if (!id) {
+    if (!imageInfo.GPSInfo.GPSLatitude || !imageInfo.GPSInfo.GPSLongitude) return
+    const existing = this.markers.get(imageInfo.id)
+    if (existing) {
+      existing.setIcon(createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url))
       return
     }
+    const icon = createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url)
+    const marker = new MapMarkerAdapter(
+      icon,
+      toMapLibreLngLat(imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude),
+      { id: imageInfo.id, type: 'image', iconUrl: icon.iconUrl }
+    )
+    this.markers.set(imageInfo.id, marker)
+    this.clusterGroup.addLayer(marker)
+    this.markerMouseListener(marker)
+    mapStore.addMarkerId(imageInfo.id)
+  }
 
+  async addGroupMarkerToMap(groupInfo: IGroupInfo) {
+    if (!GPSInfoLegality(groupInfo.GPSInfo)) return
+    const mapStore = useMapStore()
+    const icon = await createGroupMarkerIcon(groupInfo)
+    const marker = new MapMarkerAdapter(
+      icon,
+      toMapLibreLngLat(groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude),
+      { id: groupInfo.id, type: 'group' }
+    )
+    this.markers.set(groupInfo.id, marker)
+    if (groupInfo.visible === false) {
+      this.hiddenMarkerIds.add(groupInfo.id)
+    } else {
+      marker.addTo(this.MAP_INSTANCE!)
+    }
+    this.markerMouseListener(marker)
+    mapStore.addMarkerId(groupInfo.id)
+  }
+
+  addExistImageMarkerToMapById(imageId: string) {
+    const schemaStore = useSchemaStore()
+    const mapStore = useMapStore()
+    if (!mapStore.visibleMarkerIdList.includes(imageId)) {
+      const imageInfo = schemaStore.getSchema.imageInfo?.filter((item: IImageInfo) => item.id === imageId)[0]
+      if (imageInfo) {
+        this.addImageMarkerToMap(imageInfo)
+      }
+      this.addVisibleMarkerById(imageId)
+    } else {
+      this.showMarkerById(imageId)
+    }
+  }
+
+  addManualLocateImageMarkerToMap(imageInfo: IImageInfo, lat?: number, lng?: number) {
+    const existing = this.getMarkerById(imageInfo.id)
+    if (existing) {
+      this.setViewByMarkerId(imageInfo.id)
+      ElMessage.warning('节点已存在！，请编辑已有节点')
+      return
+    }
+    const map = this.MAP_INSTANCE!
+    const icon = createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url)
+    const center = map.getCenter()
+    const markerLatLng: [number, number] = lat && lng
+      ? toMapLibreLngLat(lat, lng)
+      : [center.lng, center.lat]
+    const marker = new MapMarkerAdapter(icon, markerLatLng, {
+      id: imageInfo.id,
+      type: 'temporary-image',
+      draggable: true,
+    })
+    this.markers.set(imageInfo.id, marker)
+    marker.addTo(map)
+    this.markerMouseListener(marker)
+    return marker
+  }
+
+  async addManualLocateGroupMarkerToMap(groupInfo: INewGroupFormData, lat?: number, lng?: number) {
+    const existing = this.getMarkerById(groupInfo.id)
+    if (existing) {
+      this.setViewByMarkerId(groupInfo.id)
+      ElMessage.warning('节点已存在！，请编辑已有节点')
+      return
+    }
+    const map = this.MAP_INSTANCE!
+    const icon = await createGroupMarkerIcon(groupInfo)
+    const center = map.getCenter()
+    const markerLatLng: [number, number] = lat && lng
+      ? toMapLibreLngLat(lat, lng)
+      : [center.lng, center.lat]
+    const marker = new MapMarkerAdapter(icon, markerLatLng, {
+      id: groupInfo.id,
+      type: 'temporary-group',
+      draggable: true,
+    })
+    this.markers.set(groupInfo.id, marker)
+    marker.addTo(map)
+    this.markerMouseListener(marker)
+    return marker
+  }
+
+  deleteMarkerInMap(marker: MapMarkerAdapter) {
+    const mapStore = useMapStore()
+    if (!marker) return
+    const id = marker.options.id
+    this.clusterGroup.removeLayer(marker)
+    marker.remove()
+    this.markers.delete(id)
+    this.hiddenMarkerIds.delete(id)
+    mapStore.deleteMarker(id)
+  }
+
+  deleteMarkerById(markerId: string) {
+    const marker = this.getMarkerById(markerId)
+    if (marker) this.deleteMarkerInMap(marker)
+  }
+
+  hiddenMarkerById(markerId: string, hiddenGroupMarker: boolean = true) {
+    const marker = this.getMarkerById(markerId)
+    if (!marker) {
+      console.warn('Marker not found when hiding:', markerId)
+      return
+    }
+    const markerType = marker.options.type
+    const isImage = markerType === 'image' || markerType === 'temporary-image'
+    const isGroup = markerType === 'group' || markerType === 'temporary-group'
+    if (isImage) {
+      this.clusterGroup.removeLayer(marker)
+      this.hiddenMarkerIds.add(markerId)
+    } else if (isGroup && hiddenGroupMarker) {
+      marker.remove()
+      this.hiddenMarkerIds.add(markerId)
+    }
+  }
+
+  showMarkerById(markerId: string) {
+    const marker = this.getMarkerById(markerId)
+    if (marker) {
+      const markerType = marker.options.type
+      const isImage = markerType === 'image' || markerType === 'temporary-image'
+      const isGroup = markerType === 'group' || markerType === 'temporary-group'
+      if (isImage) {
+        const layers = this.clusterGroup.getLayers()
+        if (!layers.includes(marker)) {
+          this.clusterGroup.addLayer(marker)
+          this.hiddenMarkerIds.delete(markerId)
+        }
+      } else if (isGroup) {
+        if (!this.hiddenMarkerIds.has(markerId)) {
+          marker.addTo(this.MAP_INSTANCE!)
+        }
+      }
+    }
+  }
+
+  observeClisterClick() {
+    // 阶段 2 无聚合；阶段 3 重写为 cluster click → expansion zoom
+  }
+
+  setViewByMarkerId(id: string) {
+    if (!id) return
     let marker = this.getMarkerById(id)
-    // 如果不存在，那可能是在分组里面，这时候需要跳转到第一个分组位置
     if (!marker) {
       const groupId = getGroupIdsByImageId(id)?.[0]
       groupId && (marker = this.getMarkerById(groupId))
     }
-    // 这时候还存在就直接返回，说明没这节点
-    if (!marker) {
-      return
-    }
-    const { lat, lng } = marker?.getLatLng()
+    if (!marker) return
+    const { lat, lng } = marker.getLatLng()
     mapService.setViewByLatLng(lat, lng)
   }
 
-  /**
-   * @description: 创建L.Icon实例，用于marke渲染
-   * @param {INewGroupFormData} groupInfo
-   * @return {*}
-   */
-  async createGroupMarkerIcon(groupInfo: INewGroupFormData): L.Icon {
-    let myIcon = null;
-    const groupNumbers = groupInfo.groupNumbers;
-    // 如果没有url直接用文字名称代替
-    if (groupNumbers && groupNumbers.length > 0) {
-      // 请求前几张图片，并保存到
-      console.log("groupInfo---", groupInfo);
-      // 先只获取前4张图片（marker 小图 120px）
-      const resImageUrls = await getMarkerImageUrlByIds(
-        groupInfo.groupNumbers!.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER)
-      );
-      if (!resImageUrls || resImageUrls.length === 0) {
-        ElMessage.error("获取图片失败");
-        return;
-      }
-      const imageUrls = resImageUrls.map((item) => {
-        return item;
-      });
-      myIcon = L.divIcon({
-        // 传值使用
-        imageUrls,
-        html: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers?.length ?? 0),
-        iconSize: MARKER_CONSTANT.GROUP_MARKER_SIZE,
-        iconAnchor: [
-          MARKER_CONSTANT.GROUP_MARKER_SIZE[0] / 2,
-          groupMarkerTranslateY,
-        ],
-      });
-    } else {
-      myIcon = L.divIcon({
-        html: IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name),
-        iconSize: MARKER_CONSTANT.GROUP_MARKER_SIZE,
-        iconAnchor: [
-          MARKER_CONSTANT.GROUP_MARKER_SIZE[0] / 2,
-          groupMarkerTranslateY,
-        ],
-      });
-    }
-    return myIcon;
-  }
-
-  /**
-   * @description: 根据id获取地图中的marker
-   * @param {*} markerId
-   * @param {*} map 地图实例
-   * @return {*}
-   */
-  getMarkerById(markerId: string): L.Marker {
-    let foundMarker;
-    const markerClusters = markerService.getMarkerClusters()
-    // 先遍历聚合组
-    markerClusters.getLayers().forEach((layer: L.Marker) => {
-      if (layer instanceof L.Marker && layer.options.id === markerId) {
-        foundMarker = layer;
-      }
-    })
-    // 没有再遍历地图上的节点
-    !foundMarker && this.MAP_INSTANCE?.eachLayer?.(layer => {
-      if (layer instanceof L.Marker && layer.options.id === markerId) {
-        foundMarker = layer;
-      }
-    });
-    return foundMarker;
-  }
-
-
-  /**
-   * @description: 添加可视marker到store，并且更新实例，实现左键右键等功能
-   * @param {*} markerId
-   * @param {*} map
-   * @return {*}
-   */
   addVisibleMarkerById(markerId: string) {
     const mapStore = useMapStore()
-    mapStore.addVisibleMarkerId(markerId);
-    const marker = this.getMarkerById(markerId);
-    // 鼠标事件监听
-    this.markerMouseListener(marker);
+    mapStore.addVisibleMarkerId(markerId)
+    const marker = this.getMarkerById(markerId)
+    this.markerMouseListener(marker)
   }
 
-  /**
-   * @description: 判断marker是否在聚合组中
-   * @param {L.Marker} marker
-   * @return {boolean}
-   */
-  isMarkerInCluster(marker: L.Marker): boolean {
-    let isMarkerInClusters = false;
-    if (!marker._mapToAdd && !marker._map) {
-      isMarkerInClusters = true
-    }
-    return isMarkerInClusters
+  isMarkerInCluster(marker: MapMarkerAdapter): boolean {
+    const layers = this.clusterGroup.getLayers()
+    return layers.includes(marker) && this.hiddenMarkerIds.has(marker.options.id)
   }
 
-  /**
-   * @description: 更新在可视范围内marker的图片,防抖
-   * @param {*} map
-   * @return {*}
-   */
   updateVisibleMarkers() {
     const mapStore = useMapStore()
-    const visibleMarkerIdList = mapStore.getVisibleMarkerIdList;
-    const getMarkerIdList = mapStore.getMarkerIdList;
-    getMarkerIdList.forEach((markerId: string) => {
-      const marker = this.getMarkerById(markerId);
+    const visibleMarkerIdList = mapStore.getVisibleMarkerIdList
+    mapStore.getMarkerIdList.forEach((markerId: string) => {
+      const marker = this.getMarkerById(markerId)
       if (marker && this.isMarkerInView(marker)) {
         if (!visibleMarkerIdList.includes(markerId)) {
-          if (marker.options.type === "image") {
-            // 更新一下marker
-            this.updateImageMarker(marker);
+          if (marker.options.type === 'image') {
+            this.updateImageMarker(marker)
           }
-          if (marker.options.type === "group") {
-            // 更新分组的图片
-            this.updateGroupMarker(marker);
+          if (marker.options.type === 'group') {
+            this.updateGroupMarker(marker)
           }
-          this.addVisibleMarkerById(markerId);
+          this.addVisibleMarkerById(markerId)
         }
       }
-    });
+    })
   }
 
-  /**
-   * @description: 更新单个marker，用于渲染图片等
-   * @param {*} id
-   * @param {*} newMarkerData
-   * @return {*}
-   */
-  async updateImageMarker(marker: L.Marker) {
-    const isMarkerInCluster = this.isMarkerInCluster(marker);
-    if (isMarkerInCluster) {
-      return
-    }
+  async updateImageMarker(marker: MapMarkerAdapter) {
     const mapStore = useMapStore()
-    // 将marker添加到已经渲染的store中
     const index = mapStore.getVisibleMarkerIdList.findIndex(
       (markerId: string) => markerId === marker.options.id
-    );
-    // 判断是否在schema中
-    const isInSchema = judgeHadUploadImage(marker.options.id);
-    if (index === -1 && marker?.options?.divIcon?.options?.iconUrl) {
-      // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
-      return;
-    }
-    // move地图后请求图片数据（marker 用 120px 小图，减少解码开销）
+    )
+    const isInSchema = judgeHadUploadImage(marker.options.id)
+    if (index === -1 && marker.options.iconUrl) return
     if (index === -1 && isInSchema) {
-      const fileUrl = await getMarkerImageUrlById(marker.options.id);
-      if (!fileUrl || fileUrl === "") {
-        // 如果没有请求成功需要先删除掉
-        mapStore.deleteVisbleMarkerId(marker.options.id);
-        return;
+      const fileUrl = await getMarkerImageUrlById(marker.options.id)
+      if (!fileUrl || fileUrl === '') {
+        mapStore.deleteVisbleMarkerId(marker.options.id)
+        return
       }
-      const myIcon = L.divIcon({
-        html: IconHTMLFactory.createIcon(IconType.SingleImage, fileUrl),
-        // 传值使用
+      marker.setIcon({
+        element: IconHTMLFactory.createIcon(IconType.SingleImage, fileUrl),
         iconUrl: fileUrl,
-        iconSize: MARKER_CONSTANT.IMAGE_MARKER_SIZE,
-        iconAnchor: [
-          MARKER_CONSTANT.IMAGE_MARKER_SIZE[0] / 2,
-          imageMarkerTranslateY,
-        ], // 设置锚点为底部中心
-      });
-      marker.setIcon(myIcon);
+      })
     }
   }
 
-  /**
-   * @description: 更新分组marker的图片
-   * @param {*}
-   * @return {*}
-   */
-  updateGroupMarker(marker: L.Marker) {
-    const mapStore = useMapStore()
-    // 将marker添加到已经渲染的store中
-    const index = mapStore.getVisibleMarkerIdList.findIndex(
-      (markerId: string) => markerId === marker.options.id
-    );
-    console.log("marker---", marker);
-    // 判断是否在schema中
-    const isInSchema = judgeHadUploadImage(marker.options.id);
-    if (index === -1 && marker?.options?.divIcon?.options?.iconUrl) {
-      // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
-      return;
-    }
-    if (index === -1 && isInSchema) {
-    }
+  updateGroupMarker(_marker: MapMarkerAdapter) {
+    // 分组封面更新逻辑保持惰性，阶段 4 回归时确认
   }
 
-  /**
-   * @description: 判断当前marker是否在地图可视范围内
-   * @param {*} marker marker实例
-   * @return {*}
-   */
-  isMarkerInView(marker: L.Marker) {
-    // 获取地图的可视范围
-    const bounds = this.MAP_INSTANCE?.getBounds?.();
-    // marker.getLatLng()获取marker的经纬度
-    if (!marker) {
-      return false;
-    }
-    return bounds.contains(marker.getLatLng()) && !this.isMarkerInCluster(marker);
+  isMarkerInView(marker: MapMarkerAdapter) {
+    if (!marker || !this.MAP_INSTANCE) return false
+    const bounds = this.MAP_INSTANCE.getBounds()
+    const { lat, lng } = marker.getLatLng()
+    return bounds.contains([lng, lat])
   }
 
-  /**
-   * @description: 添加鼠标事件监听
-   * @param {*} marker marker实例
-   * @return {*}
-   */
-  markerMouseListener(marker: L.Marker) {
-    if (!marker) return;
-    // 添加点击事件监听，这里的mouseEvent的target中有marker信息
-    marker.on("click", (event: MouseEvent) => {
-      // ElMessage.success('触发Marker点击事件')
-      // 点击节点后弹出图片详情框
-      eventBus.emit("show-image-data", event);
-    });
-    // 添加右击时间监听
-    marker.on("contextmenu", (event: MouseEvent) => {
-      // ElMessage.success('触发Marker右键事件')
-      // 出现右键菜单
-      eventBus.emit("show-content-menu", event);
-    });
-    // 高亮
-    marker.on("mouseover", () => {
-      this.highlightMarker(marker);
-    });
-    // 取消高亮
-    marker.on("mouseout", () => {
-      this.resetMarker(marker);
-    });
+  markerMouseListener(marker: MapMarkerAdapter) {
+    if (!marker) return
+    marker.on('click', (event: MouseEvent) => {
+      eventBus.emit('show-image-data', event)
+    })
+    marker.on('contextmenu', (event: MouseEvent) => {
+      eventBus.emit('show-content-menu', event)
+    })
+    marker.on('mouseover', () => {
+      this.highlightMarker(marker)
+    })
+    marker.on('mouseout', () => {
+      this.resetMarker(marker)
+    })
   }
 
-  /**
-   * @description: 高亮marker
-   * @param {*}
-   * @return {*}
-   */
-  highlightMarker(marker: L.Marker) {
-    const markerElement = marker.getElement();
-    if (markerElement) {
-      const oldTransformCss = markerElement.style.transform;
-      let newTransformCss = "";
-      if (oldTransformCss.includes("scale")) {
-        newTransformCss = oldTransformCss
-          .replace(
-            /scale\([^)]*\)/,
-            `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`
-          )
-          .trim();
-      } else {
-        newTransformCss = `${oldTransformCss} scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`;
-      }
-      markerElement.style.transform = newTransformCss;
+  highlightMarker(marker: MapMarkerAdapter) {
+    const el = marker.getElement()
+    if (el) {
+      const old = el.style.transform
+      const next = old.includes('scale')
+        ? old.replace(/scale\([^)]*\)/, `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`).trim()
+        : `${old} scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`
+      el.style.transform = next
     }
   }
 
-  /**
-   * @description: 重置marker
-   * @param {*}
-   * @return {*}
-   */
-  resetMarker(marker: L.Marker) {
-    const markerElement = marker.getElement();
-    if (markerElement) {
-      const oldTransformCss = markerElement.style.transform;
-      const newTransformCss = oldTransformCss
-        .replace(
-          /scale\([^)]*\)/,
-          `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`
-        )
-        .trim();
-      markerElement.style.transform = newTransformCss;
+  resetMarker(marker: MapMarkerAdapter) {
+    const el = marker.getElement()
+    if (el) {
+      el.style.transform = el.style.transform
+        .replace(/scale\([^)]*\)/, `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`)
+        .trim()
     }
   }
 
-  /**
-   * @description: 重置分组的封面
-   * @param {*} groupId
-   * @return {*}
-   */
   async resetIconGroupMarker(groupId: string) {
-    const groupMarker = this.getMarkerById(groupId);
-    const groupInfo = getGroupInfoByGroupId(groupId);
-    let newIcon = await this.createGroupMarkerIcon(groupInfo);
-    groupMarker && groupMarker.setIcon(newIcon);
+    const groupMarker = this.getMarkerById(groupId)
+    const groupInfo = getGroupInfoByGroupId(groupId)
+    const newIcon = await createGroupMarkerIcon(groupInfo)
+    groupMarker && groupMarker.setIcon(newIcon)
   }
 
-  /**
-   * @description: 根据时间范围过滤marker
-   * @param {*} timeRange { min: number; max: number }
-   * @return {*}
-   */
   filterMarkersByTimeRange(timeRange: { min: number; max: number }) {
     const schemaStore = useSchemaStore()
-    const allMarkers = this.getAllMarkers()
-
-    allMarkers.forEach(marker => {
+    this.markers.forEach((marker) => {
       const markerId = marker.options.id
       const markerType = marker.options.type
-
       const isImage = markerType === 'image' || markerType === 'temporary-image'
-      const isGroup = markerType === 'group' || markerType === 'temporary-group'
-
       if (isImage) {
-        const imageInfo = schemaStore.getSchema.imageInfo?.find(img => img.id === markerId)
+        const imageInfo = schemaStore.getSchema.imageInfo?.find((img) => img.id === markerId)
         const imageTime = imageInfo?.authorInfo?.DateTime
-
-        // 单图按自身拍摄时间过滤；没有有效时间时保持显示，避免误伤无时间元数据的图片。
         if (imageTime && typeof imageTime === 'number' && !isNaN(imageTime)) {
           if (imageTime >= timeRange.min && imageTime <= timeRange.max) {
             this.showMarkerById(markerId)
           } else {
-            // 按照时间筛选的话，不隐藏分组
             this.hiddenMarkerById(markerId, false)
           }
         } else {
           this.showMarkerById(markerId)
         }
-      } else if (isGroup) {
-        // TODO: 分组展示不隐藏先
-        // const groupInfo = schemaStore.getSchema.groupInfo?.find(grp => grp.id === markerId)
-
-        // if (groupInfo?.groupNumbers?.length) {
-        //   // 分组的显示状态由分组内图片决定：只要存在一张时间落在范围内的图片，就保留该分组。
-        //   const groupImages = groupInfo.groupNumbers
-        //     .map(id => schemaStore.getSchema.imageInfo?.find(img => img.id === id))
-        //     .filter(img => img?.authorInfo?.DateTime)
-
-        //   const hasValidTimeImage = groupImages.some(img => {
-        //     const time = img.authorInfo.DateTime
-        //     return typeof time === 'number' && !isNaN(time) && time >= timeRange.min && time <= timeRange.max
-        //   })
-
-        //   if (hasValidTimeImage) {
-        //     this.showMarkerById(markerId)
-        //   } else if (groupImages.length === 0) {
-        //     // 分组内图片都没有可用时间信息时，默认继续显示，和单图的兜底策略保持一致。
-        //     this.showMarkerById(markerId)
-        //   } else {
-        //     this.hiddenMarkerById(markerId)
-        //   }
-        // } else {
-        //   this.showMarkerById(markerId)
-        // }
       }
     })
   }
 
-  /**
-   * @description: 获取固定marker的type
-   * @param {string} markerType
-   * @return {*}
-   */
   getPermanentType(markerType: string) {
-    return markerType.replace("temporary-", "");
+    return markerType.replace('temporary-', '')
   }
 
-  /**
-   * @description: 获取临时marker的type
-   * @param {string} markerType
-   * @return {*}
-   */
   getTemporaryType(markerType: string) {
-    if (markerType.includes("temporary-")) {
-      return markerType;
-    }
-    return `temporary-${markerType}`;
+    if (markerType.includes('temporary-')) return markerType
+    return `temporary-${markerType}`
   }
 
-  /**
-   * @description: 根据地图缩放比例适当缩放marker
-   * @param {*} map
-   * @return {*}
-   */
-  scaleMarkerByMap() {
-    const map = this.MAP_INSTANCE;
-    const mapStore = useMapStore()
-    const markerIdList = mapStore.getMarkerIdList;
-    const zoom = map.getZoom();
-
-    if (zoom >= 15) {
-      MARKER_CONSTANT.MARKER_SHOW_RADIO = 1.1;
-      MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO = 1.2;
-    } else if (zoom < 15 && zoom >= 13) {
-      MARKER_CONSTANT.MARKER_SHOW_RADIO = 1;
-      MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO = 1.1;
-    } else if (zoom < 13 && zoom >= 11) {
-      MARKER_CONSTANT.MARKER_SHOW_RADIO = 0.9;
-      MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO = 1;
-    } else if (zoom < 11 && zoom >= 9) {
-      MARKER_CONSTANT.MARKER_SHOW_RADIO = 0.8;
-      MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO = 0.9;
-    } else if (zoom < 9 && zoom >= 6) {
-      MARKER_CONSTANT.MARKER_SHOW_RADIO = 0.7;
-      MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO = 0.8;
-    } else if (zoom < 6) {
-      MARKER_CONSTANT.MARKER_SHOW_RADIO = 0.6;
-      MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO = 0.7;
-    }
-    console.log("zoom", zoom, MARKER_CONSTANT.MARKER_SHOW_RADIO);
-    markerIdList.forEach((markerId: string) => {
-      const marker = this.getMarkerById(markerId);
-      const markerElement = marker.getElement();
-      if (markerElement) {
-        const originalTransform =
-          window.getComputedStyle(markerElement).transform;
-        const newTransform =
-          originalTransform.replace(/scale\([^)]*\)/, "").trim() +
-          ` scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`;
-        markerElement.style.transform = newTransform;
-      }
-    });
-  }
-
-  /**
-   * @description: 获取marker的GPS信息
-   * @param {string} markerId
-   * @param {*} map
-   * @return {*}
-   */
   getGPSInfoById(markerId: string) {
-    const marker = this.getMarkerById(markerId);
-    return this.getGPSInfoByMarkerInstance(marker);
+    const marker = this.getMarkerById(markerId)
+    return marker ? this.getGPSInfoByMarkerInstance(marker) : { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 }
+  }
+
+  scaleMarkerByMap() {
+    // MapLibre marker 缩放动效由 hover 的 transform 处理，保留空实现
   }
 }
 
-const markerService = new MarkerService();
+const markerService = new MarkerService()
 
-export default markerService;
+export default markerService

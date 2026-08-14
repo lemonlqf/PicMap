@@ -1,709 +1,582 @@
-/*
- * @Author: Do not edit
- * @Date: 2026-03-18 16:11:31
- * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-26 22:47:02
- * @FilePath: \PicMap\picMap_fontend\src\services\track.ts
- * @Description: 轨迹图层服务，管理轨迹的加载、显示、删除等操作
- */
-import '@/assets/leaflet-gpx/leaflet-gpx.js';
-import L from "leaflet";
-import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02';
-import API from '@/wails/api';
-import { getDefaultLineColor } from '@/utils/track';
-import { useSchemaStore } from '@/store/schema';
+import * as maplibregl from 'maplibre-gl'
+import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02'
+import API from '@/wails/api'
+import { getDefaultLineColor } from '@/utils/track'
+import { useSchemaStore } from '@/store/schema'
+import { toMapLibreLngLat } from '@/utils/mapLibre'
 
-const startIconUrl = new URL('../assets/icon/起点.png', import.meta.url).href;
-const endIconUrl = new URL('../assets/icon/终点.png', import.meta.url).href;
+const startIconUrl = new URL('../assets/icon/起点.png', import.meta.url).href
+const endIconUrl = new URL('../assets/icon/终点.png', import.meta.url).href
 
-const startIcon = L.icon({
-  className: "track-marker-icon track-marker-start",
-  iconUrl: startIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [0, -33],
-  shadowSize: [41, 41],
-  shadowAnchor: [13, 41]
-});
+const defaultOptions = {}
 
-const endIcon = L.icon({
-  className: "track-marker-icon track-marker-end",
-  iconUrl: endIconUrl,
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [0, -33],
-  shadowSize: [41, 41],
-  shadowAnchor: [13, 41]
-});
+const TRACK_INSTANCE_GC_DELAY_MS = 2000
 
-const defaultOptions = {
-  markers: {
-    startIcon,
-    endIcon,
-  }
+// 轨迹渲染引用：每个地图独立的 source/layer id
+interface TrackLayerRef {
+  sourceId: string
+  layerId: string
 }
-
-const TRACK_INSTANCE_GC_DELAY_MS = 2000;
 
 /**
  * 轨迹服务类
  * 负责管理所有轨迹实例，提供轨迹的激活、显示、隐藏、删除等功能
  */
 class TrackService {
-  // 存储所有轨迹实例，key为轨迹ID（文件名）
-  private trackInstances: Map<string, TrackInstance>;
-  // 待销毁的实例定时器，避免地图快速切换导致重复创建
-  private destroyTimers: Map<string, ReturnType<typeof setTimeout>>;
-
+  private trackInstances: Map<string, TrackInstance>
+  private destroyTimers: Map<string, ReturnType<typeof setTimeout>>
 
   constructor() {
-    this.trackInstances = new Map();
-    this.destroyTimers = new Map();
+    this.trackInstances = new Map()
+    this.destroyTimers = new Map()
   }
 
   private clearDestroyTimer(trackId: string) {
-    const timer = this.destroyTimers.get(trackId);
+    const timer = this.destroyTimers.get(trackId)
     if (timer) {
-      clearTimeout(timer);
-      this.destroyTimers.delete(trackId);
+      clearTimeout(timer)
+      this.destroyTimers.delete(trackId)
     }
   }
 
   private scheduleDestroy(trackId: string) {
-    this.clearDestroyTimer(trackId);
+    this.clearDestroyTimer(trackId)
     const timer = setTimeout(() => {
-      const trackInstance = this.trackInstances.get(trackId);
-      // 只有在没有任何地图引用时才真正销毁
+      const trackInstance = this.trackInstances.get(trackId)
       if (trackInstance && trackInstance.getMapInstances().length === 0) {
-        this.trackInstances.delete(trackId);
+        this.trackInstances.delete(trackId)
       }
-      this.destroyTimers.delete(trackId);
-    }, TRACK_INSTANCE_GC_DELAY_MS);
-    this.destroyTimers.set(trackId, timer);
+      this.destroyTimers.delete(trackId)
+    }, TRACK_INSTANCE_GC_DELAY_MS)
+    this.destroyTimers.set(trackId, timer)
   }
 
-  /**
-   * @description: 根据轨迹ID获取轨迹实例
-   * @param {string} trackId - 轨迹ID
-   * @return {TrackInstance | undefined}
-   */
   getTrackInstanceById(trackId: string): TrackInstance | undefined {
-    return this.trackInstances.get(trackId);
+    return this.trackInstances.get(trackId)
   }
 
-  /**
-   * @description: 激活轨迹，将轨迹文件加载到地图上
-   * 如果轨迹已存在则直接添加到地图，否则创建新的轨迹实例
-   * @param {File} file - 轨迹文件
-   * @param {L.Map} map - 地图实例
-   * @param {any} options - 配置选项
-   * @return {TrackInstance}
-   */
-  activeTrack(file: File, map?: L.Map, options: any = defaultOptions): TrackInstance {
-    let trackInstance = this.trackInstances.get(file.name);
+  activeTrack(file: File, map?: maplibregl.Map, options: any = defaultOptions): TrackInstance {
+    let trackInstance = this.trackInstances.get(file.name)
     if (trackInstance) {
-      this.clearDestroyTimer(file.name);
-      // 如果轨迹已存在，直接添加到地图
+      this.clearDestroyTimer(file.name)
       if (map) {
-        trackInstance.addMap(map);
+        trackInstance.addMap(map)
       }
     } else {
-      // 先从schema中查找轨迹信息
-      const schemaStore = useSchemaStore();
-      const schemaTrackInfo = schemaStore.getSchema.trackInfo?.find((t: any) => t.id === file.name);
+      const schemaStore = useSchemaStore()
+      const schemaTrackInfo = schemaStore.getSchema.trackInfo?.find((t: any) => t.id === file.name)
 
-      // 创建新的轨迹实例并添加到地图
-      trackInstance = new TrackInstance(file, map ? [map] : [], options, schemaTrackInfo);
-      this.trackInstances.set(trackInstance.getTrackId(), trackInstance);
+      trackInstance = new TrackInstance(file, map ? [map] : [], options, schemaTrackInfo)
+      this.trackInstances.set(trackInstance.getTrackId(), trackInstance)
     }
-    return trackInstance;
+    return trackInstance
   }
 
-  /**
-   * @description: 隐藏轨迹，轨迹图层从地图移除但实例仍保留
-   * @param {string} trackId - 轨迹ID
-   * @param {L.Map} map - 可选，指定地图；如果不传则从所有地图移除
-   */
-  hideTrack(trackId: string, map?: L.Map) {
-    const trackInstance = this.trackInstances.get(trackId);
+  hideTrack(trackId: string, map?: maplibregl.Map) {
+    const trackInstance = this.trackInstances.get(trackId)
     if (trackInstance) {
       if (map) {
-        const trackLayer = trackInstance.getTrackLayer(map);
-        if (trackLayer && map.hasLayer?.(trackLayer)) {
-          map.removeLayer(trackLayer);
+        const ref = trackInstance.getTrackLayer(map)
+        if (ref && map.getLayer(ref.layerId)) {
+          map.setLayoutProperty(ref.layerId, 'visibility', 'none')
         }
       } else {
-        trackInstance.getMapInstances().forEach(map => {
-          const trackLayer = trackInstance.getTrackLayer(map);
-          if (trackLayer && map.hasLayer?.(trackLayer)) {
-            map.removeLayer(trackLayer);
+        trackInstance.getMapInstances().forEach((m) => {
+          const ref = trackInstance.getTrackLayer(m)
+          if (ref && m.getLayer(ref.layerId)) {
+            m.setLayoutProperty(ref.layerId, 'visibility', 'none')
           }
-        });
-      }
-    }
-  }
-
-  /**
-   * @description: 隐藏所有轨迹，所有轨迹图层从指定地图移除但实例仍保留
-   * @param {L.Map} map - 地图实例
-   */
-  hideAllTracks(map: L.Map) {
-    this.getInstances().forEach(trackInstance => {
-      const trackLayer = trackInstance.getTrackLayer(map);
-      if (trackLayer && map?.hasLayer?.(trackLayer)) {
-        map.removeLayer(trackLayer);
-      }
-      // 如果轨迹实例内部的mapInstances中有这个地图，也要从中移除
-      trackInstance.removeMap(map);
-    });
-  }
-
-  /**
-   * @description: 显示轨迹，将轨迹图层添加到地图
-   * @param {string} trackId - 轨迹ID
-   * @param {L.Map} map - 可选，指定地图；如果不传则添加到所有地图
-   */
-  showTrack(trackId: string, map?: L.Map) {
-    const trackInstance = this.trackInstances.get(trackId);
-    if (trackInstance) {
-      if (map) {
-        trackInstance.addMap(map);
-      } else {
-        trackInstance.getMapInstances().forEach(map => {
-          trackInstance.addMap(map);
         })
       }
     }
   }
 
-  /**
-   * @description: 删除轨迹，从所有地图移除并销毁实例
-   * @param {string} trackId - 轨迹ID
-   */
+  hideAllTracks(map: maplibregl.Map) {
+    this.getInstances().forEach((trackInstance) => {
+      const ref = trackInstance.getTrackLayer(map)
+      if (ref && map.getLayer(ref.layerId)) {
+        map.setLayoutProperty(ref.layerId, 'visibility', 'none')
+      }
+      trackInstance.removeMap(map)
+    })
+  }
+
+  showTrack(trackId: string, map?: maplibregl.Map) {
+    const trackInstance = this.trackInstances.get(trackId)
+    if (trackInstance) {
+      if (map) {
+        trackInstance.addMap(map)
+      } else {
+        trackInstance.getMapInstances().forEach((m) => {
+          trackInstance.addMap(m)
+        })
+      }
+    }
+  }
+
   deleteTrack(trackId: string) {
-    this.clearDestroyTimer(trackId);
-    const trackInstance = this.trackInstances.get(trackId);
+    this.clearDestroyTimer(trackId)
+    const trackInstance = this.trackInstances.get(trackId)
     if (trackInstance) {
-      trackInstance.getMapInstances().slice().forEach(map => {
-        trackInstance.removeMap(map);
-      });
-      this.trackInstances.delete(trackId);
+      trackInstance.getMapInstances().slice().forEach((map) => {
+        trackInstance.removeMap(map)
+      })
+      this.trackInstances.delete(trackId)
     }
   }
 
-  /**
-   * @description: 删除所有轨迹，清空所有地图上的轨迹图层并清空实例
-   */
   deleteAllTracks() {
-    this.destroyTimers.forEach((timer) => clearTimeout(timer));
-    this.destroyTimers.clear();
-    this.getInstances().forEach(trackInstance => {
-      trackInstance.getMapInstances().slice().forEach(map => {
-        trackInstance.removeMap(map);
-      });
-    });
-    this.trackInstances.clear();
+    this.destroyTimers.forEach((timer) => clearTimeout(timer))
+    this.destroyTimers.clear()
+    this.getInstances().forEach((trackInstance) => {
+      trackInstance.getMapInstances().slice().forEach((map) => {
+        trackInstance.removeMap(map)
+      })
+    })
+    this.trackInstances.clear()
   }
 
-  /**
-   * @description: 更新轨迹颜色
-   * @param {string} trackId - 轨迹ID
-   * @param {string} color - 颜色值
-   */
   updateTrackColor(trackId: string, color: string) {
-    const trackInstance = this.trackInstances.get(trackId);
+    const trackInstance = this.trackInstances.get(trackId)
     if (trackInstance) {
-      trackInstance.setLineColor(color);
+      trackInstance.setLineColor(color)
     }
   }
 
-  /**
-   * @description: 从指定地图删除所有轨迹图层
-   * 如果轨迹不在任何地图上则从实例中删除
-   * @param {L.Map} map - 地图实例
-   */
-  deleteTracksInMap(map: L.Map) {
-    this.getInstances().forEach(trackInstance => {
-      const trackLayer = trackInstance.getTrackLayer(map);
-      if (trackLayer && map.hasLayer?.(trackLayer)) {
-        map.removeLayer(trackLayer);
-      }
-      trackInstance.removeMap(map);
-      // 两个地图都移除后，延迟销毁，避免快速切换时重复创建实例
+  deleteTracksInMap(map: maplibregl.Map) {
+    this.getInstances().forEach((trackInstance) => {
+      trackInstance.removeMap(map)
       if (trackInstance.getMapInstances().length === 0) {
-        this.scheduleDestroy(trackInstance.getTrackId());
+        this.scheduleDestroy(trackInstance.getTrackId())
       }
-    });
+    })
   }
 
-  /**
-   * @description: 上传轨迹文件到后端
-   * @param {File} file - 轨迹文件
-   * @return {Promise}
-   */
   async uploadTrack(file: File) {
     const res = await API.track.uploadTrack(file)
     return res
   }
 
-  /**
-   * @description: 获取所有轨迹实例
-   * @return {Map<string, TrackInstance>}
-   */
   getInstances() {
-    return Array.from(this.trackInstances.values());
+    return Array.from(this.trackInstances.values())
   }
 }
 
-const trackService = new TrackService();
+const trackService = new TrackService()
 
-export default trackService;
+export default trackService
 
 // -----------------------------------------
 
-/**
- * 轨迹统计信息类型
- * 包含轨迹的各类统计数据
- */
 interface TrackInfo {
-  name: string;           // 轨迹名称
-  distance: number;       // 总距离，单位：米
-  startTime: Date;        // 开始时间
-  endTime: Date;          // 结束时间
-  movingTime: number;      // 移动时间，单位：毫秒
-  totalTime: number;       // 总时间，单位：毫秒
-  movingPace: number;      // 平均移动配速，单位：毫秒/公里
-  movingSpeed: number;     // 平均移动速度，单位：公里/小时
-  totalSpeed: number;      // 平均总速度，单位：公里/小时
-  elevationMin: number;    // 最低海拔，单位：米
-  elevationMax: number;    // 最高海拔，单位：米
-  elevationGain: number;   // 累计爬升，单位：米
-  elevationLoss: number;   // 累计下降，单位：米
-  speedMax: number;        // 最大速度，单位：公里/小时
-  averageHr: number | null;       // 平均心率
-  averageCadence: number | null;   // 平均踏频
-  averageTemp: number | null;      // 平均温度
+  name: string
+  distance: number
+  startTime: Date
+  endTime: Date
+  movingTime: number
+  totalTime: number
+  movingPace: number
+  movingSpeed: number
+  totalSpeed: number
+  elevationMin: number
+  elevationMax: number
+  elevationGain: number
+  elevationLoss: number
+  speedMax: number
+  averageHr: number | null
+  averageCadence: number | null
+  averageTemp: number | null
 }
 
-/**
- * 轨迹实例类
- * 封装单个轨迹的加载、解析、显示等功能
- */
-class TrackInstance {
+interface GpxPoint {
+  lat: number
+  lng: number
+  ele: number | null
+  time: number | null
+  hr: number | null
+  cadence: number | null
+  temp: number | null
+}
 
-  // 轨迹ID，使用文件名
-  private trackId: string;
-  // 默认轨迹图层实例（兼容旧接口）
-  private trackLayer: L.GPX | undefined;
-  // 每个地图维护独立图层，避免同一图层在不同地图间互相影响
-  private layerByMap: WeakMap<L.Map, L.GPX> = new WeakMap();
-  // 轨迹统计信息
-  private trackInfo: Partial<TrackInfo> = {};
-  // 地图实例数组
-  private mapInstances: L.Map[] = [];
-  // 待处理的回调函数（在轨迹信息加载完成前调用）
-  private pendingCallbacks: ((trackInfo: any) => void)[] = [];
-  private options: any;
-  private convertedGpx = '';
-  // 轨迹线颜色，用于创建图层时和应用到已有图层
-  private lineColor: string | undefined = getDefaultLineColor(true);
-  // 悬浮回调函数，按地图实例存储
-  private hoverCallbacks: Map<L.Map, (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void> = new Map();
-  // 点击回调函数，按地图实例存储
-  private clickCallbacks: Map<L.Map, (trackInfo: Partial<TrackInfo>) => void> = new Map();
-  // 当前高亮的地图ID
-  private highlightedMapId: string | null = null;
+function parseGpxPoints(gpxText: string): GpxPoint[] {
+  const parser = new DOMParser()
+  const doc = parser.parseFromString(gpxText, 'text/xml')
+  const points: GpxPoint[] = []
+  doc.querySelectorAll('trkpt').forEach((pt) => {
+    const lat = parseFloat(pt.getAttribute('lat') || '0')
+    const lon = parseFloat(pt.getAttribute('lon') || '0')
+    const [gcjLng, gcjLat] = wgs84ToGcj02(lon, lat)
+    const ele = pt.getElementsByTagName('ele')[0]?.textContent
+    const time = pt.getElementsByTagName('time')[0]?.textContent
+    const hr = pt.getElementsByTagName('hr')[0]?.textContent
+    const cad = pt.getElementsByTagName('cad')[0]?.textContent
+    const temp = pt.getElementsByTagName('atemp')[0]?.textContent
+    points.push({
+      lat: Number(gcjLat),
+      lng: Number(gcjLng),
+      ele: ele ? parseFloat(ele) : null,
+      time: time ? new Date(time).getTime() : null,
+      hr: hr ? parseFloat(hr) : null,
+      cadence: cad ? parseFloat(cad) : null,
+      temp: temp ? parseFloat(temp) : null,
+    })
+  })
+  return points
+}
+
+function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
+  const R = 6371000
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(lat2 - lat1)
+  const dLng = toRad(lng2 - lng1)
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(a))
+}
+
+function computeTrackInfo(points: GpxPoint[]): Partial<TrackInfo> {
+  let distance = 0
+  let movingTime = 0
+  let elevationGain = 0
+  let elevationLoss = 0
+  let elevationMin = Infinity
+  let elevationMax = -Infinity
+  let speedMax = 0
+  let startTime: number | null = null
+  let endTime: number | null = null
+  let hrSum = 0
+  let hrCount = 0
+  let cadSum = 0
+  let cadCount = 0
+  let tempSum = 0
+  let tempCount = 0
+
+  for (let i = 1; i < points.length; i++) {
+    const prev = points[i - 1]
+    const cur = points[i]
+    const seg = haversine(prev.lat, prev.lng, cur.lat, cur.lng)
+    distance += seg
+    if (cur.ele != null) {
+      const delta = cur.ele - (prev.ele ?? cur.ele)
+      if (delta > 0) elevationGain += delta
+      if (delta < 0) elevationLoss += -delta
+      elevationMin = Math.min(elevationMin, cur.ele)
+      elevationMax = Math.max(elevationMax, cur.ele)
+    }
+    if (prev.time != null && cur.time != null) {
+      const dt = (cur.time - prev.time) / 1000
+      const speed = seg / Math.max(dt, 0.001)
+      if (speed < 3) movingTime += dt
+      if (speed > speedMax) speedMax = speed
+    }
+    if (cur.hr != null) { hrSum += cur.hr; hrCount++ }
+    if (cur.cadence != null) { cadSum += cur.cadence; cadCount++ }
+    if (cur.temp != null) { tempSum += cur.temp; tempCount++ }
+  }
+
+  if (points.length > 0) {
+    startTime = points[0].time
+    endTime = points[points.length - 1].time
+    if (points[0].ele != null) {
+      elevationMin = Math.min(elevationMin, points[0].ele)
+      elevationMax = Math.max(elevationMax, points[0].ele)
+    }
+  }
+
+  const totalTime = startTime != null && endTime != null ? (endTime - startTime) / 1000 : 0
+  const movingPace = movingTime > 0 ? (movingTime * 1000) / Math.max(distance, 0.001) : 0
+  const movingSpeed = movingTime > 0 ? (distance / 1000) / (movingTime / 3600) : 0
+  const totalSpeed = totalTime > 0 ? (distance / 1000) / (totalTime / 3600) : 0
+
+  return {
+    distance,
+    startTime: startTime != null ? new Date(startTime) : undefined,
+    endTime: endTime != null ? new Date(endTime) : undefined,
+    movingTime: movingTime * 1000,
+    totalTime: totalTime * 1000,
+    movingPace,
+    movingSpeed,
+    totalSpeed,
+    elevationMin: elevationMin === Infinity ? 0 : elevationMin,
+    elevationMax: elevationMax === -Infinity ? 0 : elevationMax,
+    elevationGain,
+    elevationLoss,
+    speedMax,
+    averageHr: hrCount > 0 ? hrSum / hrCount : null,
+    averageCadence: cadCount > 0 ? cadSum / cadCount : null,
+    averageTemp: tempCount > 0 ? tempSum / tempCount : null,
+  }
+}
+
+function createEdgeMarkerElement(url: string, className: string): HTMLElement {
+  const el = document.createElement('div')
+  el.className = `track-marker-icon ${className}`
+  const img = document.createElement('img')
+  img.src = url
+  img.width = 25
+  img.height = 41
+  el.appendChild(img)
+  return el
+}
+
+class TrackInstance {
+  private trackId: string
+  private layerByMap: WeakMap<maplibregl.Map, TrackLayerRef> = new WeakMap()
+  private trackInfo: Partial<TrackInfo> = {}
+  private mapInstances: maplibregl.Map[] = []
+  private pendingCallbacks: ((trackInfo: any) => void)[] = []
+  private options: any
+  private points: GpxPoint[] = []
+  private coordinates: [number, number][] = []
+  private lineColor: string | undefined = getDefaultLineColor(true)
+  private hoverCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void> = new Map()
+  private clickCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>) => void> = new Map()
+  private highlightedMapId: string | null = null
+  private edgeMarkers: Map<maplibregl.Map, maplibregl.Marker[]> = new Map()
 
   private hashTrackId(seed: string) {
-    let hash = 0;
+    let hash = 0
     for (let i = 0; i < seed.length; i++) {
-      hash = ((hash << 5) - hash) + seed.charCodeAt(i);
-      hash |= 0;
+      hash = ((hash << 5) - hash) + seed.charCodeAt(i)
+      hash |= 0
     }
-    return Math.abs(hash);
+    return Math.abs(hash)
   }
 
-  /**
-   * @description: 获取创建GPX图层时的选项，如果设置了lineColor则应用颜色
-   * @return {*} 包含轨迹线颜色的选项对象
-   */
-  private getLayerOptions() {
-    const options = { ...this.options };
-    if (this.lineColor) {
-      options.polyline_options = {
-        ...options.polyline_options,
-        color: this.lineColor
-      };
-    }
-    return options;
-  }
-
-  /**
-   * @description: 设置轨迹线颜色
-   * 如果颜色已设置，会遍历所有地图实例上的轨迹图层并更新颜色
-   * @param {string | undefined} color - 十六进制颜色值，如 '#FF6B6B'
-   */
   setLineColor(color: string | undefined) {
-    this.lineColor = color;
-    if (color) {
-      this.mapInstances.forEach((mapInstance) => {
-        const gpxLayer = this.layerByMap.get(mapInstance);
-        if (gpxLayer) {
-          const layers = gpxLayer.getLayers();
-          layers.forEach((layer: any) => {
-            if (layer.setStyle) {
-              layer.setStyle({ color });
-            }
-          });
-        }
-      });
-    }
-  }
-
-  // 多条轨迹起终点重叠时，做极小偏移避免完全遮挡。
-  private disambiguateEdgeMarker(point: L.Marker, pointType: 'start' | 'end') {
-    const origin = point.getLatLng();
-    const slotCount = 12;
-    const slot = this.hashTrackId(`${this.trackId}-${pointType}`) % slotCount;
-    const angle = (Math.PI * 2 * slot) / slotCount;
-    const radius = pointType === 'start' ? 0.00002 : 0.000026;
-    const lat = origin.lat + radius * Math.sin(angle);
-    const lng = origin.lng + radius * Math.cos(angle);
-    point.setLatLng(L.latLng(lat, lng));
-    point.setZIndexOffset(1000 + slot + (pointType === 'end' ? 100 : 0));
-  }
-
-  constructor(file: File, maps: L.Map[] = [], options: any = defaultOptions, schemaTrackInfo?: any) {
-
-    this.trackId = file.name;
-    this.options = options;
-    this.mapInstances.push(...maps.filter((map): map is L.Map => !!map));
-
-    // 如果schema中有轨迹信息，先设置好
-    if (schemaTrackInfo) {
-      this.initTrackInfo(schemaTrackInfo);
-    }
-
-    // 异步读取并解析GPX文件
-    this.readFileAsText(file).then((fileContent) => {
-      // 将WGS84坐标转换为GCJ02坐标
-      this.convertedGpx = this.convertGpxCoordinates(fileContent);
-
-      // 添加到已存在的地图
-      this.mapInstances.forEach(map => {
-        if (map) {
-          this.addMap(map);
-        }
-      });
-
+    this.lineColor = color
+    this.mapInstances.forEach((map) => {
+      const ref = this.layerByMap.get(map)
+      if (ref && map.getLayer(ref.layerId)) {
+        map.setPaintProperty(ref.layerId, 'line-color', color ?? getDefaultLineColor(true))
+      }
     })
   }
 
-  /**
-   * @description: 初始化轨迹统计信息，如果有待处理的回调则立即执行
-   * @param {Partial<TrackInfo>} trackInfo - 轨迹统计信息
-   */
+  // 多条轨迹起终点重叠时，做极小偏移避免完全遮挡
+  private disambiguateEdgeMarker(marker: maplibregl.Marker, pointType: 'start' | 'end') {
+    const origin = marker.getLngLat()
+    const slotCount = 12
+    const slot = this.hashTrackId(`${this.trackId}-${pointType}`) % slotCount
+    const angle = (Math.PI * 2 * slot) / slotCount
+    const radius = pointType === 'start' ? 0.00002 : 0.000026
+    const lat = origin.lat + radius * Math.sin(angle)
+    const lng = origin.lng + radius * Math.cos(angle)
+    marker.setLngLat([lng, lat])
+    const el = marker.getElement()
+    el.style.zIndex = String(1000 + slot + (pointType === 'end' ? 100 : 0))
+  }
+
+  constructor(file: File, maps: maplibregl.Map[] = [], options: any = defaultOptions, schemaTrackInfo?: any) {
+    this.trackId = file.name
+    this.options = options
+    this.mapInstances.push(...maps.filter((map): map is maplibregl.Map => !!map))
+
+    if (schemaTrackInfo) {
+      this.initTrackInfo(schemaTrackInfo)
+    }
+
+    this.readFileAsText(file).then((fileContent) => {
+      this.points = parseGpxPoints(fileContent)
+      this.coordinates = this.points.map((p) => toMapLibreLngLat(p.lat, p.lng))
+      this.mapInstances.forEach((map) => {
+        if (map) {
+          this.addMap(map)
+        }
+      })
+    })
+  }
+
   initTrackInfo(trackInfo: Partial<TrackInfo>) {
-    this.trackInfo = trackInfo;
+    this.trackInfo = trackInfo
     if (this.pendingCallbacks.length > 0) {
-      this.pendingCallbacks.forEach(cb => cb(this.trackInfo));
-      this.pendingCallbacks = [];
+      this.pendingCallbacks.forEach((cb) => cb(this.trackInfo))
+      this.pendingCallbacks = []
     }
   }
 
-  private createLayerForMap(map: L.Map) {
-    const layerOptions = this.getLayerOptions();
-    const layer = new L.GPX(this.convertedGpx, layerOptions);
-
-    layer.on('addpoint', (e: any) => {
-      if (!e?.point || (e.point_type !== 'start' && e.point_type !== 'end')) {
-        return;
-      }
-      this.disambiguateEdgeMarker(e.point, e.point_type);
-    });
-
-    // 首次加载到地图时提取轨迹信息，并释放等待队列
-    layer.on('add', () => {
-      if (!this.trackInfo.name) {
-        this.setTrackInfo(layer);
-        this.pendingCallbacks.forEach(cb => cb(this.trackInfo));
-        this.pendingCallbacks = [];
-      }
-      console.log('轨迹图层已添加到地图', this.trackInfo);
-    });
-
-    layer.on('mouseover', () => {
-      const callback = this.hoverCallbacks.get(map);
-      if (callback) {
-        callback(this.getTrackInfo(), 'enter');
-      }
-    });
-
-    layer.on('mouseout', () => {
-      const callback = this.hoverCallbacks.get(map);
-      if (callback) {
-        callback(this.getTrackInfo(), 'leave');
-      }
-    });
-
-    layer.on('click', (e: any) => {
-      console.log('GPX layer click event fired on map:', map);
-      const callback = this.clickCallbacks.get(map);
-      console.log('Callback found:', !!callback);
-      if (callback) {
-        callback(this.getTrackInfo());
-      }
-    });
-
-    if (!this.trackLayer) {
-      this.trackLayer = layer;
+  private createLayerForMap(map: maplibregl.Map): TrackLayerRef {
+    const hash = this.hashTrackId(this.trackId)
+    const sourceId = `track-src-${hash}`
+    const layerId = `track-layer-${hash}`
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: { type: 'LineString', coordinates: this.coordinates },
+        },
+      })
     }
-    return layer;
+    if (!map.getLayer(layerId)) {
+      map.addLayer({
+        id: layerId,
+        type: 'line',
+        source: sourceId,
+        paint: {
+          'line-color': this.lineColor ?? getDefaultLineColor(true),
+          'line-width': 3,
+          'line-opacity': 0.8,
+        },
+      })
+    }
+    map.on('mouseenter', layerId, () => {
+      const cb = this.hoverCallbacks.get(map)
+      if (cb) cb(this.getTrackInfo(), 'enter')
+    })
+    map.on('mouseleave', layerId, () => {
+      const cb = this.hoverCallbacks.get(map)
+      if (cb) cb(this.getTrackInfo(), 'leave')
+    })
+    map.on('click', layerId, () => {
+      const cb = this.clickCallbacks.get(map)
+      if (cb) cb(this.getTrackInfo())
+    })
+    this.addEdgeMarkers(map)
+    if (!this.trackInfo.name) {
+      this.trackInfo = { ...this.trackInfo, ...computeTrackInfo(this.points) }
+      this.pendingCallbacks.forEach((cb) => cb(this.trackInfo))
+      this.pendingCallbacks = []
+    }
+    return { sourceId, layerId }
   }
 
-  /**
-   * @description: 设置轨迹统计信息，从GPX图层中提取各类数据
-   * @param {L.GPX} trackLayer - GPX轨迹图层
-   */
-  setTrackInfo(trackLayer: L.GPX) {
-    this.trackInfo = {
-      name: trackLayer.get_name(),             // 轨迹名称
-      distance: trackLayer.get_distance(),      // 总距离
-      startTime: trackLayer.get_start_time(),  // 开始时间
-      endTime: trackLayer.get_end_time(),      // 结束时间
-      movingTime: trackLayer.get_moving_time(),        // 移动时间
-      totalTime: trackLayer.get_total_time(),          // 总时间
-      movingPace: trackLayer.get_moving_pace(),         // 移动配速
-      movingSpeed: trackLayer.get_moving_speed(),       // 移动速度
-      totalSpeed: trackLayer.get_total_speed(),         // 总速度
-      elevationMin: trackLayer.get_elevation_min(),     // 最低海拔
-      elevationMax: trackLayer.get_elevation_max(),     // 最高海拔
-      elevationGain: trackLayer.get_elevation_gain(),   // 累计爬升
-      elevationLoss: trackLayer.get_elevation_loss(),   // 累计下降
-      speedMax: trackLayer.get_speed_max(),             // 最大速度
-      averageHr: trackLayer.get_average_hr?.(),        // 平均心率
-      averageCadence: trackLayer.get_average_cadence?.(), // 平均踏频
-      averageTemp: trackLayer.get_average_temp?.(),     // 平均温度
-    }
+  private addEdgeMarkers(map: maplibregl.Map) {
+    if (this.points.length === 0) return
+    const start = this.points[0]
+    const end = this.points[this.points.length - 1]
+    const startEl = createEdgeMarkerElement(startIconUrl, 'track-marker-start')
+    const endEl = createEdgeMarkerElement(endIconUrl, 'track-marker-end')
+    const startMarker = new maplibregl.Marker({ element: startEl, anchor: 'bottom' })
+      .setLngLat(toMapLibreLngLat(start.lat, start.lng))
+      .addTo(map)
+    const endMarker = new maplibregl.Marker({ element: endEl, anchor: 'bottom' })
+      .setLngLat(toMapLibreLngLat(end.lat, end.lng))
+      .addTo(map)
+    this.disambiguateEdgeMarker(startMarker, 'start')
+    this.disambiguateEdgeMarker(endMarker, 'end')
+    this.edgeMarkers.set(map, [startMarker, endMarker])
   }
 
-  /**
-   * @description: 将轨迹图层添加到指定地图
-   * @param {L.Map} map - 地图实例
-   */
-  addMap(map: L.Map) {
+  addMap(map: maplibregl.Map) {
     if (!map) {
       console.error('addMap called with undefined map')
       return
     }
     if (!this.mapInstances.includes(map)) {
-      this.mapInstances.push(map);
+      this.mapInstances.push(map)
     }
-    // 轨迹内容尚未就绪时先仅记录地图，待构造流程自动 addTo
-    if (!this.convertedGpx) {
+    if (this.coordinates.length === 0) {
       return
     }
-
-    let layer = this.layerByMap.get(map);
-    if (!layer) {
-      layer = this.createLayerForMap(map);
-      this.layerByMap.set(map, layer);
-    }
-
-    if (!map.hasLayer(layer)) {
-      map.addLayer(layer);
+    let ref = this.layerByMap.get(map)
+    if (!ref) {
+      ref = this.createLayerForMap(map)
+      this.layerByMap.set(map, ref)
+    } else if (map.getLayer(ref.layerId)) {
+      map.setLayoutProperty(ref.layerId, 'visibility', 'visible')
     }
   }
 
-  /**
-   * @description: 获取轨迹ID
-   * @return {string}
-   */
   getTrackId() {
-    return this.trackId;
+    return this.trackId
   }
 
-  /**
-   * @description: 获取轨迹图层实例
-   * @return {L.GPX}
-   */
-  getTrackLayer(map?: L.Map) {
+  getTrackLayer(map?: maplibregl.Map) {
     if (map) {
-      return this.layerByMap.get(map);
+      return this.layerByMap.get(map)
     }
-    return this.trackLayer;
+    return undefined
   }
 
-  removeMap(map: L.Map) {
-    const layer = this.layerByMap.get(map);
-    if (layer && map.hasLayer(layer)) {
-      map.removeLayer(layer);
+  removeMap(map: maplibregl.Map) {
+    const ref = this.layerByMap.get(map)
+    if (ref) {
+      if (map.getLayer(ref.layerId)) map.removeLayer(ref.layerId)
+      if (map.getSource(ref.sourceId)) map.removeSource(ref.sourceId)
     }
-    this.layerByMap.delete(map);
-    this.hoverCallbacks.delete(map);
-    this.clickCallbacks.delete(map);
+    const markers = this.edgeMarkers.get(map)
+    if (markers) {
+      markers.forEach((m) => m.remove())
+      this.edgeMarkers.delete(map)
+    }
+    this.layerByMap.delete(map)
+    this.hoverCallbacks.delete(map)
+    this.clickCallbacks.delete(map)
 
-    const index = this.mapInstances.indexOf(map);
+    const index = this.mapInstances.indexOf(map)
     if (index !== -1) {
-      this.mapInstances.splice(index, 1);
+      this.mapInstances.splice(index, 1)
     }
   }
 
-  /**
-   * @description: 获取该轨迹所在的地图实例数组
-   * @return {L.Map[]}
-   */
   getMapInstances() {
-    return this.mapInstances;
+    return this.mapInstances
   }
 
-  /**
-   * @description: 获取轨迹统计信息
-   * @return {Partial<TrackInfo>}
-   */
   getTrackInfo() {
-    return this.trackInfo;
+    return this.trackInfo
   }
 
-  /**
-   * @description: 获取轨迹线颜色
-   * @return {string | undefined}
-   */
   getLineColor() {
-    return this.lineColor;
+    return this.lineColor
   }
 
-  setHoverCallback(map: L.Map, callback: (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void) {
-    this.hoverCallbacks.set(map, callback);
+  setHoverCallback(map: maplibregl.Map, callback: (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void) {
+    this.hoverCallbacks.set(map, callback)
   }
 
-  setClickCallback(map: L.Map, callback: (trackInfo: Partial<TrackInfo>) => void) {
-    this.clickCallbacks.set(map, callback);
+  setClickCallback(map: maplibregl.Map, callback: (trackInfo: Partial<TrackInfo>) => void) {
+    this.clickCallbacks.set(map, callback)
   }
 
-  /**
-   * @description: 高亮指定地图上的轨迹
-   * @param {L.Map} map - 地图实例
-   * @param {string} mapId - 地图唯一ID
-   */
-  highlight(map: L.Map, mapId: string) {
-    console.log('Highlight called for mapId:', mapId, 'current highlighted:', this.highlightedMapId);
+  highlight(map: maplibregl.Map, mapId: string) {
     if (this.highlightedMapId === mapId) {
-      console.log('Already highlighted, skipping');
-      return;
+      return
     }
-    
-    this.unhighlight();
-    this.highlightedMapId = mapId;
-    
-    const gpxLayer = this.layerByMap.get(map);
-    console.log('GPX Layer:', gpxLayer, 'Layers:', gpxLayer?.getLayers());
-    if (gpxLayer) {
-      const layers = gpxLayer.getLayers();
-      layers.forEach((layer: any) => {
-        console.log('Layer:', layer, 'has setStyle:', typeof layer.setStyle);
-        if (layer.setStyle) {
-          layer.setStyle({
-            color: '#409eff',
-            weight: 6,
-            opacity: 1
-          });
-        }
-        if (layer.bringToFront) {
-          layer.bringToFront();
-        }
-      });
+    this.unhighlight()
+    this.highlightedMapId = mapId
+
+    const ref = this.layerByMap.get(map)
+    if (ref && map.getLayer(ref.layerId)) {
+      map.setPaintProperty(ref.layerId, 'line-color', '#409eff')
+      map.setPaintProperty(ref.layerId, 'line-width', 6)
+      map.setPaintProperty(ref.layerId, 'line-opacity', 1)
+      map.moveLayer(ref.layerId)
     }
   }
 
-  /**
-   * @description: 取消高亮
-   */
   unhighlight() {
-    if (!this.highlightedMapId) return;
-    
-    this.mapInstances.forEach(map => {
-      const gpxLayer = this.layerByMap.get(map);
-      if (gpxLayer) {
-        const layers = gpxLayer.getLayers();
-        layers.forEach((layer: any) => {
-          if (layer.setStyle) {
-            layer.setStyle({
-              color: this.lineColor,
-              weight: 4,
-              opacity: 0.8
-            });
-          }
-          if (layer.bringToBack) {
-            layer.bringToBack();
-          }
-        });
+    if (!this.highlightedMapId) return
+
+    this.mapInstances.forEach((map) => {
+      const ref = this.layerByMap.get(map)
+      if (ref && map.getLayer(ref.layerId)) {
+        map.setPaintProperty(ref.layerId, 'line-color', this.lineColor ?? getDefaultLineColor(true))
+        map.setPaintProperty(ref.layerId, 'line-width', 3)
+        map.setPaintProperty(ref.layerId, 'line-opacity', 0.8)
       }
-    });
-    
-    this.highlightedMapId = null;
+    })
+
+    this.highlightedMapId = null
   }
 
-  /**
-   * @description: 监听轨迹信息加载完成事件
-   * 如果轨迹信息已经加载完成则立即执行回调，否则等待加载完成
-   * @param {Function} callback - 回调函数，接收trackInfo参数
-   */
   onTrackInfoReady(callback: (trackInfo: any) => void) {
     if (this.trackInfo && this.trackInfo.name) {
-      // 轨迹信息已加载，直接执行回调
-      callback(this.trackInfo);
+      callback(this.trackInfo)
     } else {
-      // 轨迹信息尚未就绪，加入待处理队列
-      this.pendingCallbacks.push(callback);
+      this.pendingCallbacks.push(callback)
     }
   }
 
-  /**
-   * @description: 将GPX内容中的WGS84坐标转换为GCJ02坐标
-   * @param {string} gpxContent - GPX文件内容
-   * @return {string} 转换后的GPX内容
-   */
-  convertGpxCoordinates(gpxContent: string): string {
-    const parser = new DOMParser();
-    const doc = parser.parseFromString(gpxContent, 'text/xml');
-    const convertedDoc = this.convertDocCoordinates(doc);
-    const serializer = new XMLSerializer();
-    return serializer.serializeToString(convertedDoc);
-  }
-
-  /**
-   * @description: 将文档中所有坐标点从WGS84转换为GCJ02
-   * @param {Document} doc - XML文档
-   * @return {Document}
-   */
-  convertDocCoordinates(doc: Document): Document {
-    const pointTags = ['trkpt', 'rtept', 'wpt'];
-    pointTags.forEach(tagName => {
-      const points = doc.getElementsByTagName(tagName);
-      for (let i = 0; i < points.length; i++) {
-        const pt = points[i];
-        const lat = parseFloat(pt.getAttribute('lat') || '0');
-        const lon = parseFloat(pt.getAttribute('lon') || '0');
-        const [convertedLon, convertedLat] = wgs84ToGcj02(lon, lat);
-        pt.setAttribute('lat', String(convertedLat));
-        pt.setAttribute('lon', String(convertedLon));
-      }
-    });
-    return doc;
-  }
-
-  /**
-   * @description: 将文件读取为文本
-   * @param {File} file - 文件对象
-   * @return {Promise<string>}
-   */
   readFileAsText(file: File): Promise<string> {
     return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => resolve(e.target.result);
-      reader.onerror = (e) => reject(new Error('文件读取失败'));
-      reader.readAsText(file);
-    });
+      const reader = new FileReader()
+      reader.onload = (e) => resolve(e.target!.result as string)
+      reader.onerror = () => reject(new Error('文件读取失败'))
+      reader.readAsText(file)
+    })
   }
 }

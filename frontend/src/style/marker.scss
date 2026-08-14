@@ -13,56 +13,19 @@ $location-border-color: rgba(200, 0, 0, 1);
   word-break: keep-all;
   background-color: $background-color;
   color: rgba(255, 255, 255, 1);
-  // transition: all 1s;
-  // -webkit-transition: all 1s;
-  // -moz-transition: all 1s;
-  // -ms-transition: all 1s;
-  // -o-transition: all 1s;
-  img {
-    width: 100%;
-  }
-}
-
-// 隐藏div元素的外边框
-.leaflet-div-icon {
-  border: unset;
-}
-
-// 高亮可拖动marker
-.leaflet-marker-draggable {
-  border-color: $location-border-color !important;
-  .location {
-    background-color: $location-border-color;
-  }
-}
-
-// 外边的边框
-.leaflet-marker-icon {
   transform-origin: bottom center;
   border-radius: 3px;
   object-fit: cover;
   border: 2px solid $border-color;
+  transition: all 0.15s ease;
   -webkit-border-radius: 3px;
   -moz-border-radius: 3px;
   -ms-border-radius: 3px;
   -o-border-radius: 3px;
+  img {
+    width: 100%;
+  }
 }
-
-.leaflet-marker-icon:not(.leaflet-marker-draggable) {
-  transition: all 0.15s ease;
-  -webkit-transition: all 0.15s ease;
-  -moz-transition: all 0.15s ease;
-  -ms-transition: all 0.15s ease;
-  -o-transition: all 0.15s ease;
-}
-
-.leaflet-marker-icon.leaflet-marker-draggable {
-  // 没有过度动画，避免拖拽延迟
-}
-
-// 定位的小尖尖
-// 不知道为什么伪元素很卡，所以单独再添加一个元素
-// .leaflet-marker-icon::after {
 .location {
   content: '';
   display: inline-block;

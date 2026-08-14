@@ -1,95 +1,57 @@
-/*
- * @Author: your name
- * @Date: 2025-09-13 14:43:09
- * @LastEditTime: 2025-09-13 17:44:35
- * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @Description: In User Settings Edit
- * @FilePath: \Code\picMap_fontend\src\services\map.ts
- */
-import L from "leaflet";
+import * as maplibregl from 'maplibre-gl'
 
-import markerService from "@/services/marker";
-
-import eventBus from "@/utils/eventBus";
+import markerService from '@/services/marker'
+import eventBus from '@/utils/eventBus'
+import { toMapLibreLngLat } from '@/utils/mapLibre'
 
 class MapService {
   // 地图实例
-  private MAP_INSTANCE: L.Map | null;
+  private MAP_INSTANCE: maplibregl.Map | null = null
 
-  /**
-   * @description: 获取地图实例
-   * @param {*}
-   * @return {*}
-   */
   getMapInstance() {
-    return this.MAP_INSTANCE;
+    return this.MAP_INSTANCE
   }
 
-  /**
-   * @description: 初始化地图实例
-   * @param {*}
-   * @return {*}
-   */
-  initMapInstance(mapInstance: L.Map) {
+  initMapInstance(mapInstance: maplibregl.Map) {
     if (!mapInstance) {
-      throw new Error("地图实例不能为空");
+      throw new Error('地图实例不能为空')
     }
-    this.MAP_INSTANCE = mapInstance;
-    // 其他地方也需要使用地图实例，所以需要将地图实例暴露出去
-    markerService.initMapInstance(mapInstance);
+    this.MAP_INSTANCE = mapInstance
+    markerService.initMapInstance(mapInstance)
   }
 
-  /**
-   * @description: 监听地图改变事件，用于更新marker
-   * @param {*} map
-   * @return {*}
-   */
   observeMapChangeToUpgradeMarker() {
-    // 刚开始先更新一波
     setTimeout(() => {
-      markerService.updateVisibleMarkers();
-    }, 100);
-    const map = this.MAP_INSTANCE;
-    // moveend 防抖：缩放/拖动连续触发时，仅在停止后统一加载缩略图，避免高频请求导致卡顿
-    let moveendTimer: ReturnType<typeof setTimeout> | null = null;
-    map.on("moveend", () => {
+      markerService.updateVisibleMarkers()
+    }, 100)
+    const map = this.MAP_INSTANCE
+    let moveendTimer: ReturnType<typeof setTimeout> | null = null
+    map?.on('moveend', () => {
       if (moveendTimer) {
-        clearTimeout(moveendTimer);
+        clearTimeout(moveendTimer)
       }
       moveendTimer = setTimeout(() => {
-        moveendTimer = null;
-        // 更新在可视范围内marker的图片
-        markerService.updateVisibleMarkers();
-      }, 200);
-    });
-    map.on("movestart", () => {
-      // 隐藏所有右击出现的弹框
-      eventBus.emit("hidden-content-menu");
-    });
-    // 地图缩放改变marker大小
-    map.on("zoomend", () => {
-      // scaleMarkerByMap()
-    });
+        moveendTimer = null
+        markerService.updateVisibleMarkers()
+      }, 200)
+    })
+    map?.on('movestart', () => {
+      eventBus.emit('hidden-content-menu')
+    })
   }
 
-  /**
-   * @description: 设置地图中心点
-   * @param {*}
-   * @return {*}
-   */
   setViewByLatLng(lat: number, lng: number) {
     const map = this.MAP_INSTANCE
     if (lat && lng) {
-      map?.setView?.([lat, lng], map.getZoom() ?? 10, {
-        animate: true,
-        duration: 0.5 // 动画持续时间，单位为秒
+      map?.flyTo({
+        center: toMapLibreLngLat(lat, lng),
+        zoom: map.getZoom() ?? 10,
+        duration: 500,
       })
-      return
     }
   }
-
 }
 
-const mapService = new MapService();
+const mapService = new MapService()
 
-export default mapService;
+export default mapService

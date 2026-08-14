@@ -424,7 +424,7 @@ function handleManualLocate(data: { id: string | null; lat: number; lng: number 
     return item.id === data.id
   })
   if (!fileInfo) return
-  const marker = markerService.addManualLocateImageMarkerToMap(fileInfo, data.lat, data.lng)
+  const marker = markerService.addManualLocateImageMarkerToMap(fileInfo, data.lat, data.lng)!
   mapStore.addMarkerId(marker.options.id)
   markerService.addVisibleMarkerById(marker.options.id)
   updateFromLocateInfo(marker, fileInfo)

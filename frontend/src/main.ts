@@ -14,6 +14,7 @@ import { createPinia } from 'pinia'
 import router from '@/router'
 import ElementPlus from 'element-plus'
 import 'element-plus/dist/index.css'
+import 'maplibre-gl/dist/maplibre-gl.css'
 import '@/style/index.scss'
 import '@wailsapp/runtime'
 const pinia = createPinia()

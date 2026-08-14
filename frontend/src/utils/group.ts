@@ -11,7 +11,6 @@ import { editSchemaAndSave, editSchemaAttrAndSave, saveSchema } from './schema';
 import { ElMessage } from 'element-plus';
 import eventBus from '@/utils/eventBus'
 import API from '@/wails/api'
-import L from 'leaflet'
 import { getMarkerImageUrlByIds, isImageExistInImageInfo } from '@/utils/Image'
 import { cloneDeep } from 'lodash-es';
 import type { IGPSInfo, IGroupInfo } from '@/type/schema';
@@ -19,14 +18,8 @@ import type { ICreateGroupInfoData } from '@/type/group'
 import type { INewGroupFormData } from '@/type/schema'
 import { editAppSchemaAttrAndSave } from './appSchema';
 import markerService from '@/services/marker'
-import IconHTMLFactory, { IconType } from "@/utils/iconHTML";
-import {
-  MAP_CONSTANT,
-  MARKER_CONSTANT,
-  GROUP_CONSTANT,
-  imageMarkerTranslateY,
-  groupMarkerTranslateY,
-} from "@/utils/constant";
+import { createGroupMarkerElement } from '@/services/markerAdapter'
+import { GROUP_CONSTANT } from "@/utils/constant";
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -310,8 +303,9 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     return
   }
   const groupMark = markerService.getMarkerById(groupInfo.id)
+  const groupNumbers = groupInfo.groupNumbers ?? []
   // 先只获取前4张图片（marker 小图 120px）
-  const resImageUrls = await getMarkerImageUrlByIds(groupInfo.groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER))
+  const resImageUrls = await getMarkerImageUrlByIds(groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER))
   if (!resImageUrls || resImageUrls.length === 0) {
     ElMessage.error('获取图片失败')
     return
@@ -319,13 +313,7 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
   const imageUrls = resImageUrls.map(item => {
     return item
   })
-  const myIcon = L.divIcon({
-    // 传值使用
-    imageUrls,
-    html: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupInfo.groupNumbers?.length ?? 0),
-    iconSize: MARKER_CONSTANT.GROUP_MARKER_SIZE,
-    iconAnchor: [MARKER_CONSTANT.GROUP_MARKER_SIZE[0] / 2, groupMarkerTranslateY]
-  })
+  const myIcon = createGroupMarkerElement(groupNumbers, imageUrls, groupInfo.name)
   groupMark?.setIcon?.(myIcon)
 }
 

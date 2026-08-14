@@ -4,7 +4,7 @@
  * @LastEditTime: 2026-03-27 15:12:32
  * @FilePath: \PicMap\picMap_fontend\src\components\map\Map.vue
  * @Description: 单独的地图组件
- *   - 使用Leaflet展示分组中图片的位置
+ *   - 使用MapLibre展示分组中图片的位置
  *   - 与主地图使用相同的瓦片
  *   - 点击marker显示图片详情
  *   - hover时有大地图marker相同的动效
@@ -31,14 +31,14 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, type PropType, nextTick } from 'vue';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import * as maplibregl from 'maplibre-gl';
 import { ElIcon } from 'element-plus';
 import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getMarkerImageUrlById } from '@/utils/Image';
-import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, imageMarkerTranslateY } from '@/utils/constant'
-import IconHTMLFactory, { IconType } from '@/utils/iconHTML';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT } from '@/utils/constant'
+import { createImageMarkerIcon, MapMarkerAdapter } from '@/services/markerAdapter';
+import { toMapLibreLngLat } from '@/utils/mapLibre';
 import { useAppStore } from '@/store/appSchema';
 import { useSchemaStore } from '@/store/schema';
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap';
@@ -79,9 +79,9 @@ const appStore = useAppStore()
 const schemaStore = useSchemaStore()
 const mapContainer = ref<HTMLElement>()
 const isFullscreen = ref(false)
-let map: L.Map | null = null
-const markers: L.Marker[] = []
-let normalViewState: { center: L.LatLng; zoom: number } | null = null
+let map: maplibregl.Map | null = null
+const markers: MapMarkerAdapter[] = []
+let normalViewState: { center: { lng: number; lat: number }; zoom: number } | null = null
 
 const hoverCardVisible = ref(false)
 const hoverCardPosition = ref({ x: 0, y: 0 })
@@ -92,7 +92,7 @@ const detailPanelTrackId = ref('')
 const detailPanelTrackInfo = ref<any>(null)
 const detailPanelTrackList = ref<any[]>([])
 const loadedTrackInstances = ref<Set<any>>(new Set())
-const mapInstanceIdMap = new WeakMap<L.Map, string>()
+const mapInstanceIdMap = new WeakMap<maplibregl.Map, string>()
 let mapIdCounter = 0
 let currentSelectedInstance: any = null
 
@@ -116,7 +116,6 @@ function handleTrackChange(instanceId: string) {
 }
 
 function afterResizeTransition(callback: () => void) {
-  // 与 .map 的 0.3s transition 对齐，避免在尺寸动画中间计算边界。
   setTimeout(() => {
     nextTick(() => {
       requestAnimationFrame(() => {
@@ -130,13 +129,14 @@ function toggleFullscreen() {
   if (!map) return
 
   if (!isFullscreen.value) {
+    const c = map.getCenter()
     normalViewState = {
-      center: map.getCenter(),
+      center: { lng: c.lng, lat: c.lat },
       zoom: map.getZoom()
     }
     isFullscreen.value = true
     afterResizeTransition(() => {
-      map?.invalidateSize()
+      map?.resize()
       fitAllBounds()
     })
     return
@@ -145,16 +145,16 @@ function toggleFullscreen() {
   isFullscreen.value = false
   afterResizeTransition(() => {
     if (!map) return
-    map.invalidateSize()
+    map.resize()
     if (normalViewState) {
-      map.setView(normalViewState.center, normalViewState.zoom, { animate: false })
+      map.jumpTo({ center: [normalViewState.center.lng, normalViewState.center.lat], zoom: normalViewState.zoom })
     } else {
       fitAllBounds()
     }
   })
 }
 
-function getMapInstance(): L.Map | null {
+function getMapInstance(): maplibregl.Map | null {
   return map
 }
 
@@ -164,19 +164,13 @@ function getMapInstance(): L.Map | null {
  * @returns 瓦片URL字符串
  */
 function getCurrentTileUrl(): String {
-  // 获取激活的瓦片ID列表（从schemaStore获取）
   const activeTiles = schemaStore.getSchema?.mapInfo?.activeTiles ?? []
-  // 获取用户自定义瓦片（从appStore获取）
   const customTiles = appStore.getAppSchema?.mapInfo?.mapTiles ?? []
-  // 获取默认瓦片ID
   const defaultTileId = appStore.getAppSchema?.mapInfo?.defaultTileId ?? ''
-  // 获取默认瓦片
   const defaultTiles = getDefaultMapTile()
 
-  // 合并所有瓦片
   const allTiles = [...defaultTiles, ...customTiles]
 
-  // 优先使用 defaultTileId 对应的瓦片
   if (defaultTileId && activeTiles.includes(defaultTileId)) {
     const defaultTile = allTiles.find(tile => tile.id === defaultTileId)
     if (defaultTile) {
@@ -184,43 +178,36 @@ function getCurrentTileUrl(): String {
     }
   }
 
-  // 其次使用激活的瓦片中第一个
   const currentTile = allTiles.find(tile => activeTiles.includes(tile.id))
 
-  // 返回瓦片URL，默认使用高德卫星图
   return currentTile?.url as string || defaultTiles[0]?.url
 }
 
 /**
  * 初始化地图
- * 创建Leaflet地图实例并添加瓦片图层
+ * 创建MapLibre地图实例并添加瓦片图层
  */
 async function initMap() {
   if (!mapContainer.value) return
 
-  // 创建地图实例
-  map = L.map(mapContainer.value, {
-    zoomControl: false,      // 隐藏缩放控件
-    attributionControl: false, // 隐藏归属信息
+  map = new maplibregl.Map({
+    container: mapContainer.value,
+    style: { version: 8, sources: {}, layers: [] },
+    attributionControl: false,
     minZoom: 3,
-    maxZoom: 18
+    maxZoom: 18,
   })
 
-  // 为当前地图实例生成唯一 ID
   mapInstanceIdMap.set(map, String(++mapIdCounter))
 
-  // 添加瓦片图层，使用与主地图相同的瓦片
   const tileUrl = getCurrentTileUrl()
-  L.tileLayer(tileUrl, {
-    maxZoom: 19
-  }).addTo(map)
+  map.addSource('tile', { type: 'raster', tiles: [tileUrl as string], tileSize: 256 })
+  map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
 
-  // 初始化标记
   await updateMarkers()
 
   await updateTracks()
 
-  // 修复地图在隐藏容器中初始化时瓦片不加载的问题
   invalidateMapSize()
 }
 
@@ -229,7 +216,7 @@ async function initMap() {
  */
 function invalidateMapSize() {
   setTimeout(() => {
-    map?.invalidateSize()
+    map?.resize()
   }, 100)
 }
 
@@ -239,32 +226,18 @@ function invalidateMapSize() {
  */
 function fitAllBounds() {
   if (!map) return
-  // 先使地图尺寸生效，确保边界计算正确
-  map.invalidateSize()
-  const allBounds: L.LatLngBoundsExpression[] = []
+  map.resize()
+  const coords: [number, number][] = []
 
-  // 获取所有marker的边界
   markers.forEach(marker => {
     const latlng = marker.getLatLng()
-    allBounds.push([latlng.lat, latlng.lng])
+    coords.push([latlng.lng, latlng.lat])
   })
 
-  // 获取地图上可见的轨迹的边界
-  trackService.getInstances().forEach(instance => {
-    const trackLayer = instance.getTrackLayer(map)
-    if (trackLayer && map?.hasLayer(trackLayer)) {
-      console.log('fitAllBounds found track layer:', trackLayer)
-      allBounds.push(trackLayer.getBounds())
-    }
-  })
-
-  console.log('fitAllBounds allBounds count:', allBounds.length)
-  if (allBounds.length > 0) {
-    const bounds = L.latLngBounds(allBounds)
-    map.fitBounds(bounds, { padding: [10, 10] })
+  if (coords.length > 0) {
+    map.fitBounds(coords as any, { padding: 20 })
   } else {
-    // 如果没有任何标记或轨迹，则使用默认中心和缩放级别
-    map.setView(DEFAULT_CENTER, DEFAULT_ZOOM)
+    map.jumpTo({ center: toMapLibreLngLat(DEFAULT_CENTER[0], DEFAULT_CENTER[1]), zoom: DEFAULT_ZOOM })
   }
 }
 
@@ -274,19 +247,16 @@ function fitAllBounds() {
  */
 function clearMarkers() {
   markers.forEach(marker => {
-    map?.removeLayer(marker)
+    marker.remove()
   })
   markers.length = 0
 }
 
 /**
  * 高亮marker（hover效果）
- * 通过修改CSS transform实现放大效果，与大地图marker动效一致
- * 同时将marker的z-index提高，使其显示在最前面
- * @param marker Leaflet标记实例
+ * @param marker MapLibre标记适配器
  */
-function highlightMarker(marker: L.Marker) {
-  // 提高z-index使marker显示在最前面
+function highlightMarker(marker: MapMarkerAdapter) {
   marker.setZIndexOffset(1000)
 
   const markerElement = marker.getElement();
@@ -294,7 +264,6 @@ function highlightMarker(marker: L.Marker) {
     const oldTransformCss = markerElement.style.transform;
     let newTransformCss = "";
     if (oldTransformCss.includes("scale")) {
-      // 如果已存在scale，则替换为hover比例
       newTransformCss = oldTransformCss
         .replace(
           /scale\([^)]*\)/,
@@ -302,7 +271,6 @@ function highlightMarker(marker: L.Marker) {
         )
         .trim();
     } else {
-      // 如果不存在scale，则添加hover比例
       newTransformCss = `${oldTransformCss} scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`;
     }
     markerElement.style.transform = newTransformCss;
@@ -311,11 +279,9 @@ function highlightMarker(marker: L.Marker) {
 
 /**
  * 重置marker（取消hover效果）
- * 将scale恢复为正常比例，同时恢复z-index
- * @param marker Leaflet标记实例
+ * @param marker MapLibre标记适配器
  */
-function resetMarker(marker: L.Marker) {
-  // 恢复z-index
+function resetMarker(marker: MapMarkerAdapter) {
   marker.setZIndexOffset(0)
 
   const markerElement = marker.getElement();
@@ -338,17 +304,14 @@ function resetMarker(marker: L.Marker) {
 async function updateMarkers() {
   if (!map) return
 
-  // 清除现有标记
   clearMarkers()
 
-  // 收集有GPS信息的图片
   const validImages: { id: string; lat: number; lng: number }[] = []
 
   for (const imgId of props.imageIds) {
     const imageInfoDetail = getSchemaInfoById(imgId) as any
     if (imageInfoDetail) {
       const GPSInfo = imageInfoDetail.GPSInfo || {}
-      // 检查GPS坐标是否有效
       if (GPSInfo.GPSLatitude && GPSInfo.GPSLongitude) {
         validImages.push({
           id: imgId,
@@ -359,42 +322,24 @@ async function updateMarkers() {
     }
   }
 
-  // 为每张图片创建marker
   for (const img of validImages) {
-    // 获取 marker 专用小图（120px）
     const imageUrl = await getMarkerImageUrlById(img.id)
-    let icon: L.DivIcon
+    const imageInfoDetail = getSchemaInfoById(img.id) as any
+    const icon = createImageMarkerIcon(
+      { id: img.id, name: imageInfoDetail?.name || '无', type: '', GPSInfo: {} as any } as any,
+      imageUrl || undefined
+    )
 
-    if (imageUrl) {
-      // 有图片的情况
-      icon = L.divIcon({
-        html: IconHTMLFactory.createIcon(IconType.SingleImage, imageUrl),
-        iconUrl: imageUrl,
-        iconSize: MARKER_CONSTANT.IMAGE_MARKER_SIZE,
-        iconAnchor: [MARKER_CONSTANT.IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY]
-      })
-    } else {
-      // 无图片的情况
-      const imageInfoDetail = getSchemaInfoById(img.id) as any
-      icon = L.divIcon({
-        html: IconHTMLFactory.createIcon(IconType.NoImage, imageInfoDetail?.name || '无'),
-        iconSize: MARKER_CONSTANT.IMAGE_MARKER_SIZE,
-        iconAnchor: [MARKER_CONSTANT.IMAGE_MARKER_SIZE[0] / 2, imageMarkerTranslateY]
-      })
-    }
-
-    // 创建marker
-    const marker = L.marker([img.lat, img.lng], {
+    const marker = new MapMarkerAdapter(
       icon,
-      title: getSchemaInfoById(img.id)?.name || ''
-    })
+      toMapLibreLngLat(img.lat, img.lng),
+      { id: img.id, type: 'image', iconUrl: icon.iconUrl }
+    )
 
-    // 点击事件：显示图片详情
     marker.on('click', () => {
       emit('markerClick', img.id)
     })
 
-    // hover事件：与大地图marker一致的动效
     marker.on('mouseover', () => {
       highlightMarker(marker)
     })
@@ -402,7 +347,6 @@ async function updateMarkers() {
       resetMarker(marker)
     })
 
-    // 添加到地图
     marker.addTo(map!)
     markers.push(marker)
   }
@@ -422,21 +366,18 @@ async function updateTracks() {
   const targetTrackIds = props.trackIds || []
   const normalizedTargetIds = targetTrackIds.map(id => normalizeTrackId(id))
 
-  // 先隐藏不在目标列表中的轨迹
   trackService.getInstances().forEach(instance => {
-    const trackLayer = instance.getTrackLayer(map)
+    const trackLayer = instance.getTrackLayer(map!)
     if (!trackLayer) return
     const isTarget = normalizedTargetIds.includes(normalizeTrackId(instance.getTrackId()))
-    if (!isTarget && map?.hasLayer(trackLayer)) {
-      map.removeLayer(trackLayer)
+    if (!isTarget && map?.getLayer(trackLayer.layerId)) {
+      map.removeLayer(trackLayer.layerId)
     }
   })
 
-  // 预加载所有轨迹到详情面板列表
   detailPanelTrackList.value = []
   loadedTrackInstances.value.clear()
 
-  // 再确保目标轨迹都已加载并显示到当前地图
   for (const trackId of targetTrackIds) {
     const instance = await ensureTrackLoaded(trackId)
     if (instance) {
@@ -451,7 +392,7 @@ async function updateTracks() {
       const instanceId = trackId + '_' + mapId
 
       if (!detailPanelTrackList.value.find(t => t.instanceId === instanceId)) {
-        instance.onTrackInfoReady((info) => {
+        instance.onTrackInfoReady((info: any) => {
           if (!detailPanelTrackList.value.find(t => t.instanceId === instanceId)) {
             detailPanelTrackList.value.push({ instanceId, id: trackId, instance, ...info })
           }
@@ -463,7 +404,7 @@ async function updateTracks() {
         }
       }
 
-      instance.setHoverCallback(map, (info, event) => {
+      instance.setHoverCallback(map, (info: any, event: string) => {
         if (event === 'enter') {
           hoverCardVisible.value = true
           hoverTrackInfo.value = info
@@ -472,19 +413,14 @@ async function updateTracks() {
         }
       })
 
-      instance.setClickCallback(map, (info) => {
-        console.log('Click callback triggered for track:', trackId, 'instanceId:', instanceId)
+      instance.setClickCallback(map, (info: any) => {
         if (!isFullscreen.value) {
-          console.log('Not fullscreen, skipping');
           return
         }
         if (currentSelectedInstance && currentSelectedInstance !== instance) {
-          console.log('Unhighlighting previous instance');
           currentSelectedInstance.unhighlight()
         }
-        const mapId = mapInstanceIdMap.get(map)
-        console.log('Highlighting track, mapId:', mapId);
-        instance.highlight(map, instanceId)
+        instance.highlight(map!, instanceId)
         currentSelectedInstance = instance
         detailPanelTrackId.value = instanceId
         detailPanelTrackInfo.value = { instanceId, id: trackId, instance, ...info }
