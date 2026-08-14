@@ -427,7 +427,7 @@ class MarkerService {
 
   markerMouseListener(marker: MapMarkerAdapter) {
     if (!marker) return
-    marker.on('click', (event: MouseEvent) => {
+    marker.on('click', (event: any) => {
       eventBus.emit('show-image-data', event)
     })
     marker.on('contextmenu', (event: MouseEvent) => {
@@ -442,22 +442,16 @@ class MarkerService {
   }
 
   highlightMarker(marker: MapMarkerAdapter) {
-    const el = marker.getElement()
+    const el = marker.getInnerElement()
     if (el) {
-      const old = el.style.transform
-      const next = old.includes('scale')
-        ? old.replace(/scale\([^)]*\)/, `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`).trim()
-        : `${old} scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`
-      el.style.transform = next
+      el.style.transform = `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`
     }
   }
 
   resetMarker(marker: MapMarkerAdapter) {
-    const el = marker.getElement()
+    const el = marker.getInnerElement()
     if (el) {
-      el.style.transform = el.style.transform
-        .replace(/scale\([^)]*\)/, `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`)
-        .trim()
+      el.style.transform = `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`
     }
   }
 

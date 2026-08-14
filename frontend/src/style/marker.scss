@@ -9,6 +9,11 @@ $location-border-color: rgba(200, 0, 0, 1);
   will-change: transform;
 }
 
+// 外层定位容器：MapLibre 在这里设置 translate，不设 transition，位移即时生效
+.map-marker {
+  transform-origin: bottom center;
+}
+
 .image-icon {
   text-align: center;
   overflow: hidden;
@@ -16,22 +21,22 @@ $location-border-color: rgba(200, 0, 0, 1);
   word-break: keep-all;
   background-color: $background-color;
   color: rgba(255, 255, 255, 1);
-  transform-origin: bottom center;
   border-radius: 3px;
   object-fit: cover;
   border: 2px solid $border-color;
-  transition: all 0.15s ease;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: center;
+  // 只对缩放（scale）做渐变，位移由外层 .map-marker 即时处理
+  transition: transform 0.3s ease;
+  transform-origin: bottom center;
   -webkit-border-radius: 3px;
   -moz-border-radius: 3px;
   -ms-border-radius: 3px;
   -o-border-radius: 3px;
   img {
     object-fit: cover;
-    transform: translateZ(0);
     backface-visibility: hidden;
   }
 }
