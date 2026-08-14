@@ -1,3 +1,7 @@
+---
+archived-with: 2026-08-14-go-wails-migration
+status: final
+---
 # Design: PicMap Go + Wails 迁移（含图片路径上传）
 
 > 变更：go-wails-migration

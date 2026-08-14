@@ -2,6 +2,7 @@
 change: go-wails-migration
 design-doc: docs/superpowers/specs/2026-08-13-go-wails-migration-design.md
 base-ref: 4d477560d3aeb0b99426800b8d9314a5231173c6
+archived-with: 2026-08-14-go-wails-migration
 ---
 
 # PicMap Go + Wails 迁移收尾实施计划
