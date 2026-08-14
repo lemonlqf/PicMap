@@ -90,3 +90,25 @@
 | P3.6 | 删除文件容错验证 | 需构造删除场景 | 容错路径未验证 |
 
 > 说明：核心功能已通过自动化验证（go build/vet、vue-tsc、wails dev 冒烟、数据兼容性 API 级验证、打包）。上述 5 项为 GUI 交互验证，留待 MapLibre 迁移后的统一回归。
+
+## 代码审查记录（review_mode: standard，日期：2026-08-14）
+
+### 审查结论
+
+无 Critical 问题。审查发现 6 个 Important 问题，其中 3 个已修复，3 个记录为接受风险（详见下）。
+
+### 已修复
+
+| 问题 | 修复 |
+|---|---|
+| Issue 1: GetThumbnail 回退原图返回全尺寸 base64 | 回退原图时 `ResizeToJPEGBytes` 缩到 1000px（HEIC/RAW 无法解码时回退原字节） |
+| Issue 2: 部分解析失败产生空 id 条目 | 推送前过滤零值项 `r.ID != ""` |
+| Issue 4: 缩略图前缀文档写 `_THUMBNAIL_PM_`（带尾下划线），实现为 `_THUMBNAIL_PM` | 已确认 Node 版实际命名为 `_THUMBNAIL_PM`（不带尾下划线），修正文档 |
+
+### 接受的风险（非 Critical，后续处理）
+
+| 问题 | 接受原因 |
+|---|---|
+| Issue 3: thumbCache（sync.Map）无界且删除后不失效 | 单用户图片量有限；MapLibre 迁移后地图层重写，届时一并处理缓存生命周期 |
+| Issue 5: glob 解析含 `[ ] * ?` 的文件名失配 | 罕见文件名场景；Node 版用精确路径，可后续改为 `os.Stat` 精确匹配 |
+| Issue 6: ZIP 解压路径穿越（zip-slip，历史遗留） | 本地桌面应用、备份自产，风险低；可后续统一加路径校验 |

@@ -14,7 +14,7 @@
 
 ### D2. 上传载体：路径数组替代 base64
 
-新增 `ImportImages(userId, files []ImportFile)`，Go 端对每个路径做 `os.Stat` 校验存在性，`os.Open` + `io.Copy` 写入 `images/{id}.{ext}`，信号量 4 并发限流。HEIC/RAW 同时生成 `_THUMBNAIL_PM_` 缩略图文件。
+新增 `ImportImages(userId, files []ImportFile)`，Go 端对每个路径做 `os.Stat` 校验存在性，`os.Open` + `io.Copy` 写入 `images/{id}.{ext}`，信号量 4 并发限流。HEIC/RAW 同时生成 `_THUMBNAIL_PM` 缩略图文件。
 
 ### D3. ID 与扩展名
 

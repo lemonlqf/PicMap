@@ -63,7 +63,7 @@
 - [x] **P1.3** 修改 `internal/handler/handler.go`：新增 `ImportImages` 按路径 `os.Stat` 校验 + `io.Copy` 写入 `images/{id}.{ext}`，保留 4 并发限流，ID 做 `filepath.Base` 清理
 - [x] **P1.4** 在 `app.go` 暴露 `SelectImages`/`ImportImages` 绑定，ctx 传入 handler
 - [x] **P1.5** EXIF 解析下沉 Go 端（`internal/service/exif.go`）：GPS/相机/作者/图像信息全字段，GPS 在 Go 端完成 WGS84→GCJ02
-- [x] **P1.6** 预览图生成服务（`internal/service/preview.go`）：标准格式 imaging 缩略 800px，HEIC/RAW 经外部工具转 JPEG；HEIC/RAW 导入时生成 `_THUMBNAIL_PM_` 缩略图文件
+- [x] **P1.6** 预览图生成服务（`internal/service/preview.go`）：标准格式 imaging 缩略 800px，HEIC/RAW 经外部工具转 JPEG；HEIC/RAW 导入时生成 `_THUMBNAIL_PM` 缩略图文件
 
 ### 2. 前端：调用与解析改造
 

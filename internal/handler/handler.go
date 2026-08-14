@@ -167,9 +167,13 @@ func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 	if len(matches) == 0 {
 		return model.NewSuccessResult(map[string]string{"file": ""})
 	}
-	data, err := os.ReadFile(matches[0])
+	// 标准格式原图 resize 到 1000px，避免返回全尺寸 base64（HEIC/RAW 原图无法解码时回退原字节）
+	data, err := service.ResizeToJPEGBytes(matches[0], service.ThumbnailWidth)
 	if err != nil {
-		return model.NewFailResult("读取图片失败")
+		data, err = os.ReadFile(matches[0])
+		if err != nil {
+			return model.NewFailResult("读取图片失败")
+		}
 	}
 	return model.NewSuccessResult(map[string]string{"file": base64.StdEncoding.EncodeToString(data)})
 }
@@ -795,9 +799,17 @@ func (h *Handler) parseImagesInBatches(filePaths []string) {
 			return
 		}
 
+		// 过滤解析失败产生的零值项，避免空 id 条目推送到前端
+		validResults := make([]model.SelectedImage, 0, len(results))
+		for _, r := range results {
+			if r.ID != "" {
+				validResults = append(validResults, r)
+			}
+		}
+
 		// 推送本批结果
 		runtime.EventsEmit(h.ctx, EventImagesParsed, map[string]interface{}{
-			"images": results,
+			"images": validResults,
 			"errors": errors,
 		})
 
