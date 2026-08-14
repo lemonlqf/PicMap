@@ -151,6 +151,10 @@ export async function saveSchema() {
     delete item.blobUrl
     // 删除缩略图url
     delete item.thumbnailUrl
+    // 删除预览图base64（路径方案新增，体积大，不应入库）
+    delete item.preview
+    // 删除源文件路径（临时值，不应入库）
+    delete item.path
   })
   const res = await API.schema.setSchema({ schema: JSON.stringify(schema) })
   return res
