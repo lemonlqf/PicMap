@@ -24,8 +24,12 @@ import i18n from '@/i18n/index'
  */
 class ImageCacheManager {
   private static instance: ImageCacheManager
-  // 保存缩略图的map，集中在这里管理
+  // 保存缩略图的map，集中在这里管理（大图 1000px）
   private imageUrlsMap: Map<string, string> = new Map()
+  // marker 专用小图缓存（120px）
+  private markerUrlsMap: Map<string, string> = new Map()
+  // in-flight 请求去重：key 为缓存键，value 为进行中的 Promise
+  private pendingMap: Map<string, Promise<string>> = new Map()
 
   // 单例模式，按需创建
   static getInstance(): ImageCacheManager {
@@ -33,6 +37,21 @@ class ImageCacheManager {
       ImageCacheManager.instance = new ImageCacheManager()
     }
     return ImageCacheManager.instance
+  }
+
+  /**
+   * in-flight 去重：同一缓存键的并发请求共享同一个 Promise
+   */
+  fetchDedup(cacheKey: string, fetcher: () => Promise<string>): Promise<string> {
+    const pending = this.pendingMap.get(cacheKey)
+    if (pending) {
+      return pending
+    }
+    const p = fetcher().finally(() => {
+      this.pendingMap.delete(cacheKey)
+    })
+    this.pendingMap.set(cacheKey, p)
+    return p
   }
 
   addImageUrl(imageId: string, imageUrl: string) {
@@ -45,12 +64,12 @@ class ImageCacheManager {
     }
   }
 
-  updateImageUrl(imageId: string, imageUrl: string) {
+  addMarkerImageUrl(imageId: string, imageUrl: string) {
     try {
-      this.imageUrlsMap.set(imageId, imageUrl)
+      this.markerUrlsMap.set(imageId, imageUrl)
       return true
     } catch {
-      console.error('error in ImageCacheManager updateImageUrl')
+      console.error('error in ImageCacheManager addMarkerImageUrl')
       return false
     }
   }
@@ -67,6 +86,14 @@ class ImageCacheManager {
     } catch {
       // 如果获取过程中发生错误，捕获异常并在控制台输出错误信息
       console.error('error in ImageCacheManager getImageUrl')
+    }
+  }
+
+  getMarkerImageUrl(imageId: string) {
+    try {
+      return this.markerUrlsMap.get(imageId)
+    } catch {
+      console.error('error in ImageCacheManager getMarkerImageUrl')
     }
   }
 
@@ -87,6 +114,7 @@ class ImageCacheManager {
    */
   deleteImageUrl(imageId: string) {
     try {
+      this.markerUrlsMap.delete(imageId)
       return this.imageUrlsMap.delete(imageId)
     } catch {
       console.error('error in ImageCacheManager deleteImageUrl')
@@ -125,28 +153,50 @@ export function isImageExist(imageId: string) {
 }
 
 /**
- * @description: 获取单张图片的url，内部实现了复用的逻辑
+ * @description: 获取单张图片的url（大图 1000px），内部实现缓存与 in-flight 去重
  * @param {string} imageId
  * @return {*}
  */
 export async function getImageUrlById(imageId: string) {
+  const cache = ImageCacheManager.getInstance()
   // 如果已经存在，则直接返回
-  if (isImageExist(imageId)) {
-    return getImageUrl(imageId)
+  const cached = cache.getImageUrl(imageId)
+  if (cached) {
+    return cached
   }
-  // 否则请求图片
-  const res = await API.image.getImage({ imageId }) as any
-  if (res.code !== 200) {
-    return ''
+  // in-flight 去重：并发调用同一图片时共享同一个请求
+  return cache.fetchDedup(`large:${imageId}`, async () => {
+    const res = await API.image.getImage({ imageId }) as any
+    if (res.code !== 200 || !res.data?.file) {
+      // 无缩略图不缓存，避免缓存坏 data URL
+      return ''
+    }
+    const imageUrl = fileToBase64(res.data.file)
+    cache.addImageUrl(imageId, imageUrl)
+    return imageUrl
+  })
+}
+
+/**
+ * @description: 获取 marker 专用小尺寸缩略图（120px），减少缩放加载时的解码开销
+ * @param {string} imageId
+ * @return {*}
+ */
+export async function getMarkerImageUrlById(imageId: string) {
+  const cache = ImageCacheManager.getInstance()
+  const cached = cache.getMarkerImageUrl(imageId)
+  if (cached) {
+    return cached
   }
-  // 无缩略图（HEIC/RAW 未生成缩略图时后端返回空串），不缓存，避免缓存坏 data URL
-  if (!res.data?.file) {
-    return ''
-  }
-  const imageUrl = fileToBase64(res.data.file)
-  // 将图片保存到映射表中
-  addImageUrl(imageId, imageUrl)
-  return imageUrl
+  return cache.fetchDedup(`marker:${imageId}`, async () => {
+    const res = await API.image.getMarkerImage({ imageId }) as any
+    if (res.code !== 200 || !res.data?.file) {
+      return ''
+    }
+    const imageUrl = fileToBase64(res.data.file)
+    cache.addMarkerImageUrl(imageId, imageUrl)
+    return imageUrl
+  })
 }
 
 /**
@@ -237,7 +287,7 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
       // 上传成功后，将预览图作为缩略图缓存
       if (imageInfo.preview) {
         const previewUrl = `data:image/jpeg;base64,${imageInfo.preview}`
-        ImageCacheManager.getInstance().updateImageUrl(imageInfo.id, previewUrl)
+        ImageCacheManager.getInstance().addImageUrl(imageInfo.id, previewUrl)
       }
       // 将图片保存到已经上传的地方
       schemaStore.pushImageToUploadedImageIds(imageInfo.id)

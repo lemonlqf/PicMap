@@ -46,6 +46,10 @@ export function GetFullImage(arg1, arg2) {
   return window['go']['main']['App']['GetFullImage'](arg1, arg2);
 }
 
+export function GetMarkerThumbnail(arg1, arg2) {
+  return window['go']['main']['App']['GetMarkerThumbnail'](arg1, arg2);
+}
+
 export function GetSchema(arg1) {
   return window['go']['main']['App']['GetSchema'](arg1);
 }

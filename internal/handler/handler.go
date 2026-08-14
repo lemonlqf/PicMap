@@ -27,10 +27,11 @@ import (
 )
 
 type Handler struct {
-	cfg     *config.Config
-	ctx     context.Context
-	mu      sync.Mutex
-	parsing atomic.Bool
+	cfg        *config.Config
+	ctx        context.Context
+	mu         sync.Mutex
+	parsing    atomic.Bool
+	thumbCache sync.Map // marker 缩略图 base64 缓存，key: userId+"/"+imageId
 }
 
 func New(cfg *config.Config, ctx context.Context) *Handler {
@@ -171,6 +172,39 @@ func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 		return model.NewFailResult("读取图片失败")
 	}
 	return model.NewSuccessResult(map[string]string{"file": base64.StdEncoding.EncodeToString(data)})
+}
+
+// markerThumbnailWidth marker 专用缩略图宽度（40px 图标 × 3 DPR 留余量）
+const markerThumbnailWidth = 120
+
+// GetMarkerThumbnail 返回 marker 专用小尺寸缩略图（120px），避免缩放加载时解码 1000px 大图导致卡顿
+func (h *Handler) GetMarkerThumbnail(userId, imageId string) model.Result {
+	cacheKey := userId + "/" + imageId
+	if v, ok := h.thumbCache.Load(cacheKey); ok {
+		return model.NewSuccessResult(map[string]string{"file": v.(string)})
+	}
+
+	imageDir := h.cfg.ImageDirPath(userId)
+	baseName := util.BaseWithoutExt(imageId)
+
+	// 优先缩略图文件（JPEG，可直接解码），否则原图
+	filePath := ""
+	if matches, _ := filepath.Glob(filepath.Join(imageDir, "_THUMBNAIL_PM"+baseName+"*")); len(matches) > 0 {
+		filePath = matches[0]
+	} else if matches, _ := filepath.Glob(filepath.Join(imageDir, "PM"+baseName+".*")); len(matches) > 0 {
+		filePath = matches[0]
+	}
+	if filePath == "" {
+		return model.NewSuccessResult(map[string]string{"file": ""})
+	}
+
+	data, err := service.ResizeToJPEGBytes(filePath, markerThumbnailWidth)
+	if err != nil {
+		return model.NewSuccessResult(map[string]string{"file": ""})
+	}
+	b64 := base64.StdEncoding.EncodeToString(data)
+	h.thumbCache.Store(cacheKey, b64)
+	return model.NewSuccessResult(map[string]string{"file": b64})
 }
 
 func (h *Handler) GetThumbnails(userId string, imageIds []string) model.Result {

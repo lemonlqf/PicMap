@@ -41,6 +41,9 @@ func (a *App) SetSchema(userId, schemaJSON string) model.Result { return a.handl
 func (a *App) GetThumbnail(userId, imageId string) model.Result {
 	return a.handler.GetThumbnail(userId, imageId)
 }
+func (a *App) GetMarkerThumbnail(userId, imageId string) model.Result {
+	return a.handler.GetMarkerThumbnail(userId, imageId)
+}
 func (a *App) GetThumbnails(userId string, imageIds []string) model.Result {
 	return a.handler.GetThumbnails(userId, imageIds)
 }

@@ -24,6 +24,8 @@ export function GetBackupSize():Promise<model.Result>;
 
 export function GetFullImage(arg1:string,arg2:string):Promise<model.Result>;
 
+export function GetMarkerThumbnail(arg1:string,arg2:string):Promise<model.Result>;
+
 export function GetSchema(arg1:string):Promise<model.Result>;
 
 export function GetThumbnail(arg1:string,arg2:string):Promise<model.Result>;

@@ -50,9 +50,17 @@ class MapService {
       markerService.updateVisibleMarkers();
     }, 100);
     const map = this.MAP_INSTANCE;
+    // moveend 防抖：缩放/拖动连续触发时，仅在停止后统一加载缩略图，避免高频请求导致卡顿
+    let moveendTimer: ReturnType<typeof setTimeout> | null = null;
     map.on("moveend", () => {
-      // 更新在可视范围内marker的图片
-      markerService.updateVisibleMarkers();
+      if (moveendTimer) {
+        clearTimeout(moveendTimer);
+      }
+      moveendTimer = setTimeout(() => {
+        moveendTimer = null;
+        // 更新在可视范围内marker的图片
+        markerService.updateVisibleMarkers();
+      }, 200);
     });
     map.on("movestart", () => {
       // 隐藏所有右击出现的弹框

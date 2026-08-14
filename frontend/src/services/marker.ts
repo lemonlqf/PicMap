@@ -23,7 +23,7 @@ import {
   groupMarkerTranslateY,
 } from "@/utils/constant";
 import { judgeHadUploadImage } from "@/utils/schema";
-import { getImageUrlById, getImageUrlByIds } from "@/utils/Image";
+import { getImageUrlById, getImageUrlByIds, getMarkerImageUrlById } from "@/utils/Image";
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from "@/utils/group";
 import eventBus from "@/utils/eventBus";
 import { GPSInfoLegality } from "@/utils/map";
@@ -623,9 +623,9 @@ class MarkerService {
       // 如果本身就有照片了，那就不用请求图片了（这种情况出现在获取图片后手动上传时，此时已有图片）
       return;
     }
-    // move地图后请求图片数据
+    // move地图后请求图片数据（marker 用 120px 小图，减少解码开销）
     if (index === -1 && isInSchema) {
-      const fileUrl = await getImageUrlById(marker.options.id);
+      const fileUrl = await getMarkerImageUrlById(marker.options.id);
       if (!fileUrl || fileUrl === "") {
         // 如果没有请求成功需要先删除掉
         mapStore.deleteVisbleMarkerId(marker.options.id);

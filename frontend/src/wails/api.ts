@@ -80,6 +80,16 @@ export async function getImage(data: { imageId: string }) {
   throw new Error('Wails bindings not available')
 }
 
+// marker 专用小尺寸缩略图（120px），缩放加载时减少解码开销
+export async function getMarkerImage(data: { imageId: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetMarkerThumbnail(getCurrentUserId(), data.imageId)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 export async function getImages(data: { imageIds: string[] }) {
   const binding = getGoBinding()
   if (binding) {
@@ -270,6 +280,7 @@ const image = {
   selectImages,
   importImages,
   getImage,
+  getMarkerImage,
   getImages,
   deleteImages,
   updateImages,
