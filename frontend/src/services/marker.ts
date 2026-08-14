@@ -74,6 +74,8 @@ class MarkerService {
   private lastClusterMarkers: Map<number, MapMarkerAdapter> = new Map()
   // 上次渲染的 cluster 中心（clusterId -> [lng, lat]）
   private lastClusterCentersById: Map<number, [number, number]> = new Map()
+  // 索引是否需要重建（批量添加图片后统一重建，避免逐张 rebuild 导致动画混乱）
+  private clusterDirty = false
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -92,6 +94,12 @@ class MarkerService {
   private rebuildClusterIndex() {
     this.clusterIndex = new Supercluster({ radius: 50, maxZoom: 17 })
     this.clusterIndex.load(this.imagePoints as any)
+    // 索引重建后 cluster id 全部重新分配，清空旧状态避免 getChildren 报错
+    this.lastClusterIds.clear()
+    this.lastClusterCentersById.clear()
+    this.lastClusterMarkers.clear()
+    this.lastClusterCenters.clear()
+    this.lastShownImageIds.clear()
   }
 
   getMarkerById(markerId: string): MapMarkerAdapter {
@@ -126,7 +134,7 @@ class MarkerService {
     this.markerMouseListener(marker)
     mapStore.addMarkerId(imageInfo.id)
 
-    // 维护聚合索引
+    // 维护聚合索引（标记脏，批量添加后统一重建，避免逐张 rebuild 导致动画混乱）
     this.imagePoints.push({
       type: 'Feature',
       properties: { id: imageInfo.id },
@@ -135,8 +143,7 @@ class MarkerService {
         coordinates: toMapLibreLngLat(imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude),
       },
     })
-    this.rebuildClusterIndex()
-    this.renderClusters()
+    this.clusterDirty = true
   }
 
   async addGroupMarkerToMap(groupInfo: IGroupInfo) {
@@ -289,10 +296,18 @@ class MarkerService {
   // 渲染聚合：moveend 时根据当前视野决定聚合点与单点
   private renderClusters() {
     const map = this.MAP_INSTANCE
-    if (!map || !this.clusterIndex) return
+    if (!map) return
+
+    // 批量添加图片后统一重建索引
+    if (this.clusterDirty || !this.clusterIndex) {
+      this.rebuildClusterIndex()
+      this.clusterDirty = false
+    }
+    if (!this.clusterIndex) return
 
     // 保存上次的 cluster marker 引用与中心（用于合并/分裂动画）
     this.lastClusterMarkers.clear()
+    this.lastClusterCentersById.clear()
     this.clusterMarkers.forEach((marker, id) => {
       this.lastClusterMarkers.set(id, marker)
       const ll = marker.getLatLng()
@@ -348,20 +363,23 @@ class MarkerService {
         const parentId = feature.properties.cluster_id
         const parentCenter = feature.geometry.coordinates as [number, number]
         if (this.lastClusterIds.has(parentId)) return
-        const children = this.clusterIndex.getChildren(parentId) as any[]
+        let children: any[]
+        try {
+          children = this.clusterIndex.getChildren(parentId) as any[]
+        } catch {
+          return
+        }
         children.forEach((child) => {
           if (!child.properties.cluster) return
           const childId = child.properties.cluster_id
           const oldMarker = this.lastClusterMarkers.get(childId)
           if (oldMarker) {
-            const oldCenter = this.lastClusterCentersById.get(childId)
-            if (oldCenter) {
-              this.animateFlyOut(oldMarker, oldCenter, parentCenter)
-              this.lastClusterMarkers.delete(childId)
-            } else {
-              oldMarker.remove()
-              this.lastClusterMarkers.delete(childId)
-            }
+            // 起点用当前 zoom 下子 cluster 的投影，与终点父 cluster 投影同参考系，轨迹为平移
+            const childCoords = child.geometry.coordinates as [number, number]
+            const fromScreen = map.project(childCoords)
+            const toScreen = map.project(parentCenter)
+            this.animateFlyOutToScreen(oldMarker, fromScreen, toScreen)
+            this.lastClusterMarkers.delete(childId)
           }
         })
       })
@@ -385,7 +403,7 @@ class MarkerService {
       if (zoomChanged && !this.lastClusterIds.has(clusterId)) {
         const parentCenter = this.findParentClusterCenter(clusterId)
         if (parentCenter) {
-          this.animateFlyIn(marker, parentCenter, coords)
+          this.animateFlyInToScreen(marker, map.project(parentCenter), map.project(coords))
         }
       }
 
@@ -406,6 +424,8 @@ class MarkerService {
     this.markers.forEach((m) => {
       const t = m.options.type
       if (t !== 'image' && t !== 'temporary-image') return
+      // 跳过动画中的 marker，避免连续缩放时状态冲突
+      if (m.animating) return
 
       const shouldShow = visibleImageIds.has(m.options.id)
       const wasShown = this.lastShownImageIds.has(m.options.id)
@@ -413,9 +433,11 @@ class MarkerService {
 
       if (shouldShow && !wasShown) {
         if (zoomChanged) {
-          const from = this.lastClusterCenters.get(m.options.id)
-          if (from) {
-            this.animateFlyIn(m, from, [latlng.lng, latlng.lat])
+          const fromLngLat = this.lastClusterCenters.get(m.options.id)
+          const fromScreen = fromLngLat ? map.project(fromLngLat) : undefined
+          const toScreen = map.project([latlng.lng, latlng.lat])
+          if (fromScreen) {
+            this.animateFlyInToScreen(m, fromScreen, toScreen)
           } else {
             m.addTo(map)
           }
@@ -424,9 +446,12 @@ class MarkerService {
         }
       } else if (!shouldShow && wasShown) {
         if (zoomChanged) {
-          const to = currentClusterCenters.get(m.options.id)
-          if (to) {
-            this.animateFlyOut(m, [latlng.lng, latlng.lat], to)
+          const toLngLat = currentClusterCenters.get(m.options.id)
+          if (toLngLat) {
+            // 起点用当前 zoom 下的单点投影，与终点 cluster 中心投影同参考系，轨迹为平移
+            const fromScreen = map.project([latlng.lng, latlng.lat])
+            const toScreen = map.project(toLngLat)
+            this.animateFlyOutToScreen(m, fromScreen, toScreen)
           } else {
             m.remove()
           }
@@ -463,7 +488,12 @@ class MarkerService {
   private findParentClusterCenter(clusterId: number): [number, number] | undefined {
     for (const [parentId, parentCenter] of this.lastClusterCentersById) {
       if (parentId === clusterId) continue
-      const children = this.clusterIndex!.getChildren(parentId) as any[]
+      let children: any[]
+      try {
+        children = this.clusterIndex!.getChildren(parentId) as any[]
+      } catch {
+        continue
+      }
       for (const child of children) {
         if (child.properties.cluster && child.properties.cluster_id === clusterId) {
           return parentCenter
@@ -473,64 +503,60 @@ class MarkerService {
     return undefined
   }
 
-  // 聚合动画：单点飞向 cluster 中心，缩小淡出
-  private animateFlyOut(marker: MapMarkerAdapter, fromLngLat: [number, number], toLngLat: [number, number]) {
+  // 聚合动画：单点从旧屏幕位置飞向 cluster 中心（新屏幕位置），不缩小，渐变消失
+  private animateFlyOutToScreen(marker: MapMarkerAdapter, fromScreen: { x: number; y: number }, toScreen: { x: number; y: number }) {
     const map = this.MAP_INSTANCE
     if (!map) {
       marker.remove()
       return
     }
     const el = marker.getElement()
-    const from = map.project(fromLngLat)
-    const to = map.project(toLngLat)
 
     // 从 MapLibre 脱离，手动 append 到 canvas 容器控制 transform
     marker.remove()
     map.getCanvasContainer().appendChild(el)
     el.style.zIndex = '1000'
 
-    const anim = el.animate(
+    marker.runFlyAnimation(
+      el,
       [
-        { transform: `translate(-50%, -100%) translate(${from.x}px, ${from.y}px)` },
-        { transform: `translate(-50%, -100%) translate(${to.x}px, ${to.y}px) scale(0.3)` },
+        { transform: `translate(-50%, -100%) translate(${fromScreen.x}px, ${fromScreen.y}px)`, opacity: '1' },
+        { transform: `translate(-50%, -100%) translate(${toScreen.x}px, ${toScreen.y}px)`, opacity: '0' },
       ],
-      { duration: 260, easing: 'ease-in' }
+      { duration: 300, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' },
+      () => {
+        el.remove()
+      }
     )
-    anim.onfinish = () => {
-      el.remove()
-    }
   }
 
-  // 离散动画：单点从 cluster 中心飞散到各自位置，放大出现
-  private animateFlyIn(marker: MapMarkerAdapter, fromLngLat: [number, number], toLngLat: [number, number]) {
+  // 离散动画：单点从 cluster 中心（旧屏幕位置）飞散到单点位置（新屏幕位置），不缩小，逐渐淡入
+  private animateFlyInToScreen(marker: MapMarkerAdapter, fromScreen: { x: number; y: number }, toScreen: { x: number; y: number }) {
     const map = this.MAP_INSTANCE
     if (!map) {
       marker.addTo(map!)
       return
     }
     const el = marker.getElement()
-    const inner = marker.getInnerElement()
-    const from = map.project(fromLngLat)
-    const to = map.project(toLngLat)
 
     // 从 MapLibre 脱离，手动控制 transform
     marker.remove()
     map.getCanvasContainer().appendChild(el)
     el.style.zIndex = '1000'
-    inner.style.transform = 'scale(0.3)'
 
-    const anim = el.animate(
+    marker.runFlyAnimation(
+      el,
       [
-        { transform: `translate(-50%, -100%) translate(${from.x}px, ${from.y}px)` },
-        { transform: `translate(-50%, -100%) translate(${to.x}px, ${to.y}px)` },
+        { transform: `translate(-50%, -100%) translate(${fromScreen.x}px, ${fromScreen.y}px) scale(1)`, opacity: '0' },
+        { transform: `translate(-50%, -100%) translate(${toScreen.x}px, ${toScreen.y}px) scale(1)`, opacity: '1' },
       ],
-      { duration: 260, easing: 'ease-out' }
+      { duration: 300, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' },
+      () => {
+        el.style.opacity = '1'
+        // 交还给 MapLibre 定位
+        marker.addTo(map)
+      }
     )
-    anim.onfinish = () => {
-      inner.style.transform = 'scale(1)'
-      // 交还给 MapLibre 定位
-      marker.addTo(map)
-    }
   }
 
   private isMarkerOnMap(marker: MapMarkerAdapter): boolean {

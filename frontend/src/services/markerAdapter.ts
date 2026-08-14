@@ -43,6 +43,9 @@ export class MapMarkerAdapter {
   dragging: { enable: () => void; disable: () => void }
   private icon: MarkerIcon
   private innerElement: HTMLElement
+  // 是否正在飞行动画中（renderClusters 应跳过，避免状态冲突）
+  animating = false
+  private currentAnimation: Animation | null = null
 
   constructor(icon: MarkerIcon, lngLat: [number, number], options: MarkerOptions) {
     this.options = options
@@ -66,6 +69,29 @@ export class MapMarkerAdapter {
 
   remove() {
     this.mlMarker.remove()
+  }
+
+  // 取消进行中的飞行动画（用于连续缩放时避免状态冲突）
+  cancelAnimation() {
+    if (this.currentAnimation) {
+      this.currentAnimation.cancel()
+      this.currentAnimation = null
+    }
+    this.animating = false
+  }
+
+  // 开始飞行动画（记录 animating 状态，动画完成后清理）
+  runFlyAnimation(el: HTMLElement, keyframes: Keyframe[], options: KeyframeAnimationOptions, onFinish: () => void) {
+    this.cancelAnimation()
+    this.animating = true
+    const anim = el.animate(keyframes, options)
+    this.currentAnimation = anim
+    anim.onfinish = () => {
+      this.currentAnimation = null
+      this.animating = false
+      onFinish()
+    }
+    return anim
   }
 
   getLatLng(): { lat: number; lng: number; alt: number } {
