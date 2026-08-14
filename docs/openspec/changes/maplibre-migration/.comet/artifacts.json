@@ -1,0 +1,8 @@
+{
+  "openspec_proposal": "docs/openspec/changes/maplibre-migration/proposal.md",
+  "openspec_design": "docs/openspec/changes/maplibre-migration/design.md",
+  "openspec_tasks": "docs/openspec/changes/maplibre-migration/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/maplibre-migration/specs/map-rendering/spec.md",
+  "handoff_context": "docs/openspec/changes/maplibre-migration/.comet/handoff/design-context.json",
+  "handoff_markdown": "docs/openspec/changes/maplibre-migration/.comet/handoff/design-context.md"
+}
