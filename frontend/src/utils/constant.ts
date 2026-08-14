@@ -1,10 +1,10 @@
 /*
  * @Author: your name
  * @Date: 2025-07-17 18:40:56
- * @LastEditTime: 2026-03-19 13:55:48
+ * @LastEditTime: 2026-08-14 19:49:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @Description: In User Settings Edit
- * @FilePath: \PicMap\picMap_fontend\src\utils\constant.ts
+ * @FilePath: \picmap-go\frontend\src\utils\constant.ts
  */
 
 // 默认地图中心点坐标
@@ -38,7 +38,7 @@ export const MARKER_CONSTANT = {
   // 放大比例
   MARKER_SHOW_RADIO: 1,
   // 鼠标悬停时的放大比例
-  MARKER_HOVER_SHOW_RADIO: 1.3,
+  MARKER_HOVER_SHOW_RADIO: 1.5,
 }
 
 // marker向上偏移的量

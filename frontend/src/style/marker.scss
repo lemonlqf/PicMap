@@ -29,7 +29,7 @@ $location-border-color: rgba(200, 0, 0, 1);
   align-items: center;
   justify-content: center;
   // 只对缩放（scale）做渐变，位移由外层 .map-marker 即时处理
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
   transform-origin: bottom center;
   -webkit-border-radius: 3px;
   -moz-border-radius: 3px;

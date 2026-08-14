@@ -37,11 +37,6 @@ const marker = ref<IMarker>({} as IMarker)
 const height = DRAWER_HEIGHT - 10 + 'px'
 
 function drawerShow(event) {
-  // 如果marker不在schema中，则说明是临时添加的，需要出现抽屉
-  // if (!judgeHadUploadImage(event.target.options.id)) {
-  //   return
-  // }
-
   isShow.value = true
 }
 
