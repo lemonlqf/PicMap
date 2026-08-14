@@ -68,6 +68,10 @@ function initMap() {
       initTile()
       initMarker()
     })
+    // 监听地图 pitch 变化（鼠标旋转/手势），同步滑块显示
+    map.on('pitch', () => {
+      pitch.value = Math.round(map!.getPitch())
+    })
   } else {
     map.jumpTo({
       center: toMapLibreLngLat(props.mapCenter[0], props.mapCenter[1]),

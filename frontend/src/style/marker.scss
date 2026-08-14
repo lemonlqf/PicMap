@@ -1,7 +1,7 @@
 $border-color: rgb(122, 195, 224);
 $background-color: rgb(0, 0, 0);
 // 定位标记的宽度
-$location-width: 10px;
+$location-width: 13px;
 $location-border-color: rgba(200, 0, 0, 1);
 
 // MapLibre marker 容器：拖动/旋转时用 transform 更新位置，开启 GPU 合成提升流畅度
@@ -47,19 +47,18 @@ $location-border-color: rgba(200, 0, 0, 1);
   width: $location-width;
   height: $location-width;
   bottom: -4px;
-  right: 15px;
+  left: 50%;
   background-color: $border-color;
   z-index: -1;
-  transform: rotateZ(45deg);
-  -webkit-transform: rotateZ(45deg);
-  -moz-transform: rotateZ(45deg);
-  -ms-transform: rotateZ(45deg);
-  -o-transform: rotateZ(45deg);
+  transform: translateX(-50%) rotateZ(45deg);
+  -webkit-transform: translateX(-50%) rotateZ(45deg);
+  -moz-transform: translateX(-50%) rotateZ(45deg);
+  -ms-transform: translateX(-50%) rotateZ(45deg);
+  -o-transform: translateX(-50%) rotateZ(45deg);
 }
 
 .group-location {
   bottom: -4px;
-  right: 24px;
 }
 
 .group-count-badge {

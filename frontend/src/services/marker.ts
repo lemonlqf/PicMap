@@ -76,9 +76,17 @@ class MarkerService {
   private lastClusterCentersById: Map<number, [number, number]> = new Map()
   // 索引是否需要重建（批量添加图片后统一重建，避免逐张 rebuild 导致动画混乱）
   private clusterDirty = false
+  // 进行中的飞行动画（地图移动时打断，避免错位）
+  private animatingMarkers: Set<MapMarkerAdapter> = new Set()
 
   getMarkerClusters() {
     return this.clusterGroup
+  }
+
+  // 取消所有进行中的飞行动画（地图移动时打断，直接跳到终点状态，避免错位）
+  cancelAllFlyAnimations() {
+    this.animatingMarkers.forEach((m) => m.finishAnimation())
+    this.animatingMarkers.clear()
   }
 
   initMapInstance(mapInstance: maplibregl.Map) {
@@ -525,9 +533,11 @@ class MarkerService {
       ],
       { duration: 300, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' },
       () => {
+        this.animatingMarkers.delete(marker)
         el.remove()
       }
     )
+    this.animatingMarkers.add(marker)
   }
 
   // 离散动画：单点从 cluster 中心（旧屏幕位置）飞散到单点位置（新屏幕位置），不缩小，逐渐淡入
@@ -552,11 +562,13 @@ class MarkerService {
       ],
       { duration: 300, easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)' },
       () => {
+        this.animatingMarkers.delete(marker)
         el.style.opacity = '1'
         // 交还给 MapLibre 定位
         marker.addTo(map)
       }
     )
+    this.animatingMarkers.add(marker)
   }
 
   private isMarkerOnMap(marker: MapMarkerAdapter): boolean {

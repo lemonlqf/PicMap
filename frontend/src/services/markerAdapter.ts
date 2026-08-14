@@ -30,6 +30,12 @@ function wrapMarkerElement(
   outer.style.width = `${width}px`
   outer.style.height = `${height}px`
   outer.style.boxSizing = 'border-box'
+  // 把定位尖角移到外层，避免 hover 缩放 / overflow 裁剪时消失
+  const location = iconElement.querySelector('.location')
+  if (location) {
+    location.remove()
+    outer.appendChild(location)
+  }
   iconElement.style.width = '100%'
   iconElement.style.height = '100%'
   iconElement.style.boxSizing = 'border-box'
@@ -46,6 +52,7 @@ export class MapMarkerAdapter {
   // 是否正在飞行动画中（renderClusters 应跳过，避免状态冲突）
   animating = false
   private currentAnimation: Animation | null = null
+  private currentAnimationOnFinish: (() => void) | null = null
 
   constructor(icon: MarkerIcon, lngLat: [number, number], options: MarkerOptions) {
     this.options = options
@@ -77,7 +84,20 @@ export class MapMarkerAdapter {
       this.currentAnimation.cancel()
       this.currentAnimation = null
     }
+    this.currentAnimationOnFinish = null
     this.animating = false
+  }
+
+  // 结束动画并立即跳到终点状态（地图移动打断时使用，避免动画错位）
+  finishAnimation() {
+    if (this.currentAnimation) {
+      this.currentAnimation.cancel()
+      this.currentAnimation = null
+    }
+    const onFinish = this.currentAnimationOnFinish
+    this.currentAnimationOnFinish = null
+    this.animating = false
+    if (onFinish) onFinish()
   }
 
   // 开始飞行动画（记录 animating 状态，动画完成后清理）
@@ -86,8 +106,10 @@ export class MapMarkerAdapter {
     this.animating = true
     const anim = el.animate(keyframes, options)
     this.currentAnimation = anim
+    this.currentAnimationOnFinish = onFinish
     anim.onfinish = () => {
       this.currentAnimation = null
+      this.currentAnimationOnFinish = null
       this.animating = false
       onFinish()
     }
@@ -105,10 +127,16 @@ export class MapMarkerAdapter {
 
   setIcon(icon: MarkerIcon) {
     this.icon = icon
-    const inner = icon.inner ?? icon.element
-    // 更新外层内容：清空后放入新的内层元素
     const outer = this.mlMarker.getElement()
     outer.innerHTML = ''
+    const inner = icon.inner ?? icon.element
+    // 定位尖角统一放到外层，避免 hover 缩放 / overflow 裁剪时消失
+    const location = icon.element.querySelector('.location') ?? inner.querySelector('.location')
+    if (location) location.remove()
+    inner.style.width = '100%'
+    inner.style.height = '100%'
+    inner.style.boxSizing = 'border-box'
+    if (location) outer.appendChild(location)
     outer.appendChild(inner)
     this.innerElement = inner
   }

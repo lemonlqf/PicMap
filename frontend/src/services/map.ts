@@ -37,6 +37,7 @@ class MapService {
     })
     map?.on('movestart', () => {
       eventBus.emit('hidden-content-menu')
+      markerService.cancelAllFlyAnimations()
     })
   }
 
