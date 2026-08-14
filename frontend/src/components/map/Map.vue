@@ -200,15 +200,16 @@ async function initMap() {
 
   mapInstanceIdMap.set(map, String(++mapIdCounter))
 
-  const tileUrl = getCurrentTileUrl()
-  map.addSource('tile', { type: 'raster', tiles: [tileUrl as string], tileSize: 256 })
-  map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
+  // style 异步加载完成后再添加瓦片、标记、轨迹
+  map.on('load', async () => {
+    const tileUrl = getCurrentTileUrl()
+    map!.addSource('tile', { type: 'raster', tiles: [tileUrl as string], tileSize: 256 })
+    map!.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
 
-  await updateMarkers()
-
-  await updateTracks()
-
-  invalidateMapSize()
+    await updateMarkers()
+    await updateTracks()
+    invalidateMapSize()
+  })
 }
 
 /**

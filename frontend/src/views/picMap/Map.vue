@@ -62,6 +62,12 @@ function initMap() {
       attributionControl: false,
     })
     mapService.initMapInstance(map)
+    // style 异步加载完成后再初始化瓦片与标记
+    map.on('load', () => {
+      mapLoaded = true
+      initTile()
+      initMarker()
+    })
   } else {
     map.jumpTo({
       center: toMapLibreLngLat(props.mapCenter[0], props.mapCenter[1]),
@@ -76,13 +82,15 @@ function setPitch() {
 
 // 保存当前瓦片 url，避免重复添加
 let currentTileUrl: string | null = null
+// style 是否已加载完成
+let mapLoaded = false
 
 /**
  * @description: 初始化地图瓦片
  * @return {*}
  */
 function initTile() {
-  if (!map) return
+  if (!map || !mapLoaded) return
   const url = props.tileLayer?.url
   if (!url) return
   if (currentTileUrl === url) return
@@ -136,8 +144,6 @@ function getMapInstance() {
  */
 async function init() {
   initMap()
-  initTile()
-  initMarker()
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
   markerService.observeClisterClick()

@@ -102,6 +102,7 @@ const active = computed({
 })
 const mapRef = ref()
 let map: maplibregl.Map | null = null
+let mapLoaded = false
 function initMap() {
   if (!map) {
     map = new maplibregl.Map({
@@ -113,12 +114,16 @@ function initMap() {
       center: toMapLibreLngLat(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
       attributionControl: false,
     })
+    map.on('load', () => {
+      mapLoaded = true
+      initTile()
+    })
   }
 }
 
 let currentTileUrl: string | null = null
 function initTile() {
-  if (!map) return
+  if (!map || !mapLoaded) return
   if (currentTileUrl === props.url) return
   if (map.getLayer('tile-layer')) map.removeLayer('tile-layer')
   if (map.getSource('tile')) map.removeSource('tile')
