@@ -70,6 +70,10 @@ class MarkerService {
   private lastClusterIds: Set<number> = new Set()
   // 上次渲染的缩放级别（区分缩放导致的聚合/离散 vs 平移导致的视野变化）
   private lastZoom: number = -1
+  // 上次渲染的 cluster marker 引用（用于合并时做飞出动画）
+  private lastClusterMarkers: Map<number, MapMarkerAdapter> = new Map()
+  // 上次渲染的 cluster 中心（clusterId -> [lng, lat]）
+  private lastClusterCentersById: Map<number, [number, number]> = new Map()
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -287,15 +291,26 @@ class MarkerService {
     const map = this.MAP_INSTANCE
     if (!map || !this.clusterIndex) return
 
+    // 保存上次的 cluster marker 引用与中心（用于合并/分裂动画）
+    this.lastClusterMarkers.clear()
+    this.clusterMarkers.forEach((marker, id) => {
+      this.lastClusterMarkers.set(id, marker)
+      const ll = marker.getLatLng()
+      this.lastClusterCentersById.set(id, [ll.lng, ll.lat])
+    })
+
     // 清除当前聚合点
-    this.clusterMarkers.forEach((m) => m.remove())
     this.clusterMarkers.clear()
 
     // 无图片点时移除所有单点
     if (this.imagePoints.length === 0) {
+      this.lastClusterMarkers.forEach((m) => m.remove())
+      this.lastClusterMarkers.clear()
       this.markers.forEach((m) => m.remove())
       this.lastShownImageIds.clear()
       this.lastClusterCenters.clear()
+      this.lastClusterIds.clear()
+      this.lastClusterCentersById.clear()
       return
     }
 
@@ -307,36 +322,17 @@ class MarkerService {
       bounds.getNorth(),
     ]
     const zoom = Math.floor(map.getZoom())
-    // 缩放级别是否变化：变化时才做飞散合体动画，平移（视野变化）时直接显示/隐藏，不做动画
     const zoomChanged = zoom !== this.lastZoom
 
     const clusters = this.clusterIndex.getClusters(bbox, zoom)
     const visibleImageIds = new Set<string>()
-    // 当前渲染中每个单点所属的 cluster 中心（imageId -> [lng, lat]）
     const currentClusterCenters = new Map<string, [number, number]>()
-    // 当前渲染的聚合点 id 集合
     const currentClusterIds = new Set<number>()
 
+    // 收集当前 cluster 信息
     clusters.forEach((feature: any) => {
-      const coords = feature.geometry.coordinates as [number, number]
-      const isCluster = !!feature.properties.cluster
-      if (isCluster) {
-        const count = feature.properties.point_count
-        const clusterId = feature.properties.cluster_id
-        currentClusterIds.add(clusterId)
-        const icon = createClusterIcon(count)
-        const marker = new MapMarkerAdapter(icon, coords, { id: `cluster-${clusterId}`, type: 'cluster' })
-        marker.addTo(map)
-        marker.on('click', () => {
-          this.onClusterClick(clusterId, coords)
-        })
-        this.clusterMarkers.set(clusterId, marker)
-        // 聚合点不做弹出动画（避免拖动/缩放时从无到有的闪烁）
-        // 记录该聚合点的成员（用于离散时从中心飞散）
-        const leaves = this.clusterIndex.getLeaves(clusterId, Infinity, 0) as any[]
-        leaves.forEach((leaf) => {
-          currentClusterCenters.set(leaf.properties.id, coords)
-        })
+      if (feature.properties.cluster) {
+        currentClusterIds.add(feature.properties.cluster_id)
       } else {
         const id = feature.properties.id as string
         if (!this.hiddenMarkerIds.has(id)) {
@@ -344,6 +340,67 @@ class MarkerService {
         }
       }
     })
+
+    // 合并动画（zoom out）：上次的小 cluster 合并成当前大 cluster，小 cluster 飞向大 cluster 中心
+    if (zoomChanged) {
+      clusters.forEach((feature: any) => {
+        if (!feature.properties.cluster) return
+        const parentId = feature.properties.cluster_id
+        const parentCenter = feature.geometry.coordinates as [number, number]
+        if (this.lastClusterIds.has(parentId)) return
+        const children = this.clusterIndex.getChildren(parentId) as any[]
+        children.forEach((child) => {
+          if (!child.properties.cluster) return
+          const childId = child.properties.cluster_id
+          const oldMarker = this.lastClusterMarkers.get(childId)
+          if (oldMarker) {
+            const oldCenter = this.lastClusterCentersById.get(childId)
+            if (oldCenter) {
+              this.animateFlyOut(oldMarker, oldCenter, parentCenter)
+              this.lastClusterMarkers.delete(childId)
+            } else {
+              oldMarker.remove()
+              this.lastClusterMarkers.delete(childId)
+            }
+          }
+        })
+      })
+    }
+
+    // 渲染当前 cluster
+    clusters.forEach((feature: any) => {
+      const coords = feature.geometry.coordinates as [number, number]
+      if (!feature.properties.cluster) return
+      const clusterId = feature.properties.cluster_id
+      const count = feature.properties.point_count
+      const icon = createClusterIcon(count)
+      const marker = new MapMarkerAdapter(icon, coords, { id: `cluster-${clusterId}`, type: 'cluster' })
+      marker.addTo(map)
+      marker.on('click', () => {
+        this.onClusterClick(clusterId, coords)
+      })
+      this.clusterMarkers.set(clusterId, marker)
+
+      // 分裂动画（zoom in）：新 cluster 从父 cluster 中心飞入
+      if (zoomChanged && !this.lastClusterIds.has(clusterId)) {
+        const parentCenter = this.findParentClusterCenter(clusterId)
+        if (parentCenter) {
+          this.animateFlyIn(marker, parentCenter, coords)
+        }
+      }
+
+      // 记录成员（用于单点离散时从中心飞散）
+      const leaves = this.clusterIndex.getLeaves(clusterId, Infinity, 0) as any[]
+      leaves.forEach((leaf) => {
+        currentClusterCenters.set(leaf.properties.id, coords)
+      })
+    })
+
+    // 移除残留的上次 cluster marker（未参与合并动画的）
+    this.lastClusterMarkers.forEach((m) => {
+      m.remove()
+    })
+    this.lastClusterMarkers.clear()
 
     // 图片单点过渡：聚合时飞向 cluster 中心，离散时从中心飞散
     this.markers.forEach((m) => {
@@ -355,7 +412,6 @@ class MarkerService {
       const latlng = m.getLatLng()
 
       if (shouldShow && !wasShown) {
-        // 离散：缩放时从 cluster 中心飞散到单点位置，平移时直接显示
         if (zoomChanged) {
           const from = this.lastClusterCenters.get(m.options.id)
           if (from) {
@@ -367,7 +423,6 @@ class MarkerService {
           m.addTo(map)
         }
       } else if (!shouldShow && wasShown) {
-        // 聚合：缩放时飞向 cluster 中心缩小，平移时直接移除
         if (zoomChanged) {
           const to = currentClusterCenters.get(m.options.id)
           if (to) {
@@ -402,6 +457,20 @@ class MarkerService {
     })
     this.lastClusterIds = currentClusterIds
     this.lastZoom = zoom
+  }
+
+  // 查找 cluster 的父 cluster 中心（分裂动画时子 cluster 从父中心飞入）
+  private findParentClusterCenter(clusterId: number): [number, number] | undefined {
+    for (const [parentId, parentCenter] of this.lastClusterCentersById) {
+      if (parentId === clusterId) continue
+      const children = this.clusterIndex!.getChildren(parentId) as any[]
+      for (const child of children) {
+        if (child.properties.cluster && child.properties.cluster_id === clusterId) {
+          return parentCenter
+        }
+      }
+    }
+    return undefined
   }
 
   // 聚合动画：单点飞向 cluster 中心，缩小淡出
