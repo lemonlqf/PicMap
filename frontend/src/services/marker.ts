@@ -78,7 +78,7 @@ class MarkerService {
 
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
   private rebuildClusterIndex() {
-    this.clusterIndex = new Supercluster({ radius: 50, maxZoom: 14 })
+    this.clusterIndex = new Supercluster({ radius: 50, maxZoom: 17 })
     this.clusterIndex.load(this.imagePoints as any)
   }
 
@@ -283,11 +283,11 @@ class MarkerService {
     this.clusterMarkers.forEach((m) => m.remove())
     this.clusterMarkers.clear()
 
-    // 先移除所有单点（保留 markers Map 中的实例）
-    this.markers.forEach((m) => m.remove())
-
-    // 无图片点时直接返回
-    if (this.imagePoints.length === 0) return
+    // 无图片点时移除所有单点
+    if (this.imagePoints.length === 0) {
+      this.markers.forEach((m) => m.remove())
+      return
+    }
 
     const bounds = map.getBounds()
     const bbox: [number, number, number, number] = [
@@ -299,6 +299,8 @@ class MarkerService {
     const zoom = Math.floor(map.getZoom())
 
     const clusters = this.clusterIndex.getClusters(bbox, zoom)
+    const visibleImageIds = new Set<string>()
+
     clusters.forEach((feature: any) => {
       const coords = feature.geometry.coordinates as [number, number]
       const isCluster = !!feature.properties.cluster
@@ -314,9 +316,22 @@ class MarkerService {
         this.clusterMarkers.set(clusterId, marker)
       } else {
         const id = feature.properties.id as string
-        const m = this.markers.get(id)
-        if (m && !this.hiddenMarkerIds.has(id)) {
+        if (!this.hiddenMarkerIds.has(id)) {
+          visibleImageIds.add(id)
+        }
+      }
+    })
+
+    // 图片单点：diff 显示/隐藏，避免视野内 marker 反复 remove/addTo 导致位置延迟
+    this.markers.forEach((m) => {
+      const t = m.options.type
+      if (t === 'image' || t === 'temporary-image') {
+        const shouldShow = visibleImageIds.has(m.options.id)
+        const onMap = this.isMarkerOnMap(m)
+        if (shouldShow && !onMap) {
           m.addTo(map)
+        } else if (!shouldShow && onMap) {
+          m.remove()
         }
       }
     })

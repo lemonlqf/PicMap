@@ -4,6 +4,11 @@ $background-color: rgb(0, 0, 0);
 $location-width: 10px;
 $location-border-color: rgba(200, 0, 0, 1);
 
+// MapLibre marker 容器：拖动/旋转时用 transform 更新位置，开启 GPU 合成提升流畅度
+.maplibregl-marker {
+  will-change: transform;
+}
+
 .image-icon {
   text-align: center;
   overflow: hidden;
