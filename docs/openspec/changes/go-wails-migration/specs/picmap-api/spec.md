@@ -1,10 +1,6 @@
 # PicMap API 迁移规格
 
-## 概述
-
-将 PicMap 后端从 Node.js Express 迁移至 Go (Wails 绑定)，保持 API 功能完全兼容，数据格式不变。
-
-## ADDED: Go 后端 API
+## ADDED Requirements
 
 ### 图片管理 API
 

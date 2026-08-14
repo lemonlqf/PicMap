@@ -1,6 +1,6 @@
 # Proposal: PicMap Electron → Go + Wails 迁移
 
-## 背景
+## Why
 
 当前 PicMap 基于 Electron + Node.js Express 构建，存在以下痛点：
 
@@ -9,7 +9,7 @@
 3. **内存占用高**：Electron 常驻 Chromium 进程，空闲时也消耗大量内存
 4. **启动速度慢**：需要加载完整浏览器引擎
 
-## 目标
+## What Changes
 
 将后端从 Node.js Express 迁移至 Go，将桌面打包从 Electron 迁移至 Wails，实现：
 
