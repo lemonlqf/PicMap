@@ -28,7 +28,7 @@ import { ref, watch } from 'vue'
 import API from '@/wails/api'
 import { fileToBase64 } from '@/utils/map'
 import { DRAWER_HEIGHT } from '@/utils/constant'
-import { getImageUrlById } from '@/utils/Image';
+import { getImageUrlById, getImageUrl, isImageExist } from '@/utils/Image';
 import { getSchemaInfoById } from '@/utils/schema'
 
 const props = defineProps({
@@ -62,13 +62,21 @@ const isLoading = ref(false)
  * @return {*}
  */
 async function setImageUrl(imageId: string) {
-  // 先清空旧图并显示 loading，避免展示上一张图片
+  const imageInfo = getSchemaInfoById(imageId) as any
+  name.value = imageInfo?.name
+
+  // 图片已缓存：直接切换，不显示加载动画
+  if (isImageExist(imageId)) {
+    url.value = getImageUrl(imageId) ?? ''
+    isLoading.value = false
+    return
+  }
+
+  // 未缓存：先清空旧图并显示 loading，避免展示上一张图片
   url.value = ''
   isLoading.value = true
   const res = await getImageUrlById(imageId)
-  const imageInfo = getSchemaInfoById(imageId) as any
   url.value = res
-  name.value = imageInfo?.name
   isLoading.value = false
 }
 
