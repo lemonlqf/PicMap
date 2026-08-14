@@ -261,13 +261,14 @@ const isUploading = ref(false)
 const uploadProgress = ref({ current: 0, total: 0 })
 // 图片解析进度（分批事件推送）
 const parseProgress = ref({ processed: 0, total: 0 })
+// 逐张渐进展示的定时器（组件卸载时清理，防止内存泄漏）
+const displayTimers: ReturnType<typeof setTimeout>[] = []
 
-// 处理一批解析完成的图片（批量写入，marker 延迟渲染）
+// 处理一批解析完成的图片：逐张延迟展示，避免同一帧渲染多张造成瞬时压力
 function handleParsedBatch(images: any[]) {
-  const batch: IImageDetailInfo[] = []
-  const markers: IImageDetailInfo[] = []
+  // 过滤掉已存在的图片，构造待展示列表
+  const pendingList: IImageDetailInfo[] = []
   for (const img of images) {
-    // 如果已经存在，跳过（去重兜底）
     if (isInHasUrlFileList(img.id)) {
       continue
     }
@@ -278,25 +279,22 @@ function handleParsedBatch(images: any[]) {
       url: previewUrl,
       blobUrl: previewUrl,
     }
-    batch.push(data)
     // 保存到imageUrlsMap中，后续图片详情展示使用
     addImageUrl(img.id, previewUrl)
-    // 如果有坐标内容的话，稍后添加到地图中
-    if (img.GPSInfo?.GPSLatitude && img.GPSInfo?.GPSLongitude) {
-      // 只有还没有上传过的图片需要添加到地图中
-      !judgeHadUploadImage(img.id) && markers.push(data)
-    }
+    pendingList.push(data)
   }
-  // 批量写入，只触发一次响应式更新
-  if (batch.length) {
-    hasUrlFileList.value.push(...batch)
-  }
-  // marker 渲染是 DOM 密集操作，延迟到下一帧批量执行
-  if (markers.length) {
-    nextTick(() => {
-      markers.forEach((data) => markerService.addImageMarkerToMap(data))
-    })
-  }
+  // 逐张延迟展示，产生渐进出现效果
+  const interval = 150 // 每张间隔毫秒
+  pendingList.forEach((data, index) => {
+    const timer = setTimeout(() => {
+      hasUrlFileList.value.push(data)
+      // 有 GPS 的图片同步添加 marker
+      if (data.GPSInfo?.GPSLatitude && data.GPSInfo?.GPSLongitude) {
+        !judgeHadUploadImage(data.id) && markerService.addImageMarkerToMap(data)
+      }
+    }, index * interval)
+    displayTimers.push(timer)
+  })
 }
 
 watch(() => [needUploadImageLoading.value, uploadedImageLoading.value], () => {
@@ -557,6 +555,9 @@ onUnmounted(() => {
   eventBus.off('delete-image', deleteImage)
   eventBus.off('edit-group', showGroupDialog)
   API.image.offImagesEvents()
+  // 清理未触发的逐张展示定时器
+  displayTimers.forEach((timer) => clearTimeout(timer))
+  displayTimers.length = 0
 })
 
 defineExpose({
