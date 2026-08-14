@@ -1,7 +1,7 @@
 import * as maplibregl from 'maplibre-gl'
 
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
-import { GROUP_CONSTANT } from '@/utils/constant'
+import { GROUP_CONSTANT, MARKER_CONSTANT } from '@/utils/constant'
 import { getMarkerImageUrlByIds } from '@/utils/Image'
 import type { IImageInfo, INewGroupFormData } from '@/type/schema'
 
@@ -87,15 +87,24 @@ export class MapMarkerAdapter {
   }
 }
 
+// 给 marker element 设置固定尺寸（MapLibre Marker 无 iconSize，需显式约束）
+function setMarkerSize(element: HTMLElement, width: number, height: number) {
+  element.style.width = `${width}px`
+  element.style.height = `${height}px`
+  element.style.boxSizing = 'border-box'
+}
+
 export function createImageMarkerIcon(imageInfo: IImageInfo, imageUrl?: string): MarkerIcon {
   const url = imageUrl ?? imageInfo.url ?? ''
   if (!url) {
-    return {
-      element: IconHTMLFactory.createIcon(IconType.NoImage, imageInfo.name),
-    }
+    const element = IconHTMLFactory.createIcon(IconType.NoImage, imageInfo.name)
+    setMarkerSize(element, MARKER_CONSTANT.IMAGE_MARKER_SIZE[0], MARKER_CONSTANT.IMAGE_MARKER_SIZE[1])
+    return { element }
   }
+  const element = IconHTMLFactory.createIcon(IconType.SingleImage, url)
+  setMarkerSize(element, MARKER_CONSTANT.IMAGE_MARKER_SIZE[0], MARKER_CONSTANT.IMAGE_MARKER_SIZE[1])
   return {
-    element: IconHTMLFactory.createIcon(IconType.SingleImage, url),
+    element,
     iconUrl: url,
   }
 }
@@ -107,17 +116,21 @@ export async function createGroupMarkerIcon(groupInfo: INewGroupFormData): Promi
       groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER)
     )
     if (!resImageUrls || resImageUrls.length === 0) {
-      return { element: IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name) }
+      const element = IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name)
+      setMarkerSize(element, MARKER_CONSTANT.GROUP_MARKER_SIZE[0], MARKER_CONSTANT.GROUP_MARKER_SIZE[1])
+      return { element }
     }
     const imageUrls = resImageUrls.map((item) => item)
+    const element = IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers?.length ?? 0)
+    setMarkerSize(element, MARKER_CONSTANT.GROUP_MARKER_SIZE[0], MARKER_CONSTANT.GROUP_MARKER_SIZE[1])
     return {
-      element: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers?.length ?? 0),
+      element,
       imageUrls,
     }
   }
-  return {
-    element: IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name),
-  }
+  const element = IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name)
+  setMarkerSize(element, MARKER_CONSTANT.GROUP_MARKER_SIZE[0], MARKER_CONSTANT.GROUP_MARKER_SIZE[1])
+  return { element }
 }
 
 export function createGroupMarkerElement(
@@ -126,12 +139,16 @@ export function createGroupMarkerElement(
   name: string
 ): MarkerIcon {
   if (groupNumbers && groupNumbers.length > 0 && imageUrls && imageUrls.length > 0) {
+    const element = IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers.length)
+    setMarkerSize(element, MARKER_CONSTANT.GROUP_MARKER_SIZE[0], MARKER_CONSTANT.GROUP_MARKER_SIZE[1])
     return {
-      element: IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers.length),
+      element,
       imageUrls,
     }
   }
-  return { element: IconHTMLFactory.createIcon(IconType.NoImageGroup, name) }
+  const element = IconHTMLFactory.createIcon(IconType.NoImageGroup, name)
+  setMarkerSize(element, MARKER_CONSTANT.GROUP_MARKER_SIZE[0], MARKER_CONSTANT.GROUP_MARKER_SIZE[1])
+  return { element }
 }
 
 // 聚合点图标：圆形 + 数量徽标
