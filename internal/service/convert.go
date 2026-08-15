@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strings"
 )
 
 func getToolsDir() string {
@@ -39,32 +38,27 @@ func ConvertRAWToJPEG(inputPath, outputPath string) error {
 	toolsDir := getToolsDir()
 	dcrawPath := filepath.Join(toolsDir, "libraw", "dcraw_emu.exe")
 
-	// Tier 1: dcraw_emu with -T flag for TIFF output
-	ext := strings.ToLower(filepath.Ext(inputPath))
-	tiffPath := strings.TrimSuffix(outputPath, filepath.Ext(outputPath)) + ".tiff"
+	// Tier 1: dcraw_emu with -T flag for TIFF output（输出到输入文件同目录，命名 <inputPath>.tiff）
 	cmd := exec.Command(dcrawPath, "-T", "-w", "-q", "3", "-fbdd", "1", inputPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("RAW转换失败: %v, output: %s", err, string(output))
 	}
 
-	// Try to find the generated TIFF
-	tiffOutput := strings.TrimSuffix(inputPath, ext) + ".tiff"
-	if _, err := os.Stat(tiffOutput); err == nil {
-		os.Rename(tiffOutput, tiffPath)
-	}
+	tiffOutput := inputPath + ".tiff"
+	defer os.Remove(tiffOutput)
 
 	// Tier 2: Convert TIFF to JPEG
-	if _, err := os.Stat(tiffPath); err == nil {
-		magickPath := filepath.Join(toolsDir, "imagemagick", "magick.exe")
-		cmd := exec.Command(magickPath, tiffPath, "-auto-orient", "-resize", "2048x2048>", "-quality", "85", outputPath)
-		cmd.CombinedOutput()
-		os.Remove(tiffPath)
-		return nil
+	if _, err := os.Stat(tiffOutput); err != nil {
+		return fmt.Errorf("RAW处理完成但未生成输出文件")
 	}
-
-	_ = tiffPath
-	return fmt.Errorf("RAW处理完成但未生成输出文件")
+	magickPath := filepath.Join(toolsDir, "imagemagick", "magick.exe")
+	cmd = exec.Command(magickPath, tiffOutput, "-auto-orient", "-resize", "2048x2048>", "-quality", "85", outputPath)
+	output, err = cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("RAW转JPEG失败: %v, output: %s", err, string(output))
+	}
+	return nil
 }
 
 

@@ -3,7 +3,6 @@ package service
 import (
 	"fmt"
 	"math"
-	"math/big"
 	"os"
 	"path/filepath"
 	"strings"
@@ -44,8 +43,8 @@ type exifWalker struct {
 func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
 	switch string(name) {
 	case "GPSAltitude":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.GPSInfo.Altitude = ratFloat(rat)
+		if v, ok := ratToFloat(tag); ok && !math.IsNaN(v) && !math.IsInf(v, 0) {
+			w.data.GPSInfo.Altitude = v
 		}
 	case "DateTime", "DateTimeOriginal":
 		if w.data.DateTime == 0 {
@@ -62,28 +61,28 @@ func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
 			w.data.Model = str
 		}
 	case "FNumber":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.FNumber = ratString(rat)
+		if v, ok := ratToFloat(tag); ok {
+			w.data.FNumber = floatToString(v)
 		}
 	case "ExposureTime":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.ExposureTime = ratString(rat)
+		if v, ok := ratToFloat(tag); ok {
+			w.data.ExposureTime = floatToString(v)
 		}
 	case "ISOSpeedRatings":
 		if v, err := tag.Int(0); err == nil {
 			w.data.ISOSpeedRatings = v
 		}
 	case "ExposureBiasValue":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.ExposureBiasValue = ratString(rat)
+		if v, ok := ratToFloat(tag); ok {
+			w.data.ExposureBiasValue = floatToString(v)
 		}
 	case "FocalLength":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.FocalLength = ratString(rat)
+		if v, ok := ratToFloat(tag); ok {
+			w.data.FocalLength = floatToString(v)
 		}
 	case "MaxApertureValue":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.MaxApertureValue = ratString(rat)
+		if v, ok := ratToFloat(tag); ok {
+			w.data.MaxApertureValue = floatToString(v)
 		}
 	case "Artist":
 		if str, err := tag.StringVal(); err == nil {
@@ -114,8 +113,8 @@ func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
 			}
 		}
 	case "BrightnessValue":
-		if rat, err := tag.Rat(0); err == nil {
-			w.data.BrightnessValue = ratString(rat)
+		if v, ok := ratToFloat(tag); ok {
+			w.data.BrightnessValue = floatToString(v)
 		}
 	}
 	return nil
@@ -165,10 +164,12 @@ func extractExifFromFile(filePath string) (*ExifData, error) {
 
 	data := &ExifData{}
 
-	// GPS
+	// GPS（过滤无效的 NaN/Inf 值）
 	if lat, lon, err := x.LatLong(); err == nil {
-		data.GPSInfo.Latitude = lat
-		data.GPSInfo.Longitude = lon
+		if !math.IsNaN(lat) && !math.IsNaN(lon) && !math.IsInf(lat, 0) && !math.IsInf(lon, 0) {
+			data.GPSInfo.Latitude = lat
+			data.GPSInfo.Longitude = lon
+		}
 	}
 
 	// 遍历所有 EXIF 字段
@@ -195,13 +196,16 @@ func exifDateToMillis(str string) int64 {
 	return t.UnixMilli()
 }
 
-func ratFloat(r *big.Rat) float64 {
-	f, _ := r.Float64()
-	return f
+// ratToFloat 安全读取 tag 的 rational 值，分母为 0 或格式不符时返回 false（避免 big.NewRat 除零 panic）
+func ratToFloat(tag *tiff.Tag) (float64, bool) {
+	num, den, err := tag.Rat2(0)
+	if err != nil || den == 0 {
+		return 0, false
+	}
+	return float64(num) / float64(den), true
 }
 
-func ratString(r *big.Rat) string {
-	v, _ := r.Float64()
+func floatToString(v float64) string {
 	// 保留两位小数
 	rounded := math.Round(v*100) / 100
 	return fmt.Sprintf("%v", rounded)
