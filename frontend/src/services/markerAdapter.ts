@@ -58,6 +58,10 @@ export class MapMarkerAdapter {
     this.options = options
     this.icon = icon
     this.innerElement = icon.inner ?? icon.element
+    // 可拖动定位的临时节点，标记红色尖角
+    if (options.draggable) {
+      icon.element.classList.add('draggable-marker')
+    }
     this.mlMarker = new maplibregl.Marker({
       element: icon.element,
       anchor: 'bottom',

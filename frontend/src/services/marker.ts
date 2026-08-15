@@ -102,7 +102,7 @@ class MarkerService {
 
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
   private rebuildClusterIndex() {
-    this.clusterIndex = new Supercluster({ radius: 50, maxZoom: 17 })
+    this.clusterIndex = new Supercluster({ radius: 30, maxZoom: 17 })
     this.clusterIndex.load(this.getFilteredPoints() as any)
     // 索引重建后 cluster id 全部重新分配，清空旧状态避免 getChildren 报错
     this.lastClusterIds.clear()

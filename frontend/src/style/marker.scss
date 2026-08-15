@@ -57,6 +57,11 @@ $location-border-color: rgba(200, 0, 0, 1);
   -o-transform: translateX(-50%) rotateZ(45deg);
 }
 
+// 可拖动定位的临时节点，尖角用红色标识
+.draggable-marker .location {
+  background-color: $location-border-color;
+}
+
 .group-location {
   bottom: -4px;
 }
