@@ -164,6 +164,7 @@ export class MapMarkerAdapter {
       this.mlMarker.on('dragend', () => cb())
     } else if (event === 'click') {
       el.addEventListener('click', (e: Event) => {
+        e.preventDefault()
         e.stopPropagation()
         cb(this.wrapEvent(e))
       })

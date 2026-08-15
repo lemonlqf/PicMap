@@ -62,6 +62,11 @@ $location-border-color: rgba(200, 0, 0, 1);
   background-color: $location-border-color;
 }
 
+// spiderfy 展开的节点，尖角用红色标识
+.spiderfied-marker .location {
+  background-color: $location-border-color;
+}
+
 .group-location {
   bottom: -4px;
 }

@@ -80,6 +80,10 @@ class MarkerService {
   private animatingMarkers: Set<MapMarkerAdapter> = new Set()
   // 时间轴筛选范围（null 表示不筛选，重建聚合索引时按此过滤图片点）
   private timeRange: { min: number; max: number } | null = null
+  // spiderfy 展开状态：记录被展开的 marker 及其原始坐标
+  private spiderfiedMarkers: { marker: MapMarkerAdapter; original: [number, number] }[] = []
+  // 刚触发展开的标志，避免紧随的 map click 立即收回
+  private spiderfyJustTriggered = false
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -98,6 +102,12 @@ class MarkerService {
     this.MAP_INSTANCE = mapInstance
     this.rebuildClusterIndex()
     this.renderClusters()
+    // 点击地图空白处收回 spiderfy 展开的标记（marker 点击已 preventDefault，此处跳过）
+    mapInstance.on('click', (e: any) => {
+      if (this.spiderfyJustTriggered) return
+      if (e?.originalEvent?.defaultPrevented || e?.defaultPrevented) return
+      this.unspiderfy()
+    })
   }
 
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
@@ -612,8 +622,7 @@ class MarkerService {
   addVisibleMarkerById(markerId: string) {
     const mapStore = useMapStore()
     mapStore.addVisibleMarkerId(markerId)
-    const marker = this.getMarkerById(markerId)
-    this.markerMouseListener(marker)
+    // marker 创建时已绑定 mouse 监听，无需重复绑定（重复会导致 click 触发两次）
   }
 
   isMarkerInCluster(marker: MapMarkerAdapter): boolean {
@@ -674,7 +683,18 @@ class MarkerService {
   markerMouseListener(marker: MapMarkerAdapter) {
     if (!marker) return
     marker.on('click', (event: any) => {
-      eventBus.emit('show-image-data', event)
+      // 展开状态下点击某张：保持展开，直接显示详情
+      if (this.spiderfiedMarkers.length > 0) {
+        eventBus.emit('show-image-data', event)
+        return
+      }
+      // 检测同位置重叠的照片，重叠则蜘蛛网展开
+      const overlapping = this.getOverlappingMarkers(marker)
+      if (overlapping.length > 1) {
+        this.spiderfy(overlapping)
+      } else {
+        eventBus.emit('show-image-data', event)
+      }
     })
     marker.on('contextmenu', (event: MouseEvent) => {
       eventBus.emit('show-content-menu', event)
@@ -702,6 +722,76 @@ class MarkerService {
       el.style.transform = `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`
     }
     marker.setZIndexOffset(0)
+  }
+
+  // 找出与指定 marker 同位置（极近）的图片 marker，用于重叠检测
+  private getOverlappingMarkers(marker: MapMarkerAdapter): MapMarkerAdapter[] {
+    const { lat, lng } = marker.getLatLng()
+    const result: MapMarkerAdapter[] = []
+    this.markers.forEach((m) => {
+      const t = m.options.type
+      if (t !== 'image' && t !== 'temporary-image') return
+      if (!this.isMarkerOnMap(m)) return
+      const ll = m.getLatLng()
+      if (Math.abs(ll.lat - lat) < 0.000005 && Math.abs(ll.lng - lng) < 0.000005) {
+        result.push(m)
+      }
+    })
+    return result
+  }
+
+  // 蜘蛛网展开：把重叠的照片沿圆周展开，临时偏移位置
+  private spiderfy(markers: MapMarkerAdapter[]) {
+    if (markers.length <= 1 || !this.MAP_INSTANCE) return
+    const map = this.MAP_INSTANCE
+    const center = markers[0].getLatLng()
+    const centerPoint = map.project([center.lng, center.lat])
+    const n = markers.length
+    // 展开半径：按约 1 米实际地理距离计算，但至少保证节点能分开（不小于 marker 尺寸）
+    const metersPerPixel = 40075016.686 * Math.cos((center.lat * Math.PI) / 180) / (256 * Math.pow(2, map.getZoom()))
+    const radiusPx = Math.max(1 / metersPerPixel, 36)
+
+    this.spiderfiedMarkers = []
+    this.spiderfyJustTriggered = true
+    setTimeout(() => {
+      this.spiderfyJustTriggered = false
+    }, 300)
+    markers.forEach((m, i) => {
+      const angle = (i * 2 * Math.PI) / n
+      const px = centerPoint.x + radiusPx * Math.cos(angle)
+      const py = centerPoint.y + radiusPx * Math.sin(angle)
+      const ll = map.unproject({ x: px, y: py })
+      const cur = m.getLatLng()
+      this.spiderfiedMarkers.push({ marker: m, original: [cur.lng, cur.lat] })
+      const el = m.getElement()
+      // 展开动画：临时加 transform 过渡，让节点平滑移动到新位置
+      el.style.transition = 'transform 0.3s cubic-bezier(0.22, 1.2, 0.36, 1)'
+      m.setLatLng(ll.lat, ll.lng)
+      setTimeout(() => {
+        el.style.transition = ''
+      }, 320)
+      // 标记展开节点（红色尖角）
+      el.classList.add('spiderfied-marker')
+      m.setZIndexOffset(2000 + i)
+    })
+  }
+
+  // 收回展开的 marker，恢复原始位置
+  unspiderfy() {
+    if (this.spiderfiedMarkers.length === 0) return
+    const markers = this.spiderfiedMarkers
+    this.spiderfiedMarkers = []
+    markers.forEach(({ marker, original }) => {
+      const el = marker.getElement()
+      el.classList.remove('spiderfied-marker')
+      // 合并动画：临时加 transform 过渡，让节点平滑回到原位置
+      el.style.transition = 'transform 0.3s cubic-bezier(0.22, 1.2, 0.36, 1)'
+      marker.setLatLng(original[1], original[0])
+      setTimeout(() => {
+        el.style.transition = ''
+      }, 320)
+      marker.setZIndexOffset(0)
+    })
   }
 
   async resetIconGroupMarker(groupId: string) {
