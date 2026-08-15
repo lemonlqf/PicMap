@@ -27,7 +27,7 @@ func ConvertHEICToJPEG(inputPath, outputPath string) error {
 	toolsDir := getToolsDir()
 	magickPath := filepath.Join(toolsDir, "imagemagick", "magick.exe")
 
-	cmd := exec.Command(magickPath, "convert", inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
+	cmd := exec.Command(magickPath, inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("HEIC转换失败: %v, output: %s", err, string(output))
@@ -57,7 +57,7 @@ func ConvertRAWToJPEG(inputPath, outputPath string) error {
 	// Tier 2: Convert TIFF to JPEG
 	if _, err := os.Stat(tiffPath); err == nil {
 		magickPath := filepath.Join(toolsDir, "imagemagick", "magick.exe")
-		cmd := exec.Command(magickPath, "convert", tiffPath, "-auto-orient", "-resize", "2048x2048>", "-quality", "85", outputPath)
+		cmd := exec.Command(magickPath, tiffPath, "-auto-orient", "-resize", "2048x2048>", "-quality", "85", outputPath)
 		cmd.CombinedOutput()
 		os.Remove(tiffPath)
 		return nil

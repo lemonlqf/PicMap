@@ -50,7 +50,7 @@ func convertToTempJPEG(inputPath string) (string, error) {
 		if err := ConvertRAWToJPEG(inputPath, outputPath); err != nil {
 			// 兜底：ImageMagick
 			magickPath := filepath.Join(getToolsDir(), "imagemagick", "magick.exe")
-			cmd := exec.Command(magickPath, "convert", inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
+			cmd := exec.Command(magickPath, inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				os.RemoveAll(tmpDir)
 				return "", fmt.Errorf("RAW兜底转换失败: %v, output: %s", err, string(output))

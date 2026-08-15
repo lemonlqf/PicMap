@@ -122,6 +122,36 @@ func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
 }
 
 func ExtractExif(filePath string) (*ExifData, error) {
+	name := filepath.Base(filePath)
+	// HEIC/HEIF 必须先转 JPEG（goexif 不支持 ISO BMFF 容器）
+	if IsHEICFormat(name) {
+		jpegPath, err := convertToTempJPEG(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("转换图片格式失败: %w", err)
+		}
+		defer os.Remove(jpegPath)
+		return extractExifFromFile(jpegPath)
+	}
+
+	// 标准格式与多数 RAW（TIFF 容器）直接解析，避免转码丢失 EXIF
+	if data, err := extractExifFromFile(filePath); err == nil {
+		return data, nil
+	}
+
+	// 直接解析失败（如 CR3 等 ISO BMFF RAW），转 JPEG 后兜底解析
+	if NeedsThumbnail(name) {
+		jpegPath, err := convertToTempJPEG(filePath)
+		if err != nil {
+			return nil, fmt.Errorf("转换图片格式失败: %w", err)
+		}
+		defer os.Remove(jpegPath)
+		return extractExifFromFile(jpegPath)
+	}
+
+	return nil, fmt.Errorf("解析EXIF失败")
+}
+
+func extractExifFromFile(filePath string) (*ExifData, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("打开文件失败: %w", err)
