@@ -8,7 +8,6 @@
  */
 import GDSatellite from '@/assets/map/GDSatellite.png'
 import GDGraphics from '@/assets/map/GDGraphics.png'
-import TXGraphics from '@/assets/map/TXGraphics.png'
 import i18n from '@/i18n/index'
 export interface IMapTile {
   id: string,
@@ -39,9 +38,9 @@ export const getDefaultMapTile = (): IMapTile[] => {
     {
       id: 'tile_default3',
       isDefault: true,
-      name: t('TVector'),
-      url: 'https://rt1.map.gtimg.com/tile?z={z}&x={x}&y={-y}&styleid=0&version=256',
-      image: TXGraphics
+      name: t('GVector3D'),
+      url: 'https://wprd01.is.autonavi.com/appmaptile?x={x}&y={y}&z={z}&lang=zh_cn&size=1&scl=1&style=8',
+      image: GDGraphics
     }
   ]
 }

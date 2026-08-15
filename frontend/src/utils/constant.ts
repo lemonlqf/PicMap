@@ -17,7 +17,7 @@ export const DRAWER_HEIGHT = 400
 
 // 地图常量
 export const MAP_CONSTANT = {
-  // 最大缩放级别（腾讯瓦片最高 17，再大会出现空白）
+  // 最大缩放级别（高德瓦片最高 18，再大会出现空白）
   MAX_ZOOM: 18,
   // 最小缩放级别
   MIN_ZOOM: 3

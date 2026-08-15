@@ -112,7 +112,7 @@ export default {
   NonEditableDefaultTile: 'Non-editable tile',
   GSatellite: 'G Satellite',
   GVector: 'G Vector',
-  TVector: 'T Vector',
+  GVector3D: 'G 3D',
   notSet: 'Not set',
   edit: 'Edit',
   exitEdit: 'Exit edit',

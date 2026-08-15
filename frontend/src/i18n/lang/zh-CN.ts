@@ -112,7 +112,7 @@ export default {
   NonEditableDefaultTile: '不可编辑默认瓦片',
   GSatellite: '高德卫星图',
   GVector: '高德矢量图',
-  TVector: '腾讯矢量图',
+  GVector3D: '高德3D图',
   notSet: '未设置',
   edit: '编辑',
   exitEdit: '退出编辑',
