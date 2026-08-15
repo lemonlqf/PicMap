@@ -96,9 +96,9 @@ function formatSpeed(speed?: number): string {
   return speed.toFixed(2) + ' km/h'
 }
 
-function formatPace(paceMsPerKm?: number): string {
-  if (paceMsPerKm === null || paceMsPerKm === undefined) return '-'
-  const totalSeconds = Math.floor(paceMsPerKm / 1000)
+function formatPace(paceSecondsPerKm?: number): string {
+  if (paceSecondsPerKm === null || paceSecondsPerKm === undefined) return '-'
+  const totalSeconds = Math.floor(paceSecondsPerKm)
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}'${String(seconds).padStart(2, '0')}" /km`

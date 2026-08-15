@@ -268,9 +268,12 @@ function computeTrackInfo(points: GpxPoint[]): Partial<TrackInfo> {
     }
     if (prev.time != null && cur.time != null) {
       const dt = (cur.time - prev.time) / 1000
-      const speed = seg / Math.max(dt, 0.001)
-      if (speed < 3) movingTime += dt
-      if (speed > speedMax) speedMax = speed
+      if (dt > 0) {
+        const speed = seg / dt
+        // 速度 > 0.3 m/s 视为移动，累计移动时长
+        if (speed > 0.3) movingTime += dt
+        if (speed > speedMax) speedMax = speed
+      }
     }
     if (cur.hr != null) { hrSum += cur.hr; hrCount++ }
     if (cur.cadence != null) { cadSum += cur.cadence; cadCount++ }
@@ -304,7 +307,7 @@ function computeTrackInfo(points: GpxPoint[]): Partial<TrackInfo> {
     elevationMax: elevationMax === -Infinity ? 0 : elevationMax,
     elevationGain,
     elevationLoss,
-    speedMax,
+    speedMax: speedMax * 3.6,
     averageHr: hrCount > 0 ? hrSum / hrCount : null,
     averageCadence: cadCount > 0 ? cadSum / cadCount : null,
     averageTemp: tempCount > 0 ? tempSum / tempCount : null,

@@ -692,6 +692,8 @@ class MarkerService {
     if (el) {
       el.style.transform = `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`
     }
+    // 悬浮时置顶，避免被其他节点遮挡
+    marker.setZIndexOffset(1000)
   }
 
   resetMarker(marker: MapMarkerAdapter) {
@@ -699,6 +701,7 @@ class MarkerService {
     if (el) {
       el.style.transform = `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`
     }
+    marker.setZIndexOffset(0)
   }
 
   async resetIconGroupMarker(groupId: string) {
