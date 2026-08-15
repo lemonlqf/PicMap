@@ -25,7 +25,7 @@
             <div class="image-card">
               <!-- 点击图片触发showImageInfo事件，由父组件统一处理弹框 -->
               <Image @click="(e) => handleImageClick(e, item.id)" :show-name="true" class="image" :perview="false"
-                :image-id="item.id">
+                :thumbnail="true" :image-id="item.id">
               </Image>
               <!-- 退出分组 -->
               <div class="exit-group" @click="clickExitGroup($event, groupId, item.id)">

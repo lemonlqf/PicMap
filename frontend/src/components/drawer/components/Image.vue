@@ -28,7 +28,7 @@ import { ref, watch } from 'vue'
 import API from '@/wails/api'
 import { fileToBase64 } from '@/utils/map'
 import { DRAWER_HEIGHT } from '@/utils/constant'
-import { getImageUrlById, getImageUrl, isImageExist } from '@/utils/Image';
+import { getImageUrlById, getImageUrl, isImageExist, getMarkerImageUrl, getMarkerImageUrlById } from '@/utils/Image';
 import { getSchemaInfoById } from '@/utils/schema'
 
 const props = defineProps({
@@ -48,6 +48,11 @@ const props = defineProps({
   showName: {
     type: Boolean,
     default: false
+  },
+  // 缩略图模式：使用 120px 小图（分组列表用），默认加载大图（详情用）
+  thumbnail: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -64,6 +69,22 @@ const isLoading = ref(false)
 async function setImageUrl(imageId: string) {
   const imageInfo = getSchemaInfoById(imageId) as any
   name.value = imageInfo?.name
+
+  // 缩略图模式：用 120px 小图（分组列表）
+  if (props.thumbnail) {
+    const cached = getMarkerImageUrl(imageId)
+    if (cached) {
+      url.value = cached
+      isLoading.value = false
+      return
+    }
+    url.value = ''
+    isLoading.value = true
+    const res = await getMarkerImageUrlById(imageId)
+    url.value = res
+    isLoading.value = false
+    return
+  }
 
   // 图片已缓存：直接切换，不显示加载动画
   if (isImageExist(imageId)) {

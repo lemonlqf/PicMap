@@ -178,6 +178,15 @@ export async function getImageUrlById(imageId: string) {
 }
 
 /**
+ * @description: 从缓存中获取 marker 专用小尺寸缩略图 url（120px）
+ * @param {string} imageId
+ * @return {*}
+ */
+export function getMarkerImageUrl(imageId: string) {
+  return ImageCacheManager.getInstance().getMarkerImageUrl(imageId)
+}
+
+/**
  * @description: 获取 marker 专用小尺寸缩略图（120px），减少缩放加载时的解码开销
  * @param {string} imageId
  * @return {*}

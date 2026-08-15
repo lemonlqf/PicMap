@@ -22,6 +22,9 @@ const (
 	ThumbnailPrefix = "_THUMBNAIL_PM"
 )
 
+// 图片解码并发信号量：限制同时解码的大图数量，避免打开应用时并发加载缩略图导致内存暴涨
+var decodeSem = make(chan struct{}, 4)
+
 func init() {
 	image.RegisterFormat("jpeg", "\xff\xd8", jpeg.Decode, jpeg.DecodeConfig)
 	image.RegisterFormat("png", "\x89PNG", png.Decode, png.DecodeConfig)
@@ -80,6 +83,9 @@ func GenerateThumbnail(inputPath, outputDir string) (string, error) {
 }
 
 func ResizeToJPEGBytes(inputPath string, width int) ([]byte, error) {
+	decodeSem <- struct{}{}
+	defer func() { <-decodeSem }()
+
 	src, err := imaging.Open(inputPath, imaging.AutoOrientation(true))
 	if err != nil {
 		return nil, err

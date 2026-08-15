@@ -632,19 +632,14 @@ class MarkerService {
   // moveend 时触发（由 map.ts 防抖调用）
   updateVisibleMarkers() {
     this.renderClusters()
-    // 视口内的单点图片 marker 加载缩略图
+    // 只对当前显示为单点的图片加载缩略图（聚合在 cluster 中的不加载，避免大量并发）
     const mapStore = useMapStore()
     const visibleMarkerIdList = mapStore.getVisibleMarkerIdList
-    this.clusterMarkers.forEach((_m, clusterId) => {
-      // 聚合点不加载缩略图
-    })
-    mapStore.getMarkerIdList.forEach((markerId: string) => {
-      const marker = this.getMarkerById(markerId)
-      if (marker && marker.options.type === 'image' && this.isMarkerInView(marker)) {
-        if (!visibleMarkerIdList.includes(markerId)) {
-          this.updateImageMarker(marker)
-          this.addVisibleMarkerById(markerId)
-        }
+    this.lastShownImageIds.forEach((imageId: string) => {
+      const marker = this.getMarkerById(imageId)
+      if (marker && marker.options.type === 'image' && !visibleMarkerIdList.includes(imageId)) {
+        this.updateImageMarker(marker)
+        this.addVisibleMarkerById(imageId)
       }
     })
   }
