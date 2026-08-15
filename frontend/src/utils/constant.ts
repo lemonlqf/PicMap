@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2025-07-17 18:40:56
- * @LastEditTime: 2026-08-14 19:49:23
+ * @LastEditTime: 2026-08-15 20:38:17
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @Description: In User Settings Edit
  * @FilePath: \picmap-go\frontend\src\utils\constant.ts
@@ -17,9 +17,9 @@ export const DRAWER_HEIGHT = 400
 
 // 地图常量
 export const MAP_CONSTANT = {
-  // 最大放到18
+  // 最大缩放级别（腾讯瓦片最高 17，再大会出现空白）
   MAX_ZOOM: 18,
-  // 最小3
+  // 最小缩放级别
   MIN_ZOOM: 3
 }
 

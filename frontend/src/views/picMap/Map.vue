@@ -17,7 +17,7 @@ import { useMapStore } from '../../store/map'
 import markerService from '@/services/marker'
 import { getGroupAndImageList } from '@/utils/schema'
 import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
-import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant'
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 
 const props = defineProps({
@@ -65,8 +65,8 @@ function initMap() {
       style: { version: 8, sources: {}, layers: [] },
       center: toMapLibreLngLat(props.mapCenter[0], props.mapCenter[1]),
       zoom: props.mapZoom,
-      minZoom: 3,
-      maxZoom: 18,
+      minZoom: MAP_CONSTANT.MIN_ZOOM,
+      maxZoom: MAP_CONSTANT.MAX_ZOOM,
       pitch: props.mapPitch,
       bearing: props.mapBearing,
       attributionControl: false,
@@ -110,7 +110,7 @@ function initTile() {
   if (currentTileUrl === url) return
   if (map.getLayer('tile-layer')) map.removeLayer('tile-layer')
   if (map.getSource('tile')) map.removeSource('tile')
-  map.addSource('tile', { type: 'raster', tiles: [url], tileSize: 256 })
+  map.addSource('tile', { type: 'raster', tiles: [url], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
   map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
   currentTileUrl = url
 }

@@ -36,7 +36,7 @@ import { ElIcon } from 'element-plus';
 import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getMarkerImageUrlById } from '@/utils/Image';
-import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT } from '@/utils/constant'
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, MAP_CONSTANT } from '@/utils/constant'
 import { createImageMarkerIcon, MapMarkerAdapter } from '@/services/markerAdapter';
 import { toMapLibreLngLat } from '@/utils/mapLibre';
 import { useAppStore } from '@/store/appSchema';
@@ -201,8 +201,8 @@ async function initMap() {
     container: mapContainer.value,
     style: { version: 8, sources: {}, layers: [] },
     attributionControl: false,
-    minZoom: 3,
-    maxZoom: 18,
+    minZoom: MAP_CONSTANT.MIN_ZOOM,
+    maxZoom: MAP_CONSTANT.MAX_ZOOM,
     center: mainCenter ? [mainCenter.lng, mainCenter.lat] : undefined,
     zoom: mainZoom,
     bearing: mainMap?.getBearing() ?? 0,
@@ -215,7 +215,7 @@ async function initMap() {
   map.on('load', async () => {
     styleLoaded = true
     const tileUrl = getCurrentTileUrl()
-    map!.addSource('tile', { type: 'raster', tiles: [tileUrl as string], tileSize: 256 })
+    map!.addSource('tile', { type: 'raster', tiles: [tileUrl as string], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
     map!.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
 
     await updateMarkers()

@@ -58,7 +58,7 @@ import { useAppStore } from '@/store/appSchema';
 import { cloneDeep } from 'lodash-es';
 import { editAppSchemaAttrAndSave } from '@/utils/appSchema';
 import { useI18n } from 'vue-i18n'
-import { DEFAULT_CENTER, DEFAULT_ZOOM } from '@/utils/constant';
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant';
 import { toMapLibreLngLat } from '@/utils/mapLibre';
 const { t } = useI18n()
 const props = defineProps({
@@ -109,8 +109,8 @@ function initMap() {
       container: mapRef.value,
       style: { version: 8, sources: {}, layers: [] },
       zoom: DEFAULT_ZOOM,
-      minZoom: 3,
-      maxZoom: 18,
+      minZoom: MAP_CONSTANT.MIN_ZOOM,
+      maxZoom: MAP_CONSTANT.MAX_ZOOM,
       center: toMapLibreLngLat(DEFAULT_CENTER[0], DEFAULT_CENTER[1]),
       attributionControl: false,
     })
@@ -127,7 +127,7 @@ function initTile() {
   if (currentTileUrl === props.url) return
   if (map.getLayer('tile-layer')) map.removeLayer('tile-layer')
   if (map.getSource('tile')) map.removeSource('tile')
-  map.addSource('tile', { type: 'raster', tiles: [props.url], tileSize: 256 })
+  map.addSource('tile', { type: 'raster', tiles: [props.url], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
   map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
   currentTileUrl = props.url
 }
