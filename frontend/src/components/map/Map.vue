@@ -43,6 +43,7 @@ import { useAppStore } from '@/store/appSchema';
 import { useSchemaStore } from '@/store/schema';
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap';
 import trackService from '@/services/track';
+import mapService from '@/services/map';
 import API from '@/wails/api';
 import TrackHoverCard from '@/components/trackHoverCard/TrackHoverCard.vue';
 import TrackDetailPanel from '@/components/trackDetail/TrackDetailPanel.vue';
@@ -80,6 +81,7 @@ const schemaStore = useSchemaStore()
 const mapContainer = ref<HTMLElement>()
 const isFullscreen = ref(false)
 let map: maplibregl.Map | null = null
+let styleLoaded = false
 const markers: MapMarkerAdapter[] = []
 let normalViewState: { center: { lng: number; lat: number }; zoom: number } | null = null
 
@@ -190,18 +192,28 @@ function getCurrentTileUrl(): String {
 async function initMap() {
   if (!mapContainer.value) return
 
+  // 与主地图保持一致的中心、缩放、朝向与俯仰角，避免从默认位置（非洲）移动过来
+  const mainMap = mapService.getMapInstance()
+  const mainCenter = mainMap?.getCenter()
+  const mainZoom = mainMap?.getZoom()
+
   map = new maplibregl.Map({
     container: mapContainer.value,
     style: { version: 8, sources: {}, layers: [] },
     attributionControl: false,
     minZoom: 3,
     maxZoom: 18,
+    center: mainCenter ? [mainCenter.lng, mainCenter.lat] : undefined,
+    zoom: mainZoom,
+    bearing: mainMap?.getBearing() ?? 0,
+    pitch: mainMap?.getPitch() ?? 0,
   })
 
   mapInstanceIdMap.set(map, String(++mapIdCounter))
 
   // style 异步加载完成后再添加瓦片、标记、轨迹
   map.on('load', async () => {
+    styleLoaded = true
     const tileUrl = getCurrentTileUrl()
     map!.addSource('tile', { type: 'raster', tiles: [tileUrl as string], tileSize: 256 })
     map!.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
@@ -228,15 +240,41 @@ function invalidateMapSize() {
 function fitAllBounds() {
   if (!map) return
   map.resize()
-  const coords: [number, number][] = []
+  let minLng = Infinity
+  let minLat = Infinity
+  let maxLng = -Infinity
+  let maxLat = -Infinity
 
   markers.forEach(marker => {
     const latlng = marker.getLatLng()
-    coords.push([latlng.lng, latlng.lat])
+    if (isFinite(latlng.lng) && isFinite(latlng.lat)) {
+      minLng = Math.min(minLng, latlng.lng)
+      minLat = Math.min(minLat, latlng.lat)
+      maxLng = Math.max(maxLng, latlng.lng)
+      maxLat = Math.max(maxLat, latlng.lat)
+    }
   })
 
-  if (coords.length > 0) {
-    map.fitBounds(coords as any, { padding: 20 })
+  // 加入当前显示轨迹的边界
+  const targetTrackIds = (props.trackIds || []).map(id => normalizeTrackId(id))
+  trackService.getInstances().forEach(instance => {
+    if (targetTrackIds.includes(normalizeTrackId(instance.getTrackId()))) {
+      const bounds = instance.getBounds()
+      if (bounds) {
+        bounds.forEach(([lng, lat]) => {
+          if (isFinite(lng) && isFinite(lat)) {
+            minLng = Math.min(minLng, lng)
+            minLat = Math.min(minLat, lat)
+            maxLng = Math.max(maxLng, lng)
+            maxLat = Math.max(maxLat, lat)
+          }
+        })
+      }
+    }
+  })
+
+  if (isFinite(minLng) && isFinite(minLat) && isFinite(maxLng) && isFinite(maxLat)) {
+    map.fitBounds([[minLng, minLat], [maxLng, maxLat]] as any, { padding: 20, duration: 300 })
   } else {
     map.jumpTo({ center: toMapLibreLngLat(DEFAULT_CENTER[0], DEFAULT_CENTER[1]), zoom: DEFAULT_ZOOM })
   }
@@ -304,6 +342,10 @@ function resetMarker(marker: MapMarkerAdapter) {
  */
 async function updateMarkers() {
   if (!map) return
+  if (!styleLoaded) {
+    map.once('load', () => updateMarkers())
+    return
+  }
 
   clearMarkers()
 
@@ -363,16 +405,19 @@ async function updateMarkers() {
  */
 async function updateTracks() {
   if (!map) return
+  if (!styleLoaded) {
+    map.once('load', () => updateTracks())
+    return
+  }
 
   const targetTrackIds = props.trackIds || []
   const normalizedTargetIds = targetTrackIds.map(id => normalizeTrackId(id))
 
   trackService.getInstances().forEach(instance => {
-    const trackLayer = instance.getTrackLayer(map!)
-    if (!trackLayer) return
     const isTarget = normalizedTargetIds.includes(normalizeTrackId(instance.getTrackId()))
-    if (!isTarget && map?.getLayer(trackLayer.layerId)) {
-      map.removeLayer(trackLayer.layerId)
+    if (!isTarget) {
+      // 完整移除：layer + source + 起终点 marker，并清理缓存，保证切换回来能重建
+      instance.removeMap(map!)
     }
   })
 
@@ -388,6 +433,11 @@ async function updateTracks() {
       loadedTrackInstances.value.add(instance)
 
       instance.addMap(map)
+
+      // 坐标解析完成后重新适配边界（图片 + 轨迹）
+      instance.onCoordinatesReady(() => {
+        fitAllBounds()
+      })
 
       const mapId = mapInstanceIdMap.get(map) || 'unknown'
       const instanceId = trackId + '_' + mapId

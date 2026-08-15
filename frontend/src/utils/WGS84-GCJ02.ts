@@ -28,14 +28,8 @@ function wgs84ToGcj02(lng: number, lat: number) {
   const sqrtmagic = Math.sqrt(magic)
   dlat = (dlat * 180.0) / (((A * (1 - EE)) / (magic * sqrtmagic)) * PI)
   dlng = (dlng * 180.0) / ((A / sqrtmagic) * Math.cos(radlat) * PI)
-  let mglat = (lat + dlat).toFixed(7)
-  let mglng = (lng + dlng).toFixed(7)
-  if (mglat === 'NaN') {
-    mglat = undefined
-  }
-  if (mglng === 'NaN') {
-    mglng = undefined
-  }
+  const mglat = parseFloat((lat + dlat).toFixed(7))
+  const mglng = parseFloat((lng + dlng).toFixed(7))
   return [mglng, mglat]
 }
 

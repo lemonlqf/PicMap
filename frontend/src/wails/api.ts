@@ -174,11 +174,22 @@ export async function uploadTrack(file: File) {
   const binding = getGoBinding()
   if (binding) {
     const buffer = await file.arrayBuffer()
-    const base64 = btoa(String.fromCharCode(...new Uint8Array(buffer)))
+    const base64 = arrayBufferToBase64(buffer)
     const result = await binding.UploadTrack(getCurrentUserId(), base64, file.name)
     return unwrapResult(result)
   }
   throw new Error('Wails bindings not available')
+}
+
+// 分块转 base64，避免大文件展开导致调用栈溢出
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+  const bytes = new Uint8Array(buffer)
+  const chunkSize = 0x8000
+  let binary = ''
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize))
+  }
+  return btoa(binary)
 }
 
 export async function deleteTrack(fileName: string) {

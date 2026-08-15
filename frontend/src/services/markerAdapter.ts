@@ -165,6 +165,7 @@ export class MapMarkerAdapter {
       })
     } else if (event === 'contextmenu') {
       el.addEventListener('contextmenu', (e: Event) => {
+        e.preventDefault()
         e.stopPropagation()
         cb(this.wrapEvent(e))
       })

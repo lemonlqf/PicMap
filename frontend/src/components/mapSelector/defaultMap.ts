@@ -9,7 +9,7 @@
 import GDSatellite from '@/assets/map/GDSatellite.png'
 import GDGraphics from '@/assets/map/GDGraphics.png'
 import TXGraphics from '@/assets/map/TXGraphics.png'
-import { useI18n } from 'vue-i18n'
+import i18n from '@/i18n/index'
 export interface IMapTile {
   id: string,
   isDefault?: boolean
@@ -19,7 +19,7 @@ export interface IMapTile {
 }
 
 export const getDefaultMapTile = (): IMapTile[] => {
-  const { t } = useI18n()
+  const t = i18n.global.t
   return [
     {
       id: 'tile_default1',

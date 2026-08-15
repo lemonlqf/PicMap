@@ -203,9 +203,11 @@ function parseGpxPoints(gpxText: string): GpxPoint[] {
   const doc = parser.parseFromString(gpxText, 'text/xml')
   const points: GpxPoint[] = []
   doc.querySelectorAll('trkpt').forEach((pt) => {
-    const lat = parseFloat(pt.getAttribute('lat') || '0')
-    const lon = parseFloat(pt.getAttribute('lon') || '0')
+    const lat = parseFloat(pt.getAttribute('lat') || '')
+    const lon = parseFloat(pt.getAttribute('lon') || '')
+    if (!isFinite(lat) || !isFinite(lon)) return
     const [gcjLng, gcjLat] = wgs84ToGcj02(lon, lat)
+    if (!isFinite(gcjLng) || !isFinite(gcjLat)) return
     const ele = pt.getElementsByTagName('ele')[0]?.textContent
     const time = pt.getElementsByTagName('time')[0]?.textContent
     const hr = pt.getElementsByTagName('hr')[0]?.textContent
@@ -329,6 +331,8 @@ class TrackInstance {
   private options: any
   private points: GpxPoint[] = []
   private coordinates: [number, number][] = []
+  private coordinatesReadyCallbacks: (() => void)[] = []
+  private coordinatesReady = false
   private lineColor: string | undefined = getDefaultLineColor(true)
   private hoverCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void> = new Map()
   private clickCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>) => void> = new Map()
@@ -385,6 +389,9 @@ class TrackInstance {
           this.addMap(map)
         }
       })
+      this.coordinatesReady = true
+      this.coordinatesReadyCallbacks.forEach((cb) => cb())
+      this.coordinatesReadyCallbacks = []
     })
   }
 
@@ -436,7 +443,11 @@ class TrackInstance {
     })
     this.addEdgeMarkers(map)
     if (!this.trackInfo.name) {
-      this.trackInfo = { ...this.trackInfo, ...computeTrackInfo(this.points) }
+      this.trackInfo = {
+        ...this.trackInfo,
+        name: this.trackId.replace(/\.gpx$/i, ''),
+        ...computeTrackInfo(this.points),
+      }
       this.pendingCallbacks.forEach((cb) => cb(this.trackInfo))
       this.pendingCallbacks = []
     }
@@ -482,6 +493,31 @@ class TrackInstance {
 
   getTrackId() {
     return this.trackId
+  }
+
+  // 坐标解析完成（含 addMap）后触发回调，用于重新适配地图边界
+  onCoordinatesReady(callback: () => void) {
+    if (this.coordinatesReady) {
+      callback()
+    } else {
+      this.coordinatesReadyCallbacks.push(callback)
+    }
+  }
+
+  // 返回轨迹的坐标边界 [[minLng, minLat], [maxLng, maxLat]]，无坐标时返回 null
+  getBounds(): [number, number][] | null {
+    if (this.coordinates.length === 0) return null
+    let minLng = Infinity
+    let minLat = Infinity
+    let maxLng = -Infinity
+    let maxLat = -Infinity
+    this.coordinates.forEach(([lng, lat]) => {
+      if (lng < minLng) minLng = lng
+      if (lng > maxLng) maxLng = lng
+      if (lat < minLat) minLat = lat
+      if (lat > maxLat) maxLat = lat
+    })
+    return [[minLng, minLat], [maxLng, maxLat]]
   }
 
   getTrackLayer(map?: maplibregl.Map) {

@@ -241,7 +241,7 @@ async function handleTrackFileChange(file: any) {
       // 轨迹信息加载完成后适配边界
       setTimeout(() => {
         trackMapRef.value?.fitAllBounds()
-        trackMapRef.value?.getMapInstance()?.invalidateSize()
+        trackMapRef.value?.invalidateMapSize()
       }, 100)
     })
   }
