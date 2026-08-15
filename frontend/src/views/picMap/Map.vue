@@ -3,7 +3,7 @@
     <div id="map"></div>
     <!-- 俯仰角调节 -->
     <div class="pitch-control">
-      <span class="pitch-label">{{ $t('pitch') || '俯仰角' }}: {{ pitch }}°</span>
+      <span class="pitch-label">俯仰角: {{ pitch }}°</span>
       <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
     </div>
   </div>
@@ -182,8 +182,8 @@ defineExpose({
 }
 .pitch-control {
   position: absolute;
-  right: 16px;
-  bottom: 120px;
+  left: 25px;
+  bottom: 90px;
   z-index: 1000;
   display: flex;
   flex-direction: column;
