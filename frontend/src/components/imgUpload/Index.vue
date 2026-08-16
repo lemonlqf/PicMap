@@ -32,7 +32,7 @@
           <div class="duplicate-upload-img-card" v-for="item in uploadedImageInfos" :key="item.id">
             <el-tooltip :show-after="500" :content="item.name" placement="top">
               <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
-                @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item.blobUrl ?? item.url)" />
+                @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item)" />
             </el-tooltip>
           </div>
         </div>
@@ -61,7 +61,7 @@
         <div class="upload-img-card" v-for="item in needUploadImageInfos" :key="item.id">
           <div class="image-info">
             <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
-              @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item.blobUrl ?? item.url)" />
+              @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item)" />
             <div class="info-text">
             <el-tooltip :show-after="500" :content="item.name" placement="top">
                 <span class="name-text">{{ item.name }}</span>
@@ -87,6 +87,10 @@
             </div>
             <div :title="$t('delete')" class="action-btn delete" @click="deleteImage(item.name)">
               <img src="@/assets/icon/删除 (白色).png" alt="">
+            </div>
+            <div :title="item.isPanorama ? $t('cancelPanorama') : $t('setPanorama')"
+              :class="['action-btn', 'panorama', { active: item.isPanorama }]" @click="togglePanorama(item)">
+              <span class="panorama-text">360</span>
             </div>
           </div>
         </div>
@@ -132,6 +136,13 @@
   <BatchUploadToGroupDialog v-model="batchUploadToGroupDialogShow" :uploading="isUploading" @confirm="handleBatchUploadToGroup"></BatchUploadToGroupDialog>
   <!-- 图片预览 -->
   <ImagePreview v-model:visible="previewVisible" :src="previewSrc"></ImagePreview>
+  <!-- 全景 360 预览 -->
+  <el-dialog v-model="panoramaVisible" append-to-body :close-on-click-modal="true" :show-close="true"
+    width="80vw" top="5vh" class="panorama-preview-dialog" destroy-on-close>
+    <div class="panorama-container" v-loading="panoramaLoading">
+      <PanoramaViewer :src="panoramaSrc" :panorama-type="panoramaType" />
+    </div>
+  </el-dialog>
 </template>
 
 <script lang="ts" setup>
@@ -140,7 +151,7 @@ import { ElMessage, ElLoading } from 'element-plus'
 import { ArrowUpBold, ArrowDownBold, Delete, Loading } from '@element-plus/icons-vue'
 import { judgeHadUploadImage, saveSchema as SaveSchema } from '@/utils/schema'
 import { updateGroupMarkerImage } from '@/utils/group'
-import { uploadImages as UploadImages, addImageUrl } from '@/utils/Image'
+import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById } from '@/utils/Image'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import eventBus from '@/utils/eventBus'
@@ -149,6 +160,7 @@ import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vu
 import BatchUploadToGroupDialog from '@/components/groupInfo/batchUploadToGroup/BatchUploadToGroupDialog.vue'
 import LocateDialog from './LocateDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
+import PanoramaViewer from '@/components/imagePreview/PanoramaViewer.vue'
 import type { IImageDetailInfo } from '@/type/image'
 import { cloneDeep } from 'lodash-es'
 import { useI18n } from 'vue-i18n'
@@ -465,10 +477,33 @@ const editImageIds = ref<string[]>([])
 // 图片预览
 const previewVisible = ref(false)
 const previewSrc = ref('')
+// 全景预览
+const panoramaVisible = ref(false)
+const panoramaSrc = ref('')
+const panoramaType = ref('')
+const panoramaLoading = ref(false)
 
-function previewImage(src: string) {
-  previewSrc.value = src
-  previewVisible.value = true
+async function previewImage(item: any) {
+  if (item?.isPanorama) {
+    // 全景：先打开对话框显示加载动画，加载原图后展示 360° 查看器
+    panoramaType.value = item?.panoramaType ?? ''
+    panoramaSrc.value = ''
+    panoramaVisible.value = true
+    panoramaLoading.value = true
+    const url = await getFullImageUrlById(item.id)
+    panoramaLoading.value = false
+    if (url) {
+      panoramaSrc.value = url
+    }
+  } else {
+    previewSrc.value = item?.blobUrl ?? item?.url
+    previewVisible.value = true
+  }
+}
+
+// 切换图片是否为全景标记（上传前）
+function togglePanorama(item: any) {
+  item.isPanorama = !item.isPanorama
 }
 
 /**
@@ -757,6 +792,25 @@ defineExpose({
           transform: scale(1.1);
         }
       }
+
+      &.panorama {
+        background: #909399;
+
+        .panorama-text {
+          font-size: 11px;
+          color: #fff;
+          font-weight: bold;
+        }
+
+        &:hover {
+          background: #a6a9ad;
+          transform: scale(1.1);
+        }
+
+        &.active {
+          background: #409eff;
+        }
+      }
     }
   }
 }
@@ -814,5 +868,26 @@ img {
   margin-left: 14px;
   font-size: 12px;
   color: #606266;
+}
+</style>
+
+<style lang="scss">
+.panorama-preview-dialog {
+  background: rgba(0, 0, 0, 0.9);
+  z-index: 99999;
+
+  .el-dialog__header {
+    display: none;
+  }
+
+  .el-dialog__body {
+    padding: 0;
+  }
+
+  .panorama-container {
+    position: relative;
+    width: 100%;
+    height: 370px;
+  }
 }
 </style>

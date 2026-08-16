@@ -842,6 +842,7 @@ func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, er
 		Type:         service.GetImageTypeByName(name),
 		LastModified: info.ModTime().UnixMilli(),
 	}
+	item.IsPanorama, item.PanoramaType = service.DetectPanorama(filePath)
 
 	// 解析 EXIF
 	exifData, err := service.ExtractExif(filePath)

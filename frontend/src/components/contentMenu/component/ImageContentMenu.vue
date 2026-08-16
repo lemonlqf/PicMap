@@ -15,13 +15,13 @@
 </template>
 
 <script lang="ts" setup>
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import eventBus from '@/utils/eventBus'
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
-import { judgeHadUploadImage, saveSchema } from '@/utils/schema'
+import { judgeHadUploadImage, getSchemaInfoById, editSchemaAndSave } from '@/utils/schema'
 import { canDragMenu } from './markerOperate'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
@@ -31,8 +31,6 @@ const props = defineProps({
     default: () => ''
   }
 })
-
-const menuList = ref<any>([])
 
 const deleteAndDragList = [
   {
@@ -63,14 +61,24 @@ const isImageUploaded = computed(() => {
   return judgeHadUploadImage(props.imageId)
 })
 
-watch(() => isImageUploaded.value, (newValue) => {
-  // 如果图片没有上传，那不能设置分组
-  if (!newValue) {
-    menuList.value = [...deleteAndDragList]
-  } else {
-    menuList.value = [...deleteAndDragList, ...setGroupList]
+// 菜单列表：响应式依赖 isPanorama，设置全景后再次右键能正确显示状态
+const menuList = computed(() => {
+  if (!isImageUploaded.value) {
+    return [...deleteAndDragList]
   }
-}, { immediate: true })
+  const isPanorama = !!getSchemaInfoById(props.imageId)?.isPanorama
+  return [
+    ...deleteAndDragList,
+    ...setGroupList,
+    {
+      label: isPanorama ? t('cancelPanorama') : t('setPanorama'),
+      clickEvent: async () => {
+        await editSchemaAndSave(props.imageId, 'isPanorama', !isPanorama)
+        menuHidden()
+      }
+    }
+  ]
+})
 
 const schemaStore = useSchemaStore()
 const marker = ref({})

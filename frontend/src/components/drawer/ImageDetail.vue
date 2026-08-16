@@ -2,13 +2,16 @@
  * @Author: Do not edit
  * @Date: 2025-04-30 18:35:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-06-17 19:21:58
- * @FilePath: \Code\picMap_fontend\src\components\drawer\ImageDetail.vue
+ * @LastEditTime: 2026-08-16 20:50:21
+ * @FilePath: \picmap-go\frontend\src\components\drawer\ImageDetail.vue
  * @Description: 
 -->
 <template>
   <div class="flex-box">
-    <Image style="flex: 1" :image-id="imageId"></Image>
+    <div class="img-container" style="flex: 1" v-loading="panoramaLoading">
+      <PanoramaViewer v-if="imageInfo?.isPanorama" :src="panoramaUrl" :panorama-type="panoramaType"></PanoramaViewer>
+      <Image v-else :image-id="imageId"></Image>
+    </div>
     <div style="flex: 1" class="img-info-box">
       <ImageInfoComponent :image-info="imageInfo">
       </ImageInfoComponent>
@@ -17,11 +20,14 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import Image from './components/Image.vue'
 import ImageInfoComponent from './components/ImageInfo.vue'
+import PanoramaViewer from '@/components/imagePreview/PanoramaViewer.vue'
 import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getSchemaInfoById } from '@/utils/schema'
+import { getFullImageUrlById } from '@/utils/Image'
+
 const props = defineProps({
   imageId: {
     type: String,
@@ -39,6 +45,21 @@ const imageInfo = computed(() => {
   return getSchemaInfoById(props.imageId)
 })
 
+const panoramaUrl = ref('')
+const panoramaType = ref('')
+const panoramaLoading = ref(false)
+
+watch(() => props.imageId, async () => {
+  if (imageInfo.value?.isPanorama) {
+    panoramaUrl.value = ''
+    panoramaType.value = imageInfo.value?.panoramaType ?? ''
+    panoramaLoading.value = true
+    const url = await getFullImageUrlById(props.imageId)
+    panoramaLoading.value = false
+    panoramaUrl.value = url
+  }
+}, { immediate: true })
+
 </script>
 
 <style scoped lang="scss">
@@ -49,9 +70,14 @@ const imageInfo = computed(() => {
   flex-direction: row;
 }
 
+.img-container {
+  position: relative;
+  height: 370px;
+}
+
 .img-info-box {
   background-color: rgba(255, 255, 255, 0.95);
-  padding: 15px 15px;
+  padding: 13px 15px;
   max-height: 400px;
 
   /* 或 v-bind('height')，但纯 CSS 不支持 v-bind */

@@ -117,6 +117,16 @@ export async function downloadImage(data: { imageId: string }) {
   throw new Error('Wails bindings not available')
 }
 
+// 获取原图（完整分辨率 base64），用于全景预览
+export async function getFullImage(data: { imageId: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetFullImage(getCurrentUserId(), data.imageId)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 // ---- Schema ----
 
 export async function getSchema(params?: { currentUserId?: string }) {
@@ -286,6 +296,7 @@ const image = {
   deleteImages,
   updateImages,
   downloadImage,
+  getFullImage,
   onImagesParsed,
   onImagesProgress,
   onImagesDone,

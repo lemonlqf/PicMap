@@ -28,6 +28,8 @@ class ImageCacheManager {
   private imageUrlsMap: Map<string, string> = new Map()
   // marker 专用小图缓存（120px）
   private markerUrlsMap: Map<string, string> = new Map()
+  // 原图缓存（完整分辨率，全景预览用）
+  private fullImageUrlsMap: Map<string, string> = new Map()
   // in-flight 请求去重：key 为缓存键，value 为进行中的 Promise
   private pendingMap: Map<string, Promise<string>> = new Map()
 
@@ -74,6 +76,16 @@ class ImageCacheManager {
     }
   }
 
+  addFullImageUrl(imageId: string, imageUrl: string) {
+    try {
+      this.fullImageUrlsMap.set(imageId, imageUrl)
+      return true
+    } catch {
+      console.error('error in ImageCacheManager addFullImageUrl')
+      return false
+    }
+  }
+
   /**
    * 根据图片ID获取图片URL
    * @param {string} imageId - 图片的唯一标识符
@@ -94,6 +106,14 @@ class ImageCacheManager {
       return this.markerUrlsMap.get(imageId)
     } catch {
       console.error('error in ImageCacheManager getMarkerImageUrl')
+    }
+  }
+
+  getFullImageUrl(imageId: string) {
+    try {
+      return this.fullImageUrlsMap.get(imageId)
+    } catch {
+      console.error('error in ImageCacheManager getFullImageUrl')
     }
   }
 
@@ -215,6 +235,28 @@ export async function getMarkerImageUrlById(imageId: string) {
  */
 export async function getMarkerImageUrlByIds(imageIds: string[]) {
   return Promise.all(imageIds.map((imageId) => getMarkerImageUrlById(imageId)))
+}
+
+/**
+ * @description: 获取原图（完整分辨率 base64），全景预览用，内部实现缓存与 in-flight 去重
+ * @param {string} imageId
+ * @return {*}
+ */
+export async function getFullImageUrlById(imageId: string) {
+  const cache = ImageCacheManager.getInstance()
+  const cached = cache.getFullImageUrl(imageId)
+  if (cached) {
+    return cached
+  }
+  return cache.fetchDedup(`full:${imageId}`, async () => {
+    const res = await API.image.getFullImage({ imageId }) as any
+    if (res.code !== 200 || !res.data?.file) {
+      return ''
+    }
+    const imageUrl = fileToBase64(res.data.file)
+    cache.addFullImageUrl(imageId, imageUrl)
+    return imageUrl
+  })
 }
 
 // 计算MB大小

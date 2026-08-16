@@ -23,6 +23,7 @@
     "mitt": "^3.0.1",
     "moment": "^2.30.1",
     "nouislider": "^15.8.1",
+    "photo-sphere-viewer": "^4.8.1",
     "pinia": "^2.3.0",
     "supercluster": "^9.0.0",
     "uuid": "^11.0.5",

@@ -34,18 +34,20 @@ type UploadResult struct {
 
 // SelectedImage 选择图片后返回的信息（路径方案）
 type SelectedImage struct {
-	ID            string                 `json:"id"`
-	Name          string                 `json:"name"`
-	Path          string                 `json:"path"`
-	Size          string                 `json:"size"`
-	Type          string                 `json:"type"`
-	LastModified  int64                  `json:"lastModified"`
-	GPSInfo       GPSInfo                `json:"GPSInfo"`
-	ImageInfo     map[string]interface{} `json:"imageInfo"`
-	CameraInfo    map[string]interface{} `json:"cameraInfo"`
-	AuthorInfo    map[string]interface{} `json:"authorInfo"`
+	ID           string                 `json:"id"`
+	Name         string                 `json:"name"`
+	Path         string                 `json:"path"`
+	Size         string                 `json:"size"`
+	Type         string                 `json:"type"`
+	LastModified int64                  `json:"lastModified"`
+	GPSInfo      GPSInfo                `json:"GPSInfo"`
+	ImageInfo    map[string]interface{} `json:"imageInfo"`
+	CameraInfo   map[string]interface{} `json:"cameraInfo"`
+	AuthorInfo   map[string]interface{} `json:"authorInfo"`
 	Preview       string                 `json:"preview"`
 	ThumbnailData string                 `json:"thumbnailData,omitempty"`
+	IsPanorama    bool                   `json:"isPanorama"`
+	PanoramaType  string                 `json:"panoramaType"`
 }
 
 // ImportFile 导入图片的请求项
