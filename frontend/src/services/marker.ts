@@ -110,6 +110,28 @@ class MarkerService {
     })
   }
 
+  // 清空所有 marker 与聚合状态（切换用户时调用，重新加载当前用户数据）
+  reset() {
+    this.cancelAllFlyAnimations()
+    this.unspiderfy()
+    this.markers.forEach((m) => m.remove())
+    this.markers.clear()
+    this.clusterMarkers.forEach((m) => m.remove())
+    this.clusterMarkers.clear()
+    this.clusterGroup.clearLayers()
+    this.hiddenMarkerIds.clear()
+    this.imagePoints = []
+    this.clusterIndex = null
+    this.lastShownImageIds.clear()
+    this.lastClusterCenters.clear()
+    this.lastClusterIds.clear()
+    this.lastClusterMarkers.clear()
+    this.lastClusterCentersById.clear()
+    this.lastZoom = -1
+    this.timeRange = null
+    this.clusterDirty = false
+  }
+
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
   private rebuildClusterIndex() {
     this.clusterIndex = new Supercluster({ radius: 30, maxZoom: 17 })

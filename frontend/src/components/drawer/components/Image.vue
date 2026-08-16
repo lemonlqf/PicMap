@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-05-01 10:38:57
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-28 14:56:56
- * @FilePath: \PicMap\picMap_fontend\src\components\drawer\components\Image.vue
+ * @LastEditTime: 2026-08-16 20:19:44
+ * @FilePath: \picmap-go\frontend\src\components\drawer\components\Image.vue
  * @Description: 
 -->
 <template>
@@ -24,10 +24,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { ref, watch, computed } from 'vue'
 import API from '@/wails/api'
 import { fileToBase64 } from '@/utils/map'
-import { DRAWER_HEIGHT } from '@/utils/constant'
 import { getImageUrlById, getImageUrl, isImageExist, getMarkerImageUrl, getMarkerImageUrlById } from '@/utils/Image';
 import { getSchemaInfoById } from '@/utils/schema'
 
@@ -56,7 +55,8 @@ const props = defineProps({
   }
 })
 
-const height = DRAWER_HEIGHT + 'px'
+// 详情模式填充父容器高度，缩略图模式固定 120px
+const height = computed(() => props.thumbnail ? '120px' : '100%')
 const url = ref('')
 const name = ref('')
 const isLoading = ref(false)
@@ -132,8 +132,7 @@ async function downloadImage(e: MouseEvent) {
 
 <style scoped>
 .img-box {
-  height: v-bind('height');
-  max-width: 900px;
+  height: 370px;
   position: relative;
   background-color: rgba(53, 53, 53, 0.95);
   display: flex;

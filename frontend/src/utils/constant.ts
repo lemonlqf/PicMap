@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2025-07-17 18:40:56
- * @LastEditTime: 2026-08-15 20:38:17
+ * @LastEditTime: 2026-08-16 20:02:38
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @Description: In User Settings Edit
  * @FilePath: \picmap-go\frontend\src\utils\constant.ts
@@ -13,7 +13,7 @@ export const DEFAULT_CENTER = [30.2489634, 120.2052342]
 export const DEFAULT_ZOOM = 10
 
 // 抽屉的高度
-export const DRAWER_HEIGHT = 400
+export const DRAWER_HEIGHT = 380
 
 // 地图常量
 export const MAP_CONSTANT = {

@@ -8,14 +8,14 @@
 -->
 <template>
   <div :class="{ drawer: true, 'is-show': isShow }">
-    <el-scrollbar :max-height="DRAWER_HEIGHT">
+    <el-scrollbar :max-height="drawerHeight">
       <div class="flex-box">
         <div class="hidden-button" @click="drawerHidden">
           <img src="@/assets/icon/关闭.png" alt="" />
         </div>
         <!-- 图片详情 -->
-        <ImageDetail v-if="marker.showType === 'image'" :height="DRAWER_HEIGHT" :image-id="marker.id" />
-        <GroupDetail v-if="marker.showType === 'group'" :height="DRAWER_HEIGHT" :group-id="marker.id" />
+        <ImageDetail v-if="marker.showType === 'image'" :height="drawerHeight" :image-id="marker.id" />
+        <GroupDetail v-if="marker.showType === 'group'" :height="drawerHeight" :group-id="marker.id" />
       </div>
     </el-scrollbar>
   </div>
@@ -34,7 +34,10 @@ import { DRAWER_HEIGHT } from '@/utils/constant'
 const isShow = ref(false)
 const marker = ref<IMarker>({} as IMarker)
 
-const height = DRAWER_HEIGHT - 10 + 'px'
+// 抽屉内容高度（数字，传给子组件作为 height prop）
+const drawerHeight = DRAWER_HEIGHT - 10
+// 抽屉显示高度（字符串，用于 top 定位）
+const height = drawerHeight + 'px'
 
 function drawerShow(event) {
   isShow.value = true

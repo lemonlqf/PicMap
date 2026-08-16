@@ -157,10 +157,16 @@ function getMapInstance() {
  * @return {*}
  */
 async function init() {
+  const isFirstInit = !map
   initMap()
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
   markerService.observeClisterClick()
+  // 切换用户后重新加载 marker（首次初始化由 map load 回调处理）
+  if (!isFirstInit && map) {
+    markerService.reset()
+    await initMarker()
+  }
 }
 
 defineExpose({
