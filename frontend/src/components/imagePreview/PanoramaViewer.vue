@@ -1,28 +1,15 @@
 <!--
- * @Description: 全景 360 图片查看器（基于 Photo Sphere Viewer），支持投影切换、全屏、柱形全景限制垂直视野
+ * @Description: 全景 360 图片查看器（基于 Photo Sphere Viewer），使用插件自带工具栏
 -->
 <template>
-  <div class="panorama-viewer-wrap" :class="{ 'is-fullscreen': isFullscreen }">
-    <div ref="container" class="panorama-viewer"></div>
-    <div class="panorama-toolbar">
-      <button class="projection-btn" @click="toggleProjection">
-        {{ isLittlePlanet ? $t('normalPanorama') : $t('littlePlanet') }}
-      </button>
-      <button class="projection-btn" @click="toggleFullscreen">
-        {{ isFullscreen ? $t('exitFullscreen') : $t('fullscreen') }}
-      </button>
-    </div>
-  </div>
+  <div ref="container" class="panorama-viewer" :class="{ 'is-fullscreen': isFullscreen }"></div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Viewer, EquirectangularAdapter, type PanoData } from 'photo-sphere-viewer'
 import { LittlePlanetAdapter } from 'photo-sphere-viewer/dist/adapters/little-planet'
-import { useI18n } from 'vue-i18n'
 import 'photo-sphere-viewer/dist/photo-sphere-viewer.css'
-
-const { t } = useI18n()
 
 const props = defineProps<{
   // 全景图片 URL（equirectangular，data URL 或 http）
@@ -33,6 +20,7 @@ const props = defineProps<{
 
 const container = ref<HTMLElement>()
 const isLittlePlanet = ref(false)
+// 全屏状态（CSS class 实现，避免浏览器全屏在重建 viewer 时丢失）
 const isFullscreen = ref(false)
 let viewer: Viewer | null = null
 
@@ -45,7 +33,6 @@ onBeforeUnmount(() => {
 })
 
 watch(() => props.src, (newSrc) => {
-  // src 清空：销毁 viewer，避免加载空地址报错
   if (!newSrc) {
     destroyViewer()
     return
@@ -68,7 +55,36 @@ function createViewer() {
     container: container.value,
     panorama: props.src,
     adapter: isLittlePlanet.value ? LittlePlanetAdapter : EquirectangularAdapter,
-    navbar: false,
+    navbar: [
+      'zoom',
+      {
+        id: 'fullscreen',
+        title: isFullscreen.value ? '退出全屏' : '全屏',
+        content: '⤢',
+        className: 'psv-fullscreen-btn',
+        onClick: () => {
+          isFullscreen.value = !isFullscreen.value
+          setTimeout(() => {
+            viewer?.autoSize()
+          }, 50)
+        },
+      },
+      {
+        id: 'projection',
+        title: isLittlePlanet.value ? '普通全景' : '小星球',
+        content: '360',
+        className: 'psv-projection-btn',
+        onClick: () => {
+          isLittlePlanet.value = !isLittlePlanet.value
+          destroyViewer()
+          createViewer()
+          // 重建后保持 CSS class 全屏
+          setTimeout(() => {
+            viewer?.autoSize()
+          }, 50)
+        },
+      },
+    ],
     loadingTxt: '',
     mousewheel: true,
     mousemove: true,
@@ -98,30 +114,15 @@ function destroyViewer() {
   viewer?.destroy()
   viewer = null
 }
-
-function toggleProjection() {
-  isLittlePlanet.value = !isLittlePlanet.value
-  destroyViewer()
-  createViewer()
-}
-
-function toggleFullscreen() {
-  isFullscreen.value = !isFullscreen.value
-  // 容器尺寸变化后，等待 DOM 更新再刷新 viewer 尺寸
-  nextTick(() => {
-    viewer?.resize({ width: '100%', height: '100%' })
-  })
-}
 </script>
 
 <style scoped>
-.panorama-viewer-wrap {
-  position: relative;
+.panorama-viewer {
   width: 100%;
-  height: 370px;
+  height: 100%;
 }
 
-.panorama-viewer-wrap.is-fullscreen {
+.panorama-viewer.is-fullscreen {
   position: fixed;
   top: 0;
   left: 0;
@@ -130,34 +131,12 @@ function toggleFullscreen() {
   z-index: 100000;
   background: #000;
 }
+</style>
 
-.panorama-viewer {
-  width: 100%;
-  height: 100%;
-}
-
-.panorama-toolbar {
-  position: absolute;
-  bottom: 16px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 10;
-  display: flex;
-  gap: 10px;
-}
-
-.projection-btn {
-  padding: 6px 14px;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  border-radius: 6px;
-  background: rgba(0, 0, 0, 0.5);
-  color: #fff;
-  font-size: 13px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.projection-btn:hover {
-  background: rgba(0, 0, 0, 0.75);
+<style>
+.psv-projection-btn,
+.psv-fullscreen-btn {
+  font-size: 14px;
+  font-weight: bold;
 }
 </style>
