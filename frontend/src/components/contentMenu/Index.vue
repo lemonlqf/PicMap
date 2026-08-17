@@ -9,7 +9,8 @@
 <template>
   <!-- 将图片右键和分组右键拆分一下 -->
   <div :class="{ menu: true, 'is-show': isShow }">
-    <ImageContentMenu v-if="markerType === 'image'" :imageId="marker.options.id"></ImageContentMenu>
+    <MultiSelectContentMenu v-if="isMultiMode" :selectedIds="selectedIds"></MultiSelectContentMenu>
+    <ImageContentMenu v-else-if="markerType === 'image'" :imageId="marker.options.id"></ImageContentMenu>
     <GroupContentMenu v-else-if="markerType === 'group'" :groupId="marker.options.id"></GroupContentMenu>
     <!-- 其他情况都是临时节点 -->
     <TemporaryMarkerContentMenu v-else-if="markerType?.includes('temporary')" :markerId="marker.options.id"></TemporaryMarkerContentMenu>
@@ -22,11 +23,16 @@ import eventBus from '@/utils/eventBus'
 import ImageContentMenu from './component/ImageContentMenu.vue'
 import GroupContentMenu from './component/GroupContentMenu.vue'
 import TemporaryMarkerContentMenu from './component/TemporaryMarkerContentMenu.vue'
+import MultiSelectContentMenu from './component/MultiSelectContentMenu.vue'
+import { useSelectStore } from '@/store/select'
+import markerService from '@/services/marker'
 import type { IShowType } from '@/type/image.ts'
 
 const isShow = ref(false)
 const marker = ref({})
 const markerType = ref<IShowType>()
+const isMultiMode = ref(false)
+const selectedIds = ref<string[]>([])
 const postionInfo = ref({
   left: '10px',
   top: '0px'
@@ -41,11 +47,36 @@ function getPxValue(value) {
 }
 
 function menuShow(event) {
+  const selectStore = useSelectStore()
+  const targetMarker = event.target
+  const clickedId = targetMarker?.options?.id
+  const selectedIdList = selectStore.getSelectedIds()
+
+  // 判断右键节点是否属于选中集：
+  // - 单点/分组：直接看 id 是否在选中集
+  // - cluster：看其叶子是否与选中集有交集
+  let isClickedSelected = false
+  if (clickedId && selectedIdList.length > 0) {
+    if (targetMarker?.options?.type === 'cluster') {
+      const leafIds = markerService.getMarkerLeafIds(targetMarker)
+      isClickedSelected = leafIds.some((id) => selectStore.isSelected(id))
+    } else {
+      isClickedSelected = selectStore.isSelected(clickedId)
+    }
+  }
+
+  if (isClickedSelected) {
+    isMultiMode.value = true
+    selectedIds.value = selectedIdList
+  } else {
+    isMultiMode.value = false
+    selectedIds.value = []
+  }
+
   // 根据不同的节点类型展示不同的右键菜单内容
-  markerType.value = event.target.options.type
-  console.log(event)
+  markerType.value = targetMarker?.options?.type
   const { x, y } = event.originalEvent
-  marker.value = event.target
+  marker.value = targetMarker
   postionInfo.value.left = getPxValue(x ?? 0)
   postionInfo.value.top = getPxValue(y ?? 0)
   isShow.value = true

@@ -20,6 +20,7 @@ import eventBus from '@/utils/eventBus'
 import { GPSInfoLegality } from '@/utils/map'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 import { MARKER_CONSTANT } from '@/utils/constant'
+import { useSelectStore } from '@/store/select'
 import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo } from '@/type/schema'
 
 interface ImagePointFeature {
@@ -76,6 +77,8 @@ class MarkerService {
   private lastClusterCentersById: Map<number, [number, number]> = new Map()
   // 索引是否需要重建（批量添加图片后统一重建，避免逐张 rebuild 导致动画混乱）
   private clusterDirty = false
+  // clusterId -> 叶子图片 id 缓存，避免重复 getLeaves（getLeaves 是递归遍历，开销大）
+  private clusterLeafCache: Map<number, string[]> = new Map()
   // 进行中的飞行动画（地图移动时打断，避免错位）
   private animatingMarkers: Set<MapMarkerAdapter> = new Set()
   // 时间轴筛选范围（null 表示不筛选，重建聚合索引时按此过滤图片点）
@@ -130,6 +133,7 @@ class MarkerService {
     this.lastZoom = -1
     this.timeRange = null
     this.clusterDirty = false
+    this.clusterLeafCache.clear()
   }
 
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
@@ -142,6 +146,7 @@ class MarkerService {
     this.lastClusterMarkers.clear()
     this.lastClusterCenters.clear()
     this.lastShownImageIds.clear()
+    this.clusterLeafCache.clear()
   }
 
   // 按时间轴筛选范围过滤图片点（无时间信息的图片始终保留）
@@ -167,6 +172,94 @@ class MarkerService {
     return this.markers.get(markerId)!
   }
 
+  // 返回所有 marker（含单点图片、分组、聚合点），用于框选命中检测
+  getAllMarkers(): MapMarkerAdapter[] {
+    return [...Array.from(this.markers.values()), ...Array.from(this.clusterMarkers.values())]
+  }
+
+  /**
+   * 展开聚合点，返回其叶子（成员图片）id 列表。
+   * 若 marker 非聚合点（image/group），返回 [id]。
+   * cluster 叶子 id 有缓存，避免重复 getLeaves（递归遍历开销大）。
+   */
+  getMarkerLeafIds(marker: MapMarkerAdapter): string[] {
+    const type = marker.options.type
+    if (type === 'cluster') {
+      const id = marker.options.id
+      const clusterId = Number(id.replace('cluster-', ''))
+      if (isNaN(clusterId) || !this.clusterIndex) return []
+      // 优先读缓存
+      const cached = this.clusterLeafCache.get(clusterId)
+      if (cached) return cached
+      const leaves = this.clusterIndex.getLeaves(clusterId, Infinity, 0) as any[]
+      const leafIds = leaves.map((leaf) => leaf.properties.id as string)
+      this.clusterLeafCache.set(clusterId, leafIds)
+      return leafIds
+    }
+    // 单点图片 / 分组 / 临时节点：本身就是叶子
+    return [marker.options.id]
+  }
+
+  // 根据选中集刷新单个 marker 的选中态样式
+  applySelectionState(marker: MapMarkerAdapter) {
+    if (!marker) return
+    const selectStore = useSelectStore()
+    const el = marker.getElement()
+    if (!el) return
+
+    const type = marker.options.type
+    if (type === 'cluster') {
+      const leafIds = this.getMarkerLeafIds(marker)
+      const selected = leafIds.filter((id) => selectStore.isSelected(id))
+      el.classList.remove('pm-selected', 'pm-selected-partial')
+      if (selected.length > 0 && selected.length === leafIds.length) {
+        el.classList.add('pm-selected')
+      } else if (selected.length > 0) {
+        el.classList.add('pm-selected-partial')
+      }
+    } else {
+      const isSelected = selectStore.isSelected(marker.options.id)
+      el.classList.toggle('pm-selected', isSelected)
+      el.classList.remove('pm-selected-partial')
+    }
+  }
+
+  // 按选中集刷新所有 marker 的选中态（框选结束 / 删除后调用）
+  refreshSelection() {
+    this.markers.forEach((m) => this.applySelectionState(m))
+    this.clusterMarkers.forEach((m) => this.applySelectionState(m))
+  }
+
+  // 聚合点专用：复用调用方已取得的叶子 id，避免重复 getLeaves 开销
+  private applyClusterSelectionState(marker: MapMarkerAdapter, leafIds: string[]) {
+    const selectStore = useSelectStore()
+    const el = marker.getElement()
+    if (!el) return
+    const selected = leafIds.filter((id) => selectStore.isSelected(id))
+    el.classList.remove('pm-selected', 'pm-selected-partial')
+    if (selected.length > 0 && selected.length === leafIds.length) {
+      el.classList.add('pm-selected')
+    } else if (selected.length > 0) {
+      el.classList.add('pm-selected-partial')
+    }
+  }
+
+  // 清除所有 marker 的选中态（仅视觉，不动选中集）
+  clearSelectionVisual() {
+    this.markers.forEach((m) => {
+      const el = m.getElement()
+      if (el) {
+        el.classList.remove('pm-selected', 'pm-selected-partial')
+      }
+    })
+    this.clusterMarkers.forEach((m) => {
+      const el = m.getElement()
+      if (el) {
+        el.classList.remove('pm-selected', 'pm-selected-partial')
+      }
+    })
+  }
+
   getGPSInfoByMarkerInstance(marker: MapMarkerAdapter): IGPSInfo {
     if (!marker) {
       ElMessage.error('没有传入marker实例')
@@ -182,6 +275,7 @@ class MarkerService {
     const existing = this.markers.get(imageInfo.id)
     if (existing) {
       existing.setIcon(createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url))
+      this.applySelectionState(existing)
       return
     }
     const icon = createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url)
@@ -194,6 +288,7 @@ class MarkerService {
     this.clusterGroup.addLayer(marker)
     this.markerMouseListener(marker)
     mapStore.addMarkerId(imageInfo.id)
+    this.applySelectionState(marker)
 
     // 维护聚合索引（标记脏，批量添加后统一重建，避免逐张 rebuild 导致动画混乱）
     this.imagePoints.push({
@@ -224,6 +319,7 @@ class MarkerService {
     }
     this.markerMouseListener(marker)
     mapStore.addMarkerId(groupInfo.id)
+    this.applySelectionState(marker)
   }
 
   addExistImageMarkerToMapById(imageId: string) {
@@ -377,6 +473,7 @@ class MarkerService {
 
     // 清除当前聚合点
     this.clusterMarkers.clear()
+    this.clusterLeafCache.clear()
 
     // 无图片点时移除所有单点
     if (this.imagePoints.length === 0) {
@@ -458,6 +555,10 @@ class MarkerService {
       marker.on('click', () => {
         this.onClusterClick(clusterId, coords)
       })
+      // 右键 cluster：触发批量菜单（若其成员被选中）
+      marker.on('contextmenu', (event: any) => {
+        eventBus.emit('show-content-menu', event)
+      })
       this.clusterMarkers.set(clusterId, marker)
 
       // 分裂动画（zoom in）：新 cluster 从父 cluster 中心飞入
@@ -470,9 +571,12 @@ class MarkerService {
 
       // 记录成员（用于单点离散时从中心飞散）
       const leaves = this.clusterIndex.getLeaves(clusterId, Infinity, 0) as any[]
+      const leafIds = leaves.map((leaf) => leaf.properties.id as string)
       leaves.forEach((leaf) => {
         currentClusterCenters.set(leaf.properties.id, coords)
       })
+      this.clusterLeafCache.set(clusterId, leafIds)
+      this.applyClusterSelectionState(marker, leafIds)
     })
 
     // 移除残留的上次 cluster marker（未参与合并动画的）

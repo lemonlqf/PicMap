@@ -360,6 +360,26 @@ export async function deleteImageById(imageId: string) {
   })
 }
 
+export async function batchDeleteImages(imageIds: string[]) {
+  if (!imageIds || imageIds.length === 0) return
+  const schemaStore = useSchemaStore()
+  imageIds.forEach((imageId) => {
+    schemaStore.deleteImageInImageInfo(imageId)
+    eventBus.emit('delete-image', imageId)
+  })
+  await saveSchema()
+  return Promise.all([API.image.deleteImages({ deleteImages: imageIds })]).then((res) => {
+    imageIds.forEach((imageId) => {
+      markerService.deleteMarkerById(imageId)
+      ImageCacheManager.getInstance().deleteImageUrl(imageId)
+    })
+    const tipMsg = res.reduce((msg, item) => {
+      return msg + (item.data ?? '')
+    }, '')
+    ElMessage.success(tipMsg)
+  })
+}
+
 /**
  * @description: 判断图片是否在imageInfo
  * @param {string} imageId

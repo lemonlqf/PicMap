@@ -15,6 +15,7 @@ import * as maplibregl from 'maplibre-gl'
 import mapService from '@/services/map'
 import { useMapStore } from '../../store/map'
 import markerService from '@/services/marker'
+import { initBoxSelect } from '@/services/boxSelect'
 import { getGroupAndImageList } from '@/utils/schema'
 import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant'
@@ -72,6 +73,8 @@ function initMap() {
       attributionControl: false,
     })
     mapService.initMapInstance(map)
+    // 框选：Ctrl + 左键拖拽（原生事件 + 自绘矩形，preventDefault 阻止旋转/平移）
+    initBoxSelect()
     // style 异步加载完成后再初始化瓦片与标记
     map.on('load', () => {
       mapLoaded = true

@@ -19,6 +19,8 @@ export function hiddenImageInfoDrawerMapClick() {
   map.on('click', () => {
     // 点击地图时，关闭图片详细信息抽屉
     eventBus.emit('drawer-hidden')
+    // 点击空白处清空框选选中态
+    eventBus.emit('clear-selection')
   })
 }
 

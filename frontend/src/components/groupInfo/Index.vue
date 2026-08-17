@@ -90,21 +90,28 @@ function changeIsExpand() {
   width: 200px;
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
-  padding: 10px 10px 10px 10px;
+  padding: 10px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.12);
+  border: 1px solid rgba(0, 0, 0, 0.05);
 
   .title-box {
     display: flex;
     align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
 
     .title {
       position: relative;
       display: flex;
       align-items: center;
+      flex: 1;
+      min-width: 0;
 
       .expand-button {
         padding: 2px;
         cursor: pointer;
         transition: all 0.3s;
+        flex-shrink: 0;
       }
 
       .expand-button:hover {
@@ -117,16 +124,17 @@ function changeIsExpand() {
 
       h3 {
         margin-left: 5px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
       }
     }
 
     .el-button {
-      position: absolute;
+      flex-shrink: 0;
       padding: 1px;
       width: 20px;
       height: 20px;
-      top: 10px;
-      right: 17px;
     }
   }
 

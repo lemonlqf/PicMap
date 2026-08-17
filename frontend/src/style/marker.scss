@@ -101,3 +101,34 @@ $location-border-color: rgba(200, 0, 0, 1);
   filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
   -webkit-filter: drop-shadow(0 0 2px rgba(255, 255, 255, 0.95));
 }
+
+// ===== 框选选中态 =====
+// 全选（普通图片 / cluster 所有成员都选中）：黄色边框
+.maplibregl-marker.pm-selected {
+  .image-icon,
+  .cluster-marker-inner {
+    outline: 3px solid #ffd600;
+    outline-offset: 2px;
+    box-shadow: 0 0 10px 3px rgba(255, 214, 0, 0.85);
+  }
+}
+
+// 部分选中（cluster 内只有部分成员被选中）：绿色边框
+.maplibregl-marker.pm-selected-partial {
+  .image-icon,
+  .cluster-marker-inner {
+    outline: 3px solid #67c23a;
+    outline-offset: 2px;
+    box-shadow: 0 0 10px 3px rgba(103, 194, 58, 0.85);
+  }
+}
+
+// ===== 框选矩形 =====
+.pm-box-select-rect {
+  position: fixed;
+  border: 2px solid rgba(64, 158, 255, 0.95);
+  background: rgba(64, 158, 255, 0.15);
+  pointer-events: none;
+  z-index: 1000;
+  box-sizing: border-box;
+}

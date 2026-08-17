@@ -369,6 +369,25 @@ export async function updateGroupInfoToSchema(groupId: string, groupInfo: IGroup
   return groupInfo
 }
 
+export async function batchAddImagesToGroups(imageIds: string[], groupIds: string[]) {
+  if (!imageIds || imageIds.length === 0 || !groupIds || groupIds.length === 0) {
+    ElMessage.warning('请先框选图片并选择目标分组')
+    return
+  }
+  const schemaStore = useSchemaStore()
+  imageIds.forEach((imageId) => {
+    groupIds.forEach((groupId) => {
+      schemaStore.pushImageToGroupInfo(imageId, groupId)
+    })
+  })
+  // 刷新受影响分组的封面图标
+  groupIds.forEach((groupId) => {
+    updateGroupMarkerImage(getGroupInfoByGroupId(groupId))
+  })
+  await saveSchema()
+  ElMessage.success('批量加入分组成功')
+}
+
 // 排序的时间精度
 export enum TimeType {
   YEAR = "year",

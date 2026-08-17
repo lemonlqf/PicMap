@@ -16,6 +16,10 @@ export type EventMap = {
   'drawer-show': any
   'delete-image': string
   'edit-group': string
+  'batch-delete': string[]
+  'batch-add-group': string[]
+  'box-select-change': string[]
+  'clear-selection': void
   [key: string]: any
 }
 

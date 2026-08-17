@@ -97,14 +97,16 @@ onMounted(() => {
 
 <style lang="scss" scoped>
 .flex-box {
-  width: 180px;
-  padding: 5px 10px 5px 5px;
-  border-radius: 5px;
+  width: 100%;
+  padding: 6px 8px;
+  border-radius: 6px;
   display: flex;
   cursor: pointer;
   align-items: center;
   justify-content: space-between;
+  gap: 4px;
   transition: background-color 0.2s ease;
+  box-sizing: border-box;
 
   &:hover {
     background-color: rgba(236, 237, 238, 1);
@@ -113,6 +115,7 @@ onMounted(() => {
   img {
     opacity: 0.8;
     cursor: move;
+    flex-shrink: 0;
   }
 
   .number {
@@ -126,12 +129,15 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
+  flex: 1;
+  min-width: 0;
 }
 
 .visibility-icon {
   cursor: pointer;
   color: #909399;
   transition: color 0.2s;
+  flex-shrink: 0;
   
   &:hover {
     color: #409eff;
@@ -141,6 +147,7 @@ onMounted(() => {
 .right-area {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
 }
 
 .right-box {
@@ -154,7 +161,7 @@ onMounted(() => {
 .group-name {
   font-size: 14px;
   display: inline-block;
-  max-width: 70px;
+  max-width: 100px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

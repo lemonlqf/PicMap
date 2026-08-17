@@ -37,6 +37,7 @@
     <Drawer ref="drawerRef"></Drawer>
     <!-- 鼠标右键菜单 -->
     <contentMenu :map="map"></contentMenu>
+    <SelectionBar></SelectionBar>
     <!-- 分组信息 -->
     <div :class="['fix-group group-info-group', getAnimateClass('group')]">
       <GroupInfo :map="map"></GroupInfo>
@@ -59,6 +60,7 @@ import contentMenu from '@/components/contentMenu/Index.vue'
 import GroupInfo from '@/components/groupInfo/Index.vue'
 import MapSelector from '@/components/mapSelector/Index.vue'
 import User from '@/components/user/User.vue'
+import SelectionBar from '@/components/selection/SelectionBar.vue'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
