@@ -1,0 +1,121 @@
+/*
+ * 轨迹视频相关工具函数
+ * @Description: 视频选择、导入、schema 操作
+ */
+import { useSchemaStore } from '@/store/schema'
+import API from '@/wails/api'
+import { saveSchema } from './schema'
+import { fileToBase64 } from './map'
+import markerService from '@/services/marker'
+import { ElMessage } from 'element-plus'
+import type { ISelectedVideo, IImportVideoFile } from '@/type/video'
+import type { IVideoInfo } from '@/type/schema'
+
+// 视频封面缓存（videoId -> data URL），in-flight 去重
+const videoCoverMap = new Map<string, string>()
+const pendingCoverMap = new Map<string, Promise<string>>()
+
+/**
+ * @description: 获取视频第一帧封面 URL（data URL），带缓存与并发去重
+ * @param {string} videoId
+ * @return {*}
+ */
+export function getVideoThumbnailUrl(videoId: string): Promise<string> {
+  const cached = videoCoverMap.get(videoId)
+  if (cached) return Promise.resolve(cached)
+  const pending = pendingCoverMap.get(videoId)
+  if (pending) return pending
+  const p = API.video.getVideoThumbnail({ videoId }).then((res: any) => {
+    if (res.code !== 200 || !res.data?.file) return ''
+    const url = fileToBase64(res.data.file)
+    videoCoverMap.set(videoId, url)
+    return url
+  }).finally(() => {
+    pendingCoverMap.delete(videoId)
+  })
+  pendingCoverMap.set(videoId, p)
+  return p
+}
+
+/**
+ * @description: 打开原生对话框选择视频（秒回路径，后台分批解析经事件推送）
+ */
+export async function selectVideos() {
+  return API.video.selectVideos()
+}
+
+/**
+ * @description: 导入视频到用户视频目录，返回 VideoInfo
+ * @param {IImportVideoFile} file
+ */
+export async function importVideo(file: IImportVideoFile): Promise<IVideoInfo | null> {
+  const res = await API.video.importVideo(file)
+  if (res.code === 200) {
+    return res.data as IVideoInfo
+  }
+  ElMessage.error(res.msg || '视频导入失败')
+  return null
+}
+
+/**
+ * @description: 将视频写入 schema 的 videoInfo 数组（去重）
+ * @param {IVideoInfo} video
+ */
+export function pushVideoToSchema(video: IVideoInfo) {
+  const schemaStore = useSchemaStore()
+  const schema = schemaStore.getSchema
+  if (!schema.videoInfo) {
+    schema.videoInfo = []
+  }
+  const exist = schema.videoInfo.find(v => v.id === video.id)
+  if (!exist) {
+    schema.videoInfo.push(video)
+  }
+}
+
+/**
+ * @description: 关联视频到某条 GPX 轨迹（写入 trackInfo 的 videos 数组）
+ * @param {string} trackId
+ * @param {string} videoId
+ * @param {number} timeOffsetMs 视频起点相对 GPX 起点的偏移（毫秒）
+ */
+export function associateVideoToTrack(trackId: string, videoId: string, timeOffsetMs: number) {
+  const schemaStore = useSchemaStore()
+  const schema = schemaStore.getSchema
+  const track = schema.trackInfo?.find(t => t.id === trackId)
+  if (!track) return
+  if (!track.videos) {
+    track.videos = []
+  }
+  const exist = track.videos.find(v => v.videoId === videoId)
+  if (exist) {
+    exist.timeOffsetMs = timeOffsetMs
+  } else {
+    track.videos.push({ videoId, timeOffsetMs })
+  }
+}
+
+/**
+ * @description: 删除视频（从 schema 的 videoInfo 及所有 trackInfo.videos 中移除）
+ * @param {string[]} videoIds
+ */
+export async function deleteVideos(videoIds: string[]) {
+  const schemaStore = useSchemaStore()
+  const schema = schemaStore.getSchema
+  // 从 videoInfo 移除
+  if (schema.videoInfo) {
+    schema.videoInfo = schema.videoInfo.filter(v => !videoIds.includes(v.id))
+  }
+  // 从所有 trackInfo.videos 移除
+  schema.trackInfo?.forEach(track => {
+    if (track.videos) {
+      track.videos = track.videos.filter(v => !videoIds.includes(v.videoId))
+    }
+  })
+  await saveSchema()
+  // 移除地图上的视频标记
+  videoIds.forEach(videoId => {
+    markerService.deleteMarkerById(videoId)
+  })
+  return API.video.deleteVideos({ videoIds })
+}

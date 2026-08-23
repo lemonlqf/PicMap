@@ -17,6 +17,7 @@ import { useMapStore } from '../../store/map'
 import markerService from '@/services/marker'
 import { initBoxSelect } from '@/services/boxSelect'
 import { getGroupAndImageList } from '@/utils/schema'
+import { useSchemaStore } from '@/store/schema'
 import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
@@ -133,6 +134,14 @@ async function initMarker() {
         markerService.addImageMarkerToMap(item)
       }
     })
+  }
+  // 有坐标的视频在地图上显示为视频标记（封面为第一帧）
+  const schemaStore = useSchemaStore()
+  const videoInfo = schemaStore.getSchema.videoInfo || []
+  for (const video of videoInfo) {
+    if (video.GPSLatitude && video.GPSLongitude) {
+      await markerService.addVideoMarkerToMap(video)
+    }
   }
 }
 

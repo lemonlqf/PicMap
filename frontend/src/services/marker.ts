@@ -10,10 +10,12 @@ import {
   createImageMarkerIcon,
   createGroupMarkerIcon,
   createClusterIcon,
+  createVideoMarkerIcon,
   type MarkerIcon,
 } from '@/services/markerAdapter'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
 import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
+import { getVideoThumbnailUrl } from '@/utils/video'
 import { judgeHadUploadImage } from '@/utils/schema'
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
 import eventBus from '@/utils/eventBus'
@@ -21,7 +23,7 @@ import { GPSInfoLegality } from '@/utils/map'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 import { MARKER_CONSTANT } from '@/utils/constant'
 import { useSelectStore } from '@/store/select'
-import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo } from '@/type/schema'
+import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo, IVideoInfo } from '@/type/schema'
 
 interface ImagePointFeature {
   type: 'Feature'
@@ -384,6 +386,44 @@ class MarkerService {
     return marker
   }
 
+  // 添加视频标记（有坐标的视频在地图上显示一个节点，封面为视频第一帧）
+  async addVideoMarkerToMap(videoInfo: IVideoInfo) {
+    if (!videoInfo.GPSLatitude || !videoInfo.GPSLongitude) return
+    if (this.markers.has(videoInfo.id)) return
+    if (!this.MAP_INSTANCE) return
+    const mapStore = useMapStore()
+    const icon = createVideoMarkerIcon(videoInfo)
+    const marker = new MapMarkerAdapter(
+      icon,
+      toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+      { id: videoInfo.id, type: 'video' }
+    )
+    this.markers.set(videoInfo.id, marker)
+    marker.addTo(this.MAP_INSTANCE!)
+    // 视频标记暂只绑定 hover 与右键菜单（点击操作后续补充），避免误触图片详情
+    marker.on('mouseover', () => {
+      this.highlightMarker(marker)
+    })
+    marker.on('mouseout', () => {
+      this.resetMarker(marker)
+    })
+    marker.on('contextmenu', (event: any) => {
+      eventBus.emit('show-content-menu', event)
+    })
+    mapStore.addMarkerId(videoInfo.id)
+    this.applySelectionState(marker)
+
+    // 异步加载第一帧封面并更新图标
+    const coverUrl = await getVideoThumbnailUrl(videoInfo.id)
+    if (coverUrl) {
+      const current = this.markers.get(videoInfo.id)
+      if (current) {
+        current.setIcon(createVideoMarkerIcon(videoInfo, coverUrl))
+        current.options.iconUrl = coverUrl
+      }
+    }
+  }
+
   deleteMarkerInMap(marker: MapMarkerAdapter) {
     const mapStore = useMapStore()
     if (!marker) return
@@ -412,7 +452,7 @@ class MarkerService {
     }
     const markerType = marker.options.type
     const isImage = markerType === 'image' || markerType === 'temporary-image'
-    const isGroup = markerType === 'group' || markerType === 'temporary-group'
+    const isGroup = markerType === 'group' || markerType === 'temporary-group' || markerType === 'video'
     if (isImage) {
       this.hiddenMarkerIds.add(markerId)
       this.renderClusters()
@@ -427,7 +467,7 @@ class MarkerService {
     if (marker) {
       const markerType = marker.options.type
       const isImage = markerType === 'image' || markerType === 'temporary-image'
-      const isGroup = markerType === 'group' || markerType === 'temporary-group'
+      const isGroup = markerType === 'group' || markerType === 'temporary-group' || markerType === 'video'
       if (isImage) {
         this.hiddenMarkerIds.delete(markerId)
         this.renderClusters()
@@ -633,6 +673,15 @@ class MarkerService {
     // 重新显示非聚合的分组 marker（分组不参与聚合）
     this.markers.forEach((m) => {
       if (m.options.type === 'group' && !this.hiddenMarkerIds.has(m.options.id)) {
+        if (!this.isMarkerOnMap(m)) {
+          m.addTo(map)
+        }
+      }
+    })
+
+    // 视频标记不参与聚合，始终显示
+    this.markers.forEach((m) => {
+      if (m.options.type === 'video' && !this.hiddenMarkerIds.has(m.options.id)) {
         if (!this.isMarkerOnMap(m)) {
           m.addTo(map)
         }

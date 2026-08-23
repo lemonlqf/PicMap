@@ -88,6 +88,25 @@ $location-border-color: rgba(200, 0, 0, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
 }
 
+// 视频标记的播放角标（覆盖在封面图右下角）
+.video-marker-badge {
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 14px;
+  height: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+  color: #fff;
+  font-size: 8px;
+  border-radius: 50%;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  z-index: 5;
+  line-height: 1;
+}
+
 .track-marker-icon {
   border-width: 0;
 }

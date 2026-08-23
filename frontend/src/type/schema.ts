@@ -21,6 +21,28 @@ export type ISchema = {
   groupInfo: IGroupInfo[],
   imageInfo: IImageInfo[],
   trackInfo?: ITrackInfo[],
+  videoInfo?: IVideoInfo[],
+}
+
+export type IVideoRef = {
+  videoId: string,
+  timeOffsetMs?: number
+}
+
+export type IVideoInfo = {
+  id: string,
+  name?: string,
+  path?: string,
+  durationMs?: number,
+  trackId?: string,
+  timeMode?: 'absolute' | 'offset',
+  startTimeMs?: number,
+  timeOffsetMs?: number,
+  viewType?: string,
+  size?: number,
+  lastModified?: number,
+  GPSLatitude?: number,
+  GPSLongitude?: number
 }
 
 export type ITrackInfo = {
@@ -44,7 +66,8 @@ export type ITrackInfo = {
   averageTemp?: number,
   setting?: {
     lineColor?: string
-  }
+  },
+  videos?: IVideoRef[]
 }
 
 export type IMapInfo = {

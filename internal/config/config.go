@@ -18,6 +18,7 @@ const (
 	SchemaReactivePath = "images/schema"
 	ImageReactivePath  = "images"
 	TrackReactivePath  = "tracks"
+	VideoReactivePath  = "videos"
 )
 
 var DefaultCenter = []float64{30.2489634, 120.2052342}
@@ -105,6 +106,10 @@ func (c *Config) ImageDirPath(userId string) string {
 
 func (c *Config) TrackDirPath(userId string) string {
 	return filepath.Join(c.archiveDir, userId, TrackReactivePath)
+}
+
+func (c *Config) VideoDirPath(userId string) string {
+	return filepath.Join(c.archiveDir, userId, VideoReactivePath)
 }
 
 func (c *Config) AppSchemaPath() string {

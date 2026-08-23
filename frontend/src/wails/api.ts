@@ -220,6 +220,86 @@ export async function getTrack(fileName: string) {
   throw new Error('Wails bindings not available')
 }
 
+// ---- Video (轨迹视频) ----
+
+export async function selectVideos() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.SelectVideos()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function importVideo(data: { id: string; name: string; path: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.ImportVideo(getCurrentUserId(), data)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function deleteVideos(data: { videoIds: string[] }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.DeleteVideos(getCurrentUserId(), data.videoIds)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function getVideoRange(data: { videoId: string; start: number; end: number }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetVideoRange(getCurrentUserId(), data.videoId, data.start, data.end)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// 视频第一帧封面（地图标记用），返回 { file: base64 }
+export async function getVideoThumbnail(data: { videoId: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetVideoThumbnail(getCurrentUserId(), data.videoId)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// 批量获取视频封面
+export async function getVideoThumbnails(data: { videoIds: string[] }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetVideoThumbnails(getCurrentUserId(), data.videoIds)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// 监听一批视频解析完成
+export function onVideosParsed(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('videos-parsed', callback)
+}
+
+// 监听视频解析进度
+export function onVideosProgress(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('videos-progress', callback)
+}
+
+// 监听全部视频解析完成
+export function onVideosDone(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('videos-done', callback)
+}
+
+// 清理所有视频解析事件监听
+export function offVideosEvents() {
+  window.runtime?.EventsOff?.('videos-parsed')
+  window.runtime?.EventsOff?.('videos-progress')
+  window.runtime?.EventsOff?.('videos-done')
+}
+
 // ---- Backup ----
 
 export async function createBackup(data: { name?: string }) {
@@ -320,6 +400,19 @@ const track = {
   getTrack,
 }
 
+const video = {
+  selectVideos,
+  importVideo,
+  deleteVideos,
+  getVideoRange,
+  getVideoThumbnail,
+  getVideoThumbnails,
+  onVideosParsed,
+  onVideosProgress,
+  onVideosDone,
+  offVideosEvents,
+}
+
 const backup = {
   backup: createBackup,
   getBackupSize,
@@ -339,6 +432,7 @@ const API: Record<string, any> = {
   schema,
   appSchema,
   track,
+  video,
   backup,
   user,
 }

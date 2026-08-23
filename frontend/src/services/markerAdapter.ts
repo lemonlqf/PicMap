@@ -3,7 +3,7 @@ import * as maplibregl from 'maplibre-gl'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
 import { GROUP_CONSTANT, MARKER_CONSTANT } from '@/utils/constant'
 import { getMarkerImageUrlByIds } from '@/utils/Image'
-import type { IImageInfo, INewGroupFormData } from '@/type/schema'
+import type { IImageInfo, INewGroupFormData, IVideoInfo } from '@/type/schema'
 
 export interface MarkerIcon {
   element: HTMLElement
@@ -196,6 +196,28 @@ export function createImageMarkerIcon(imageInfo: IImageInfo, imageUrl?: string):
   const iconElement = url
     ? IconHTMLFactory.createIcon(IconType.SingleImage, url)
     : IconHTMLFactory.createIcon(IconType.NoImage, imageInfo.name)
+  const { element, inner } = wrapMarkerElement(
+    iconElement,
+    MARKER_CONSTANT.IMAGE_MARKER_SIZE[0],
+    MARKER_CONSTANT.IMAGE_MARKER_SIZE[1]
+  )
+  return {
+    element,
+    inner,
+    iconUrl: url,
+  }
+}
+
+// 视频标记图标：封面图 + 播放角标
+export function createVideoMarkerIcon(videoInfo: IVideoInfo, coverUrl?: string): MarkerIcon {
+  const url = coverUrl || ''
+  const iconElement = url
+    ? IconHTMLFactory.createIcon(IconType.SingleImage, url)
+    : IconHTMLFactory.createIcon(IconType.NoImage, videoInfo.name || '视频')
+  const badge = document.createElement('div')
+  badge.className = 'video-marker-badge'
+  badge.textContent = '▶'
+  iconElement.appendChild(badge)
   const { element, inner } = wrapMarkerElement(
     iconElement,
     MARKER_CONSTANT.IMAGE_MARKER_SIZE[0],

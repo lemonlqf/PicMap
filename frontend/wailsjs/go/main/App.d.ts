@@ -14,6 +14,8 @@ export function DeleteTrack(arg1:string,arg2:string):Promise<model.Result>;
 
 export function DeleteUser(arg1:string):Promise<model.Result>;
 
+export function DeleteVideos(arg1:string,arg2:Array<string>):Promise<model.Result>;
+
 export function DownloadImage(arg1:string,arg2:string):Promise<model.Result>;
 
 export function GetAppSchema():Promise<model.Result>;
@@ -36,11 +38,21 @@ export function GetTrack(arg1:string,arg2:string):Promise<model.Result>;
 
 export function GetUserInfos():Promise<model.Result>;
 
+export function GetVideoRange(arg1:string,arg2:string,arg3:number,arg4:number):Promise<model.Result>;
+
+export function GetVideoThumbnail(arg1:string,arg2:string):Promise<model.Result>;
+
+export function GetVideoThumbnails(arg1:string,arg2:Array<string>):Promise<model.Result>;
+
 export function ImportBackup(arg1:string,arg2:string):Promise<model.Result>;
 
 export function ImportImages(arg1:string,arg2:Array<model.ImportFile>):Promise<model.Result>;
 
+export function ImportVideo(arg1:string,arg2:model.ImportVideoFile):Promise<model.Result>;
+
 export function SelectImages():Promise<model.Result>;
+
+export function SelectVideos():Promise<model.Result>;
 
 export function SetAppSchema(arg1:string):Promise<model.Result>;
 

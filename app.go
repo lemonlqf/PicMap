@@ -80,6 +80,32 @@ func (a *App) GetTrack(userId, fileName string) model.Result {
 	return a.handler.GetTrack(userId, fileName)
 }
 
+// ---- 轨迹视频 ----
+
+func (a *App) SelectVideos() model.Result {
+	return a.handler.SelectVideos()
+}
+
+func (a *App) ImportVideo(userId string, file model.ImportVideoFile) model.Result {
+	return a.handler.ImportVideo(userId, file)
+}
+
+func (a *App) DeleteVideos(userId string, videoIds []string) model.Result {
+	return a.handler.DeleteVideos(userId, videoIds)
+}
+
+func (a *App) GetVideoRange(userId, videoId string, start, end int64) model.Result {
+	return a.handler.GetVideoRange(userId, videoId, start, end)
+}
+
+func (a *App) GetVideoThumbnail(userId, videoId string) model.Result {
+	return a.handler.GetVideoThumbnail(userId, videoId)
+}
+
+func (a *App) GetVideoThumbnails(userId string, videoIds []string) model.Result {
+	return a.handler.GetVideoThumbnails(userId, videoIds)
+}
+
 func (a *App) CreateBackup(name string) model.Result             { return a.handler.CreateBackup(name) }
 func (a *App) GetBackupSize() model.Result                       { return a.handler.GetBackupSize() }
 func (a *App) GetBackupList() model.Result                       { return a.handler.GetBackupList() }

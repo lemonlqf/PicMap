@@ -28,6 +28,7 @@ export default {
   dissolveGroup: 'Dissolve group',
   deleteGroup: 'Delete group',
   deletePicture: 'Delete picture',
+  deleteVideo: 'Delete video',
   deleteUser: 'Delete user',
   delete: 'Delete',
   deleteSuccess: 'Delete success',

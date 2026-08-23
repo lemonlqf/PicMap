@@ -26,6 +26,10 @@ export function DeleteUser(arg1) {
   return window['go']['main']['App']['DeleteUser'](arg1);
 }
 
+export function DeleteVideos(arg1, arg2) {
+  return window['go']['main']['App']['DeleteVideos'](arg1, arg2);
+}
+
 export function DownloadImage(arg1, arg2) {
   return window['go']['main']['App']['DownloadImage'](arg1, arg2);
 }
@@ -70,6 +74,18 @@ export function GetUserInfos() {
   return window['go']['main']['App']['GetUserInfos']();
 }
 
+export function GetVideoRange(arg1, arg2, arg3, arg4) {
+  return window['go']['main']['App']['GetVideoRange'](arg1, arg2, arg3, arg4);
+}
+
+export function GetVideoThumbnail(arg1, arg2) {
+  return window['go']['main']['App']['GetVideoThumbnail'](arg1, arg2);
+}
+
+export function GetVideoThumbnails(arg1, arg2) {
+  return window['go']['main']['App']['GetVideoThumbnails'](arg1, arg2);
+}
+
 export function ImportBackup(arg1, arg2) {
   return window['go']['main']['App']['ImportBackup'](arg1, arg2);
 }
@@ -78,8 +94,16 @@ export function ImportImages(arg1, arg2) {
   return window['go']['main']['App']['ImportImages'](arg1, arg2);
 }
 
+export function ImportVideo(arg1, arg2) {
+  return window['go']['main']['App']['ImportVideo'](arg1, arg2);
+}
+
 export function SelectImages() {
   return window['go']['main']['App']['SelectImages']();
+}
+
+export function SelectVideos() {
+  return window['go']['main']['App']['SelectVideos']();
 }
 
 export function SetAppSchema(arg1) {

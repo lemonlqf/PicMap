@@ -28,6 +28,7 @@ export default {
   dissolveGroup: '解散分组',
   deleteGroup: '删除分组',
   deletePicture: '删除图片',
+  deleteVideo: '删除视频',
   deleteUser: '删除用户',
   delete: '删除',
   deleteSuccess: '删除成功',

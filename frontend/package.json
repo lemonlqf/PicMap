@@ -27,6 +27,7 @@
     "pinia": "^2.3.0",
     "supercluster": "^9.0.0",
     "uuid": "^11.0.5",
+    "video.js": "^8.24.0",
     "vue": "^3.3.11",
     "vue-countup-v3": "^1.4.2",
     "vue-cropper": "^0.6.5",
