@@ -23,6 +23,7 @@ type GroupInfo struct {
 	ID           string   `json:"id"`
 	GPSInfo      GPSInfo  `json:"GPSInfo"`
 	GroupNumbers []string `json:"groupNumbers,omitempty"`
+	VideoNumbers []string `json:"videoNumbers,omitempty"`
 	TrackNumbers []string `json:"trackNumbers,omitempty"`
 	Visible      bool     `json:"visible,omitempty"`
 }
@@ -58,6 +59,7 @@ type TrackInfo struct {
 	AverageTemp    float64      `json:"averageTemp,omitempty"`
 	Setting        TrackSetting `json:"setting,omitempty"`
 	Videos         []VideoRef   `json:"videos,omitempty"` // 该 GPX 关联的视频
+	Images         []string     `json:"images,omitempty"` // 该轨迹关联的图片
 }
 
 // VideoInfo 一段轨迹视频（含内嵌 GPS 独立视频，或关联 GPX 的普通视频）

@@ -386,6 +386,31 @@ class MarkerService {
     return marker
   }
 
+  // 手动定位视频节点：可拖拽的临时节点，用于导入前在地图上调整位置
+  addManualLocateVideoMarkerToMap(videoInfo: IVideoInfo, lat?: number, lng?: number) {
+    const existing = this.getMarkerById(videoInfo.id)
+    if (existing) {
+      this.setViewByMarkerId(videoInfo.id)
+      ElMessage.warning('节点已存在！，请编辑已有节点')
+      return
+    }
+    const map = this.MAP_INSTANCE!
+    const icon = createVideoMarkerIcon(videoInfo)
+    const center = map.getCenter()
+    const markerLatLng: [number, number] = lat && lng
+      ? toMapLibreLngLat(lat, lng)
+      : [center.lng, center.lat]
+    const marker = new MapMarkerAdapter(icon, markerLatLng, {
+      id: videoInfo.id,
+      type: 'temporary-video',
+      draggable: true,
+    })
+    this.markers.set(videoInfo.id, marker)
+    marker.addTo(map)
+    this.markerMouseListener(marker)
+    return marker
+  }
+
   // 添加视频标记（有坐标的视频在地图上显示一个节点，封面为视频第一帧）
   async addVideoMarkerToMap(videoInfo: IVideoInfo) {
     if (!videoInfo.GPSLatitude || !videoInfo.GPSLongitude) return
@@ -515,15 +540,26 @@ class MarkerService {
     this.clusterMarkers.clear()
     this.clusterLeafCache.clear()
 
-    // 无图片点时移除所有单点
+    // 无图片点时移除所有图片单点（视频标记不参与聚合，始终保留）
     if (this.imagePoints.length === 0) {
       this.lastClusterMarkers.forEach((m) => m.remove())
       this.lastClusterMarkers.clear()
-      this.markers.forEach((m) => m.remove())
+      this.markers.forEach((m) => {
+        const t = m.options.type
+        if (t === 'image' || t === 'temporary-image') {
+          m.remove()
+        }
+      })
       this.lastShownImageIds.clear()
       this.lastClusterCenters.clear()
       this.lastClusterIds.clear()
       this.lastClusterCentersById.clear()
+      // 确保视频标记显示
+      this.markers.forEach((m) => {
+        if (m.options.type === 'video' && !this.hiddenMarkerIds.has(m.options.id) && !this.isMarkerOnMap(m)) {
+          m.addTo(map)
+        }
+      })
       return
     }
 

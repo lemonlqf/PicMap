@@ -610,11 +610,28 @@ function handleLocateConfirm(data: { id: string | null; GPSLatitude: number | nu
 
 /**
  * @description: 处理定位弹窗"手动定位"（取当前地图中心）
+ * 在地图上创建可拖拽的视频临时节点便于调整位置，并关闭视频上传弹框
  */
 function handleLocateManual(data: { id: string | null; lat: number; lng: number }) {
   if (data.id) {
-    manualGpsMap.value[data.id] = { lat: data.lat, lng: data.lng }
+    const video = videoList.value.find(v => v.id === data.id)
+    if (video) {
+      const marker = markerService.addManualLocateVideoMarkerToMap(
+        { id: video.id, name: video.name } as IVideoInfo,
+        data.lat,
+        data.lng
+      )
+      if (marker) {
+        // 拖拽结束同步手动定位坐标
+        marker.on('moveend', () => {
+          const { lat, lng } = marker.getLatLng()
+          manualGpsMap.value[video.id] = { lat, lng }
+        })
+      }
+      manualGpsMap.value[data.id] = { lat: data.lat, lng: data.lng }
+    }
   }
+  dialogVisible.value = false
 }
 
 /**
@@ -676,6 +693,12 @@ async function handleImport(video: ISelectedVideo) {
     await saveSchema()
 
     // 生成视频节点（坐标来自 GPX 时间对应位置）或添加地图视频标记
+    // 先移除手动定位残留的临时节点，避免与正式节点重复
+    const tempMarker = markerService.getMarkerById(vi.id)
+    if (tempMarker && tempMarker.options.type === 'temporary-video') {
+      markerService.deleteMarkerInMap(tempMarker)
+    }
+
     let nodeCount = 0
     if (trackId) {
       const nodes = await generateVideoNodes(vi)
@@ -751,36 +774,10 @@ function formatDuration(ms: number | undefined): string {
 }
 
 /**
- * @description: 关闭弹窗前检查
+ * @description: 关闭弹窗：保留待上传视频列表，便于下次打开继续操作/上传
  */
 async function handleBeforeClose(done: () => void) {
-  const hasUnimported = videoList.value.some(v => !v.imported)
-  if (hasUnimported) {
-    try {
-      await ElMessageBox.confirm('有未导入的视频，确定关闭吗？', '提示', {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning'
-      })
-      resetState()
-      done()
-    } catch {
-      // 取消关闭
-    }
-  } else {
-    resetState()
-    done()
-  }
-}
-
-function resetState() {
-  videoList.value = []
-  selectedTrackMap.value = {}
-  timeModeMap.value = {}
-  absoluteTimeMap.value = {}
-  offsetTimeMap.value = {}
-  manualGpsMap.value = {}
-  parseProgress.value = { processed: 0, total: 0 }
+  done()
 }
 
 // 事件监听

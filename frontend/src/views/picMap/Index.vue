@@ -26,13 +26,13 @@
     <!-- 用户 -->
     <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
 
-    <!-- 上传按钮 -->
-    <div :class="['fix-group upload-group', getAnimateClass('upload')]">
-      <!-- 图片上传组件 -->
-      <ImageUpolad ref="imageUploadRef" :map="map" @uploadSuccess="handleImageUploadSuccess"></ImageUpolad>
-      <!-- 轨迹上传组件 -->
-      <TrackUpload class="track-upload"></TrackUpload>
-    </div>
+      <!-- 上传按钮 -->
+      <div :class="['fix-group upload-group', getAnimateClass('upload')]">
+        <!-- 图片/视频共用上传面板 -->
+        <UploadPanel ref="imageUploadRef" :map="map" @uploadSuccess="handleImageUploadSuccess"></UploadPanel>
+        <!-- 轨迹上传组件 -->
+        <TrackUpload class="track-upload"></TrackUpload>
+      </div>
     <!-- 图片详情抽屉 -->
     <Drawer ref="drawerRef"></Drawer>
     <!-- 鼠标右键菜单 -->
@@ -53,7 +53,7 @@
 import { onBeforeMount, onMounted, ref, watch, nextTick, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
 import 'maplibre-gl/dist/maplibre-gl.css'
-import ImageUpolad from '@/components/imgUpload/Index.vue'
+import UploadPanel from '@/components/upload/UploadPanel.vue'
 import TrackUpload from '@/components/trackUpload/index.vue'
 import Drawer from '@/components/drawer/Index.vue'
 import contentMenu from '@/components/contentMenu/Index.vue'

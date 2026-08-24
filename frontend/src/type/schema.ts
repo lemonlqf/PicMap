@@ -68,6 +68,7 @@ export type ITrackInfo = {
     lineColor?: string
   },
   videos?: IVideoRef[]
+  images?: string[]
 }
 
 export type IMapInfo = {
@@ -86,6 +87,7 @@ export type IGroupInfo = {
   id: string,
   GPSInfo: IGPSInfo,
   groupNumbers?: string[],
+  videoNumbers?: string[],
   trackNumbers?: string[],
   visible?: boolean,
 }

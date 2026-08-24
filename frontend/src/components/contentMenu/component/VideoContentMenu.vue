@@ -75,4 +75,13 @@ function menuHidden() {
     border-bottom: 0px;
   }
 }
+
+.is-show {
+  opacity: 1;
+  z-index: 999999;
+
+  .menu-item {
+    pointer-events: all;
+  }
+}
 </style>
