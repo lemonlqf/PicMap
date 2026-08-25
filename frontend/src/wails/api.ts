@@ -278,6 +278,16 @@ export async function getVideoThumbnails(data: { videoIds: string[] }) {
   throw new Error('Wails bindings not available')
 }
 
+// 从任意路径提取视频第一帧封面（待上传视频预览），返回 { file: base64 }
+export async function getVideoFramePreview(data: { path: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetVideoFramePreview(data.path)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 // 监听一批视频解析完成
 export function onVideosParsed(callback: (data: any) => void) {
   window.runtime?.EventsOn?.('videos-parsed', callback)
@@ -407,6 +417,7 @@ const video = {
   getVideoRange,
   getVideoThumbnail,
   getVideoThumbnails,
+  getVideoFramePreview,
   onVideosParsed,
   onVideosProgress,
   onVideosDone,

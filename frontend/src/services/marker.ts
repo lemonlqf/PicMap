@@ -412,12 +412,13 @@ class MarkerService {
   }
 
   // 添加视频标记（有坐标的视频在地图上显示一个节点，封面为视频第一帧）
-  async addVideoMarkerToMap(videoInfo: IVideoInfo) {
+  // coverUrl 可选：待上传场景传入原路径封面，导入后省略则从用户目录拉取
+  async addVideoMarkerToMap(videoInfo: IVideoInfo, coverUrl?: string) {
     if (!videoInfo.GPSLatitude || !videoInfo.GPSLongitude) return
     if (this.markers.has(videoInfo.id)) return
     if (!this.MAP_INSTANCE) return
     const mapStore = useMapStore()
-    const icon = createVideoMarkerIcon(videoInfo)
+    const icon = createVideoMarkerIcon(videoInfo, coverUrl)
     const marker = new MapMarkerAdapter(
       icon,
       toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
@@ -438,13 +439,15 @@ class MarkerService {
     mapStore.addMarkerId(videoInfo.id)
     this.applySelectionState(marker)
 
-    // 异步加载第一帧封面并更新图标
-    const coverUrl = await getVideoThumbnailUrl(videoInfo.id)
-    if (coverUrl) {
-      const current = this.markers.get(videoInfo.id)
-      if (current) {
-        current.setIcon(createVideoMarkerIcon(videoInfo, coverUrl))
-        current.options.iconUrl = coverUrl
+    // 未传封面时异步加载第一帧封面并更新图标
+    if (!coverUrl) {
+      const url = await getVideoThumbnailUrl(videoInfo.id)
+      if (url) {
+        const current = this.markers.get(videoInfo.id)
+        if (current) {
+          current.setIcon(createVideoMarkerIcon(videoInfo, url))
+          current.options.iconUrl = url
+        }
       }
     }
   }

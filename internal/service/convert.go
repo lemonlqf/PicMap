@@ -8,17 +8,46 @@ import (
 )
 
 func getToolsDir() string {
-	execPath, _ := os.Executable()
-	execDir := filepath.Dir(execPath)
-	toolsDir := filepath.Join(execDir, "tools")
-	if _, err := os.Stat(toolsDir); err == nil {
-		return toolsDir
+	// 依次从 可执行文件目录 与 当前工作目录 向上回溯，收集所有含 tools 的候选目录
+	found := []string{}
+	seen := map[string]bool{}
+	addCandidates := func(dir string) {
+		if dir == "" {
+			return
+		}
+		cur := dir
+		for {
+			toolsDir := filepath.Join(cur, "tools")
+			if _, err := os.Stat(toolsDir); err == nil && !seen[toolsDir] {
+				seen[toolsDir] = true
+				found = append(found, toolsDir)
+			}
+			parent := filepath.Dir(cur)
+			if parent == cur {
+				break
+			}
+			cur = parent
+		}
 	}
+	if execPath, err := os.Executable(); err == nil {
+		addCandidates(filepath.Dir(execPath))
+	}
+	if cwd, err := os.Getwd(); err == nil {
+		addCandidates(cwd)
+	}
+
+	// 优先选择包含 ffmpeg 的完整 tools（build/bin 里的 tools 可能只含部分工具）
+	for _, d := range found {
+		if _, err := os.Stat(filepath.Join(d, "ffmpeg", "ffmpeg.exe")); err == nil {
+			return d
+		}
+	}
+	// 否则返回第一个找到的 tools
+	if len(found) > 0 {
+		return found[0]
+	}
+	// 兜底：返回 cwd/tools
 	cwd, _ := os.Getwd()
-	toolsDir = filepath.Join(cwd, "tools")
-	if _, err := os.Stat(toolsDir); err == nil {
-		return toolsDir
-	}
 	return filepath.Join(cwd, "tools")
 }
 

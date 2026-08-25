@@ -3,7 +3,7 @@
 -->
 <template>
   <div class="image-menu">
-    <div class="menu-item" v-for="item in menuList" :key="item.label" @click="item.clickEvent()">
+    <div class="menu-item" v-for="item in menuList" :key="item.label" @click="item.clickEvent(props.videoId)">
       <span>{{ item.label }}</span>
     </div>
   </div>
@@ -14,6 +14,7 @@ import { ref } from 'vue'
 import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
 import { deleteVideos } from '@/utils/video'
+import { canDragMenu } from './markerOperate'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 const props = defineProps({
@@ -31,7 +32,8 @@ const menuList = ref([
       ElMessage.success(t('deleteSuccess'))
       menuHidden()
     }
-  }
+  },
+  canDragMenu()
 ])
 
 function menuHidden() {

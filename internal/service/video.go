@@ -221,6 +221,8 @@ func ExtractVideoFrame(inputPath string, timeMs int64, maxWidth int) ([]byte, er
 		args = append(args, "-ss", fmt.Sprintf("%.3f", float64(timeMs)/1000.0))
 	}
 	args = append(args, "-i", inputPath)
+	// 统一转换为 yuvj420p，规避部分源视频像素格式（如 nv12/yuv444p）导致 mjpeg 编码器初始化失败
+	args = append(args, "-pix_fmt", "yuvj420p")
 	if maxWidth > 0 {
 		args = append(args, "-vf", fmt.Sprintf("scale='min(%d,iw)':-2", maxWidth))
 	}

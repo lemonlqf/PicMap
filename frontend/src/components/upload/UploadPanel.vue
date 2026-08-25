@@ -24,7 +24,31 @@
         :format="() => `${totalProgress.processed}/${totalProgress.total}`" />
     </div>
 
-    <el-scrollbar max-height="55vh">
+    <el-scrollbar v-if="hasContent" max-height="55vh">
+      <!-- 已上传 - 图片与视频混合区 -->
+      <div v-if="uploadedImageList.length || uploadedVideoList.length" class="section">
+        <h3 class="section-title">{{ $t('uploadedPicture') }}</h3>
+        <div class="uploaded-list">
+          <div class="uploaded-card" v-for="item in uploadedImageList" :key="item.id">
+            <el-tooltip :show-after="500" :content="item.name" placement="top">
+              <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
+                @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item)" />
+            </el-tooltip>
+          </div>
+          <div class="uploaded-card" v-for="video in uploadedVideoList" :key="video.id">
+            <el-tooltip :show-after="500" :content="video.name" placement="top">
+              <div class="video-card">
+                <img v-if="videoCoverMap[video.id]" class="thumb" :src="videoCoverMap[video.id]" alt="" />
+                <div v-else class="video-thumb">
+                  <VideoCamera class="video-icon" />
+                </div>
+                <span class="play-badge">▶</span>
+              </div>
+            </el-tooltip>
+          </div>
+        </div>
+      </div>
+
       <!-- 待上传列表（混合） -->
       <div v-if="pendingImageList.length || pendingVideoList.length" class="section">
         <h3 class="section-title">{{ $t('pictureToBeUploaded') }}</h3>
@@ -68,7 +92,9 @@
         <div v-for="video in pendingVideoList" :key="video.id" class="upload-item">
           <div class="item-info">
             <div class="video-thumb" :class="video.hasGpsData || manualGpsMap[video.id] ? '' : 'no-gps'">
-              <VideoCamera class="video-icon" />
+              <img v-if="videoCoverMap[video.id]" class="thumb-img" :src="videoCoverMap[video.id]" alt="" />
+              <VideoCamera v-else class="video-icon" />
+              <span class="play-badge">▶</span>
             </div>
             <div class="info-text">
               <span class="name-text">{{ video.name }}</span>
@@ -92,41 +118,6 @@
           </div>
         </div>
       </div>
-
-      <!-- 已上传 - 图片区 -->
-      <div v-if="uploadedImageList.length" class="section">
-        <h3 class="section-title">{{ $t('uploadedPicture') }}</h3>
-        <div class="uploaded-list">
-          <div class="uploaded-card" v-for="item in uploadedImageList" :key="item.id">
-            <el-tooltip :show-after="500" :content="item.name" placement="top">
-              <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
-                @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item)" />
-            </el-tooltip>
-          </div>
-        </div>
-      </div>
-
-      <!-- 已上传 - 视频区 -->
-      <div v-if="uploadedVideoList.length" class="section">
-        <h3 class="section-title">{{ $t('uploadedVideo') }}</h3>
-        <div v-for="video in uploadedVideoList" :key="video.id" class="upload-item uploaded">
-          <div class="item-info">
-            <div class="video-thumb"><VideoCamera class="video-icon" /></div>
-            <div class="info-text">
-              <span class="name-text">{{ video.name }}</span>
-              <span class="meta-text">
-                <span>{{ formatDuration(video.durationMs) }}</span>
-                <span v-if="video.hasGpsData || manualGpsMap[video.id]" class="badge manual-badge">
-                  已定位
-                </span>
-              </span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <el-empty v-if="pendingImageList.length === 0 && pendingVideoList.length === 0 && uploadedImageList.length === 0 && uploadedVideoList.length === 0"
-        :description="$t('description.selectFileFirst')" :image-size="60" />
     </el-scrollbar>
   </div>
 
@@ -160,7 +151,7 @@ import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import { saveSchema } from '@/utils/schema'
 import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById } from '@/utils/Image'
-import { pushVideoToSchema } from '@/utils/video'
+import { pushVideoToSchema, getVideoFramePreviewUrl, getVideoThumbnailUrl } from '@/utils/video'
 import LocateDialog from '@/components/imgUpload/LocateDialog.vue'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
@@ -210,6 +201,36 @@ const importingMap = ref<Record<string, boolean>>({})
 const manualGpsMap = ref<Record<string, { lat: number; lng: number }>>({})
 const videoLocateShow = ref(false)
 const videoLocateId = ref<string | null>(null)
+// 视频封面：videoId/path -> data URL（待上传用原路径，已上传用 videoId）
+const videoCoverMap = ref<Record<string, string>>({})
+
+/**
+ * @description: 加载视频封面到 videoCoverMap（失败静默留空）
+ */
+async function loadVideoCover(key: string, loader: () => Promise<string>) {
+  if (videoCoverMap.value[key]) return
+  try {
+    const url = await loader()
+    if (url) videoCoverMap.value[key] = url
+  } catch (e) {
+    console.error('加载视频封面失败', key, e)
+  }
+}
+
+/**
+ * @description: 加载待上传视频封面（原路径提取首帧）
+ */
+function loadPendingVideoCover(video: ISelectedVideo) {
+  loadVideoCover(video.id, () => getVideoFramePreviewUrl(video.path))
+}
+
+/**
+ * @description: 加载已上传视频封面（用户目录按 videoId 提取）
+ */
+function loadUploadedVideoCover(video: IVideoInfo) {
+  if (!video.id) return
+  loadVideoCover(video.id, () => getVideoThumbnailUrl(video.id))
+}
 
 // ---- 进度合并展示 ----
 const totalProgress = computed(() => {
@@ -229,8 +250,20 @@ function isImageUploaded(id: string) {
 }
 
 // ---- 视频列表计算 ----
-const pendingVideoList = computed(() => videoList.value.filter(v => !v.imported))
-const uploadedVideoList = computed(() => videoList.value.filter(v => v.imported))
+// 已上传判断以内存中的 uploadedVideoIds 为准（与图片 isImageUploaded 逻辑一致）
+function isVideoUploaded(id: string) {
+  return schemaStore.getUploadedVideoIds.includes(id)
+}
+const pendingVideoList = computed(() => videoList.value.filter(v => !isVideoUploaded(v.id)))
+const uploadedVideoList = computed(() => videoList.value.filter(v => isVideoUploaded(v.id)))
+
+// 是否有任何待上传/已上传内容（控制面板是否展开列表，无内容时只显示工具栏）
+const hasContent = computed(() =>
+  pendingImageList.value.length > 0 ||
+  pendingVideoList.value.length > 0 ||
+  uploadedImageList.value.length > 0 ||
+  uploadedVideoList.value.length > 0
+)
 
 // ================= 图片逻辑 =================
 
@@ -414,10 +447,19 @@ async function selectVideos() {
   }
 }
 
-function handleVideoParsedBatch(videos: any[]) {
-  videos.forEach((v) => {
+async function handleVideoParsedBatch(videos: any[]) {
+  videos.forEach(async (v) => {
     if (videoList.value.find(exist => exist.id === v.id)) return
     videoList.value.push({ ...v, imported: false })
+    // 异步加载视频首帧封面（原路径）
+    loadPendingVideoCover(v)
+    // 有内嵌 GPS 的视频：同步插入地图节点（与图片待上传交互一致）
+    if (v.GPSLatitude && v.GPSLongitude && !isVideoUploaded(v.id)) {
+      markerService.addVideoMarkerToMap(
+        { id: v.id, name: v.name, GPSLatitude: v.GPSLatitude, GPSLongitude: v.GPSLongitude } as IVideoInfo,
+        await getVideoFramePreviewUrl(v.path)
+      )
+    }
   })
 }
 
@@ -466,6 +508,8 @@ async function handleImport(video: ISelectedVideo) {
       vi.GPSLongitude = manualGps.lng
     }
     pushVideoToSchema(vi)
+    // 同步到内存中的已上传视频 id（与图片已上传判断逻辑一致）
+    schemaStore.pushVideoToUploadedVideoIds(vi.id)
     await saveSchema()
 
     const tempMarker = markerService.getMarkerById(vi.id)
@@ -477,6 +521,8 @@ async function handleImport(video: ISelectedVideo) {
       await markerService.addVideoMarkerToMap(vi)
     }
     video.imported = true
+    // 导入后加载已上传封面（用户目录按 videoId 提取）
+    loadUploadedVideoCover(vi)
     ElMessage.success('导入成功')
   } catch (e) {
     console.error('导入失败', e)
@@ -489,6 +535,9 @@ async function handleImport(video: ISelectedVideo) {
 function handleRemoveVideo(videoId: string) {
   videoList.value = videoList.value.filter(v => v.id !== videoId)
   delete manualGpsMap.value[videoId]
+  // 移除地图上的对应节点（与图片待上传交互一致）
+  const marker = markerService.getMarkerById(videoId)
+  if (marker) markerService.deleteMarkerInMap(marker)
 }
 
 // ---- 通用工具 ----
@@ -622,6 +671,31 @@ onUnmounted(() => {
         align-items: center;
         justify-content: center;
         color: #909399;
+        overflow: hidden;
+        position: relative;
+
+        .thumb-img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+
+        .play-badge {
+          position: absolute;
+          right: 3px;
+          bottom: 3px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.6);
+          color: #fff;
+          font-size: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding-left: 1px;
+        }
 
         &.no-gps {
           background: #fef0f0;
@@ -762,6 +836,53 @@ onUnmounted(() => {
         object-fit: cover;
         border-radius: 4px;
         cursor: pointer;
+      }
+
+      // 视频封面容器（含播放标志角标）
+      .video-card {
+        position: relative;
+        width: 50px;
+        height: 50px;
+        border-radius: 4px;
+        overflow: hidden;
+
+        .thumb {
+          width: 100%;
+          height: 100%;
+        }
+
+        .play-badge {
+          position: absolute;
+          right: 3px;
+          bottom: 3px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.6);
+          color: #fff;
+          font-size: 9px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding-left: 1px;
+        }
+      }
+
+      // 无封面时的占位块（尺寸与缩略图一致）
+      .video-thumb {
+        width: 50px;
+        height: 50px;
+        border-radius: 4px;
+        background: #f0f2f5;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #909399;
+
+        .video-icon {
+          width: 20px;
+          height: 20px;
+        }
       }
     }
   }

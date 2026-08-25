@@ -285,12 +285,66 @@ func (h *Handler) DeleteVideos(userId string, videoIds []string) model.Result {
 	return model.NewSuccessResult("视频删除成功！")
 }
 
-// GetVideoThumbnail 返回视频第一帧封面（base64）。暂未实现，占位返回。
-func (h *Handler) GetVideoThumbnail(userId, videoId string) model.Result {
-	return model.NewFailResult("接口还在开发完善中....")
+// getVideoFilePath 根据 videoId 定位用户视频目录下的视频文件（匹配 PM{id}.{ext}）
+func (h *Handler) getVideoFilePath(userId, videoId string) (string, error) {
+	videoDir := h.cfg.VideoDirPath(userId)
+	baseName := util.BaseWithoutExt(videoId)
+	pattern := filepath.Join(videoDir, "PM"+baseName+".*")
+	matches, _ := filepath.Glob(pattern)
+	if len(matches) == 0 {
+		return "", fmt.Errorf("视频不存在")
+	}
+	return matches[0], nil
 }
 
-// GetVideoThumbnails 批量返回视频第一帧封面（base64）。暂未实现，占位返回。
+// GetVideoThumbnail 返回视频第一帧封面（base64 JPEG）。提取失败返回 500。
+func (h *Handler) GetVideoThumbnail(userId, videoId string) model.Result {
+	filePath, err := h.getVideoFilePath(userId, videoId)
+	if err != nil {
+		return model.NewFailResult(err.Error())
+	}
+	frame, err := service.ExtractVideoFrame(filePath, 0, 0)
+	if err != nil {
+		return model.NewFailResult("封面提取失败: " + err.Error())
+	}
+	return model.NewSuccessResult(map[string]interface{}{
+		"file": base64.StdEncoding.EncodeToString(frame),
+	})
+}
+
+// GetVideoThumbnails 批量返回视频第一帧封面（base64 JPEG），按 videoId 映射返回。
 func (h *Handler) GetVideoThumbnails(userId string, videoIds []string) model.Result {
-	return model.NewFailResult("接口还在开发完善中....")
+	res := make(map[string]string, len(videoIds))
+	for _, id := range videoIds {
+		filePath, err := h.getVideoFilePath(userId, id)
+		if err != nil {
+			continue
+		}
+		frame, err := service.ExtractVideoFrame(filePath, 0, 0)
+		if err != nil {
+			continue
+		}
+		res[id] = base64.StdEncoding.EncodeToString(frame)
+	}
+	return model.NewSuccessResult(map[string]interface{}{
+		"files": res,
+	})
+}
+
+// GetVideoFramePreview 从任意路径提取视频第一帧封面（base64 JPEG）。
+// 用于待上传视频（尚未复制到用户目录）的封面预览。提取失败返回 500。
+func (h *Handler) GetVideoFramePreview(path string) model.Result {
+	if path == "" {
+		return model.NewFailResult("视频路径为空")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return model.NewFailResult("视频源文件不存在")
+	}
+	frame, err := service.ExtractVideoFrame(path, 0, 0)
+	if err != nil {
+		return model.NewFailResult("封面提取失败: " + err.Error())
+	}
+	return model.NewSuccessResult(map[string]interface{}{
+		"file": base64.StdEncoding.EncodeToString(frame),
+	})
 }

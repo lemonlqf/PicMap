@@ -21,7 +21,7 @@ import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
 import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
-import { editSchemaAndSave, saveSchema } from '@/utils/schema'
+import { editSchemaAndSave, editVideoGpsAndSave, saveSchema } from '@/utils/schema'
 import { useI18n } from 'vue-i18n'
 import markerService from '@/services/marker'
 const { t } = useI18n()
@@ -66,7 +66,12 @@ function temporaryMarkerToPermanent(markerId: string) {
   // 固定后
   const GPSInfo = markerService.getGPSInfoByMarkerInstance(marker)
   // 更新schema中的GPSInfo数据
-  editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
+  if (markerType === 'temporary-video') {
+    // 视频 GPS 存储为平铺字段
+    editVideoGpsAndSave(marker.options.id, GPSInfo.GPSLatitude, GPSInfo.GPSLongitude)
+  } else {
+    editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
+  }
 }
 
 

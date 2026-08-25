@@ -106,6 +106,10 @@ func (a *App) GetVideoThumbnails(userId string, videoIds []string) model.Result 
 	return a.handler.GetVideoThumbnails(userId, videoIds)
 }
 
+func (a *App) GetVideoFramePreview(path string) model.Result {
+	return a.handler.GetVideoFramePreview(path)
+}
+
 func (a *App) CreateBackup(name string) model.Result             { return a.handler.CreateBackup(name) }
 func (a *App) GetBackupSize() model.Result                       { return a.handler.GetBackupSize() }
 func (a *App) GetBackupList() model.Result                       { return a.handler.GetBackupList() }

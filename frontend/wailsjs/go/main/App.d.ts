@@ -38,6 +38,8 @@ export function GetTrack(arg1:string,arg2:string):Promise<model.Result>;
 
 export function GetUserInfos():Promise<model.Result>;
 
+export function GetVideoFramePreview(arg1:string):Promise<model.Result>;
+
 export function GetVideoRange(arg1:string,arg2:string,arg3:number,arg4:number):Promise<model.Result>;
 
 export function GetVideoThumbnail(arg1:string,arg2:string):Promise<model.Result>;

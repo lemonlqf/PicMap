@@ -24,6 +24,9 @@
         <h3 class="section-title">已上传视频</h3>
         <div class="video-list">
           <div v-for="video in uploadedVideos" :key="video.id" class="video-item uploaded">
+            <div class="video-cover" v-if="coverMap[video.id]">
+              <img :src="coverMap[video.id]" alt="封面" />
+            </div>
             <div class="video-info">
               <div class="name">{{ video.name }}</div>
               <div class="meta">
@@ -109,6 +112,9 @@
         <h3 class="section-title">待上传视频</h3>
         <div class="video-list">
         <div v-for="video in pendingVideoList" :key="video.id" class="video-item">
+          <div class="video-cover" v-if="coverMap[video.id]">
+            <img :src="coverMap[video.id]" alt="封面" />
+          </div>
           <div class="video-info">
             <div class="name">{{ video.name }}</div>
             <div class="meta">
@@ -170,7 +176,7 @@ import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
-import { importVideo, pushVideoToSchema, associateVideoToTrack, deleteVideos } from '@/utils/video'
+import { importVideo, pushVideoToSchema, associateVideoToTrack, deleteVideos, getVideoFramePreviewUrl, getVideoThumbnailUrl } from '@/utils/video'
 import { saveSchema, editSchemaAttrAndSave } from '@/utils/schema'
 import { generateVideoNodes, fetchTrackPoints } from '@/utils/videoNode'
 import VideoPlayer from '@/components/videoPlayer/VideoPlayer.vue'
@@ -197,6 +203,42 @@ const parseProgress = ref({ processed: 0, total: 0 })
 const manualGpsMap = ref<Record<string, { lat: number; lng: number }>>({})
 const locateDialogShow = ref(false)
 const locateVideoId = ref<string | null>(null)
+
+// 视频封面：videoId/path -> data URL（待上传用原路径，已上传用 videoId）
+const coverMap = ref<Record<string, string>>({})
+
+/**
+ * @description: 加载视频封面（带内存缓存），失败时静默留空
+ * @param {string} key 缓存键（视频 id 或路径）
+ * @param {() => Promise<string>} loader 封面加载器
+ * @return {*}
+ */
+async function loadCover(key: string, loader: () => Promise<string>) {
+  if (coverMap.value[key]) return
+  try {
+    const url = await loader()
+    if (url) {
+      coverMap.value[key] = url
+    }
+  } catch (e) {
+    console.error('加载视频封面失败', key, e)
+  }
+}
+
+/**
+ * @description: 加载待上传视频封面（从原路径提取首帧）
+ */
+function loadPendingCover(video: ISelectedVideo) {
+  loadCover(video.id, () => getVideoFramePreviewUrl(video.path))
+}
+
+/**
+ * @description: 加载已上传视频封面（从用户目录按 videoId 提取）
+ */
+function loadUploadedCover(video: IVideoInfo) {
+  if (!video.id) return
+  loadCover(video.id, () => getVideoThumbnailUrl(video.id))
+}
 
 // 可选的 GPX 轨迹列表
 const trackList = ref<ITrackInfo[]>([])
@@ -557,6 +599,8 @@ watch(dialogVisible, (val) => {
   if (val) {
     trackList.value = schemaStore.getSchema.trackInfo || []
     loadExistingVideos()
+    // 为已上传视频加载封面
+      ;(schemaStore.getSchema.videoInfo || []).forEach(v => loadUploadedCover(v))
   }
 })
 
@@ -797,6 +841,8 @@ function registerEvents() {
         if (v.parsedTimeText) {
           absoluteTimeMap.value[v.id] = v.parsedTimeText
         }
+        // 异步加载视频首帧封面
+        loadPendingCover(v)
       }
     })
   })
@@ -853,6 +899,26 @@ registerEvents()
   border: 1px solid #ebeef5;
   border-radius: 6px;
   background: #fff;
+}
+
+.video-cover {
+  width: 88px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 4px;
+  overflow: hidden;
+  border: 1px solid #ebeef5;
+  background: #f5f7fa;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
 }
 
 .video-info {

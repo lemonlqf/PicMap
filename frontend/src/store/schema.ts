@@ -16,11 +16,14 @@ export const useSchemaStore = defineStore('schema', {
   state: () => ({
     schema: {} as ISchema,
     // 已经上传的图片
-    uploadedImageIds: [] as string[]
+    uploadedImageIds: [] as string[],
+    // 已经上传的视频
+    uploadedVideoIds: [] as string[]
   }),
   getters: {
     getSchema: state => state.schema as ISchema,
     getUploadedImageIds: state => state.uploadedImageIds ?? [] as string[],
+    getUploadedVideoIds: state => state.uploadedVideoIds ?? [] as string[],
     getGroupInfo: state => state.schema.groupInfo ?? [] as IGroupInfo[],
     getMapInfo: state => state.schema.mapInfo ?? {} as IMapInfo,
     getImageInfo: state => state.schema.imageInfo ?? {} as IImageInfo[]
@@ -86,6 +89,19 @@ export const useSchemaStore = defineStore('schema', {
     },
     deleteImageInUploadedImageIds(id) {
       this.uploadedImageIds = this.uploadedImageIds.filter(item => {
+        return item !== id
+      })
+    },
+    pushVideoToUploadedVideoIds(id) {
+      if (!this.uploadedVideoIds.includes(id)) {
+        this.uploadedVideoIds.push(id)
+      }
+    },
+    setUploadedVideoIds(value) {
+      this.uploadedVideoIds = value
+    },
+    deleteVideoInUploadedVideoIds(id) {
+      this.uploadedVideoIds = this.uploadedVideoIds.filter(item => {
         return item !== id
       })
     },

@@ -64,7 +64,7 @@ import SelectionBar from '@/components/selection/SelectionBar.vue'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
-import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema } from '@/utils/schema'
+import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema, getAllVideoIdInSchema } from '@/utils/schema'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 import Map from './Map.vue'
 import TimeLine from '@/components/timeLine/TimeLine.vue'
@@ -194,6 +194,9 @@ async function initSchema() {
     const groupIds = getAllGroupIdInSchema()
     // 将所有的图片id保存到uploadedImageIds中
     schemaStore.setUploadedImageIds([...imagesIds, ...groupIds])
+    // 将已上传的视频id保存到uploadedVideoIds中（与图片已上传判断逻辑一致）
+    const videoIds = getAllVideoIdInSchema()
+    schemaStore.setUploadedVideoIds(videoIds ?? [])
   } else {
     console.error('获取schema失败')
   }

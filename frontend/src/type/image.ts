@@ -64,7 +64,7 @@ export type IMarker = {
   showType: IShowType
 } & IGroupInfo & IImageInfo
 
-export type IShowType = "image" | "group" | "video" | "temporary-image" | "temporary-group"
+export type IShowType = "image" | "group" | "video" | "temporary-image" | "temporary-group" | "temporary-video"
 
 // export enum ImageType {
 //   JPEG = 'image/jpeg',

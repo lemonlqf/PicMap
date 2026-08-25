@@ -103,6 +103,12 @@ export function getAllGroupIdInSchema() {
   return res
 }
 
+export function getAllVideoIdInSchema() {
+  const schemaStore = useSchemaStore()
+  const res = schemaStore?.getSchema?.videoInfo?.map(item => item.id)
+  return res
+}
+
 /**
  * @description: 图片信息遍历器，调用这个来单次遍历schema中所有的图片信息，避免重复遍历，影响性能
  * @param {ISchema} schema
@@ -175,6 +181,22 @@ export async function editSchemaAndSave(id: string, attr: string, value: any) {
     return item.id === id
   })
   set(groupOrImageInfo, attr, value)
+  await saveSchema()
+}
+
+/**
+ * @description: 更新视频节点的 GPS 坐标（视频 GPS 存储为平铺字段，非嵌套 GPSInfo）
+ * @param {string} videoId
+ * @param {number} lat
+ * @param {number} lng
+ * @return {*}
+ */
+export async function editVideoGpsAndSave(videoId: string, lat: number, lng: number) {
+  const schemaStore = useSchemaStore()
+  const videoInfo = schemaStore.getSchema.videoInfo?.find(item => item.id === videoId)
+  if (!videoInfo) return
+  set(videoInfo, 'GPSLatitude', lat)
+  set(videoInfo, 'GPSLongitude', lng)
   await saveSchema()
 }
 

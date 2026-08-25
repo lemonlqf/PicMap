@@ -74,6 +74,10 @@ export function GetUserInfos() {
   return window['go']['main']['App']['GetUserInfos']();
 }
 
+export function GetVideoFramePreview(arg1) {
+  return window['go']['main']['App']['GetVideoFramePreview'](arg1);
+}
+
 export function GetVideoRange(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['GetVideoRange'](arg1, arg2, arg3, arg4);
 }

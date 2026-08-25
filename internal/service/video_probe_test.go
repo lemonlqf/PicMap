@@ -2,6 +2,7 @@ package service
 
 import (
 	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -74,4 +75,36 @@ func TestParseGPSLocation(t *testing.T) {
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func TestExtractVideoFrame(t *testing.T) {
+	// 用不同像素格式的两个视频验证兼容性（yuvj420p 兜底）
+	paths := []string{
+		`C:\Users\450282\Documents\视频\20260820_171710.mp4`,
+		`C:\Users\450282\Documents\视频\video.mp4`,
+	}
+	found := false
+	for _, path := range paths {
+		if !fileExists(path) {
+			continue
+		}
+		found = true
+		if _, err := os.Stat(filepath.Join(getToolsDir(), "ffmpeg", "ffmpeg.exe")); err != nil {
+			t.Skip("找不到 ffmpeg，跳过封面提取测试")
+		}
+		frame, err := ExtractVideoFrame(path, 0, 0)
+		if err != nil {
+			t.Fatalf("ExtractVideoFrame(%s) 失败: %v", path, err)
+		}
+		if len(frame) == 0 {
+			t.Errorf("%s: 封面帧数据为空", path)
+		}
+		// JPEG 魔数（FF D8 FF）
+		if len(frame) < 3 || frame[0] != 0xFF || frame[1] != 0xD8 || frame[2] != 0xFF {
+			t.Errorf("%s: 首字节应为 JPEG 魔数，得到 % X", path, frame[:3])
+		}
+	}
+	if !found {
+		t.Skip("测试视频文件均不存在")
+	}
 }
