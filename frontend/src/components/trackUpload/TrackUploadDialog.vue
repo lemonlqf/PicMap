@@ -25,7 +25,7 @@
         <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
           :current-row-id="currentRow?.id" @row-change="handleRowChange" @group-change="handleGroupChange"
           @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange"
-          @name-change="handleNameChange" />
+          @main-map-change="handleMainMapChange" @name-change="handleNameChange" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
@@ -41,6 +41,8 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { useI18n } from 'vue-i18n'
 import trackService from '@/services/track'
 import { updateTrackSchema, deleteTrackFromSchema, formatTrackInfo, formatDistance, getDefaultLineColor } from '@/utils/track'
+import { editSchemaAttrAndSave } from '@/utils/schema'
+import mapService from '@/services/map'
 import { formatDate } from '@/utils/date'
 import MapComponent from '@/components/map/Map.vue'
 import TrackUploadTable from './TrackUploadTable.vue'
@@ -373,6 +375,31 @@ async function handleColorChange(row: TrackData) {
     trackService.updateTrackColor(row.id, row.setting?.lineColor || '')
   } catch (error) {
     console.error('更新轨迹颜色失败:', error)
+    ElMessage.error(t('description.updateFailed'))
+  }
+}
+
+/**
+ * @description: 处理轨迹"显示在主地图"开关变化
+ * 当用户切换开关时，更新 schema 中的 setting.showOnMainMap，并即时在主地图上增删轨迹
+ * @param {TrackData} row - 轨迹行数据
+ */
+async function handleMainMapChange(row: TrackData) {
+  try {
+    const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
+    const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
+    if (trackIndex >= 0) {
+      if (!trackInfoList[trackIndex].setting) {
+        trackInfoList[trackIndex].setting = {}
+      }
+      trackInfoList[trackIndex].setting!.showOnMainMap = row.setting?.showOnMainMap
+      // 保存到 schema 持久化
+      await editSchemaAttrAndSave('trackInfo', trackInfoList)
+    }
+    // 即时在主地图上增删轨迹
+    mapService.renderMainMapTracks()
+  } catch (error) {
+    console.error('更新轨迹显示失败:', error)
     ElMessage.error(t('description.updateFailed'))
   }
 }

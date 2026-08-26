@@ -66,6 +66,7 @@ export type ITrackInfo = {
   averageTemp?: number,
   setting?: {
     lineColor?: string
+    showOnMainMap?: boolean
   },
   videos?: IVideoRef[]
   images?: string[]

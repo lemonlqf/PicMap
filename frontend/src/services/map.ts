@@ -7,9 +7,19 @@ import { toMapLibreLngLat } from '@/utils/mapLibre'
 class MapService {
   // 地图实例
   private MAP_INSTANCE: maplibregl.Map | null = null
+  // 主地图轨迹渲染回调，由主地图注册，用于开关变化时即时重渲染
+  private trackRenderCallback: (() => void) | null = null
 
   getMapInstance() {
     return this.MAP_INSTANCE
+  }
+
+  registerTrackRender(callback: () => void) {
+    this.trackRenderCallback = callback
+  }
+
+  renderMainMapTracks() {
+    this.trackRenderCallback?.()
   }
 
   initMapInstance(mapInstance: maplibregl.Map) {
@@ -25,17 +35,29 @@ class MapService {
       markerService.updateVisibleMarkers()
     }, 100)
     const map = this.MAP_INSTANCE
-    let moveendTimer: ReturnType<typeof setTimeout> | null = null
-    map?.on('moveend', () => {
-      if (moveendTimer) {
-        clearTimeout(moveendTimer)
-      }
-      moveendTimer = setTimeout(() => {
-        moveendTimer = null
+    // 移动过程中实时判断节点是否移入视窗并添加（requestAnimationFrame 节流，避免频繁重建）
+    let rafId: number | null = null
+    const scheduleRender = () => {
+      if (rafId !== null) return
+      rafId = window.requestAnimationFrame(() => {
+        rafId = null
         markerService.updateVisibleMarkers()
-      }, 200)
+      })
+    }
+    map?.on('move', scheduleRender)
+    // 移动结束后兜底一次，确保最终状态正确
+    map?.on('moveend', () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+        rafId = null
+      }
+      markerService.updateVisibleMarkers()
     })
     map?.on('movestart', () => {
+      if (rafId !== null) {
+        window.cancelAnimationFrame(rafId)
+        rafId = null
+      }
       eventBus.emit('hidden-content-menu')
       markerService.cancelAllFlyAnimations()
       markerService.unspiderfy()

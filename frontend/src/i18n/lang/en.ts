@@ -193,7 +193,8 @@ export default {
     averageHr: 'Average HR',
     averageCadence: 'Average Cadence',
     averageTemp: 'Average Temp',
-    unnamed: 'Unnamed Track'
+    unnamed: 'Unnamed Track',
+    showOnMainMap: 'Show on main map'
   },
 
   description: {

@@ -10,11 +10,15 @@
     <div class="toolbar">
       <el-button class="toolbar-btn" type="primary" :disabled="imageParsing || imageUploading" @click="selectImages">
         {{ $t('uploadPicture') }}
-        <el-icon v-if="imageParsing" class="is-loading" style="margin-left: 4px;"><Loading /></el-icon>
+        <el-icon v-if="imageParsing" class="is-loading" style="margin-left: 4px;">
+          <Loading />
+        </el-icon>
       </el-button>
       <el-button class="toolbar-btn" type="warning" :disabled="videoParsing || videoImporting" @click="selectVideos">
         {{ $t('uploadVideo') }}
-        <el-icon v-if="videoParsing" class="is-loading" style="margin-left: 4px;"><Loading /></el-icon>
+        <el-icon v-if="videoParsing" class="is-loading" style="margin-left: 4px;">
+          <Loading />
+        </el-icon>
       </el-button>
     </div>
 
@@ -24,7 +28,7 @@
         :format="() => `${totalProgress.processed}/${totalProgress.total}`" />
     </div>
 
-    <el-scrollbar v-if="hasContent" max-height="55vh">
+    <el-scrollbar style="height: calc(100% - 50px)" v-if="hasContent" max-height="55vh">
       <!-- 已上传 - 图片与视频混合区 -->
       <div v-if="uploadedImageList.length || uploadedVideoList.length" class="section">
         <h3 class="section-title">{{ $t('uploadedPicture') }}</h3>
@@ -62,7 +66,8 @@
                 <span class="name-text">{{ item.name }}</span>
               </el-tooltip>
               <span class="meta-text">
-                {{ item?.GPSInfo?.GPSLatitude ? `${item.GPSInfo.GPSLatitude}, ${item.GPSInfo.GPSLongitude}` : $t('noData') }}
+                {{ item?.GPSInfo?.GPSLatitude ? `${item.GPSInfo.GPSLatitude}, ${item.GPSInfo.GPSLongitude}` :
+                $t('noData') }}
               </span>
             </div>
           </div>
@@ -105,8 +110,7 @@
           </div>
           <div class="item-actions">
             <div :title="manualGpsMap[video.id] ? '已定位' : $t('locate')"
-              :class="['action-btn', 'locate', { active: manualGpsMap[video.id] }]"
-              @click="showVideoLocate(video.id)">
+              :class="['action-btn', 'locate', { active: manualGpsMap[video.id] }]" @click="showVideoLocate(video.id)">
               <img src="@/assets/icon/定位(白色).png" alt="">
             </div>
             <div :title="$t('upload')" class="action-btn upload" @click="handleImport(video)">
@@ -119,6 +123,14 @@
         </div>
       </div>
     </el-scrollbar>
+
+    <!-- 面板底部批量操作（固定在面板底部，滚动列表时始终可见） -->
+    <div v-if="pendingImageList.length || pendingVideoList.length" class="panel-actions">
+      <el-button size="small" :loading="imageUploading || videoImporting" @click="handleBatchUploadAll">
+        {{ $t('batchUpload') }}
+      </el-button>
+      <el-button size="small" @click="handleClearAll">{{ $t('clear') }}</el-button>
+    </div>
   </div>
 
   <!-- 图片定位弹框 -->
@@ -128,12 +140,13 @@
   <LocateDialog v-model="videoLocateShow" :image-id="videoLocateId" @confirm="handleVideoLocateConfirm"
     @manual-locate="handleVideoLocateManual" />
   <!-- 图片分组设置弹框 -->
-  <GroupInfoDialog v-model="imageGroupShow" :imageIds="editImageIds" @group-setup-complete="handleImageGroupSetupComplete" />
+  <GroupInfoDialog v-model="imageGroupShow" :imageIds="editImageIds"
+    @group-setup-complete="handleImageGroupSetupComplete" />
   <!-- 图片预览 -->
   <ImagePreview v-model:visible="imagePreviewShow" :src="imagePreviewSrc" />
   <!-- 全景 360 预览 -->
-  <el-dialog v-model="panoramaShow" append-to-body :close-on-click-modal="true" :show-close="true"
-    width="80vw" top="5vh" class="panorama-preview-dialog" destroy-on-close>
+  <el-dialog v-model="panoramaShow" append-to-body :close-on-click-modal="true" :show-close="true" width="80vw"
+    top="5vh" class="panorama-preview-dialog" destroy-on-close>
     <div class="panorama-container" v-loading="panoramaLoading">
       <PanoramaViewer :src="panoramaSrc" :panorama-type="panoramaType" />
     </div>
@@ -540,6 +553,104 @@ function handleRemoveVideo(videoId: string) {
   if (marker) markerService.deleteMarkerInMap(marker)
 }
 
+// ---- 批量操作（覆盖待上传的图片 + 视频） ----
+
+/**
+ * @description: 单条视频导入核心逻辑（成功不弹窗，供单个与批量共用）
+ * @return {*} 是否导入成功
+ */
+async function importVideoItem(video: ISelectedVideo): Promise<boolean> {
+  const manualGps = manualGpsMap.value[video.id]
+  if (!video.hasGpsData && !manualGps) return false
+  importingMap.value[video.id] = true
+  try {
+    const res = await API.video.importVideo({ id: video.id, name: video.name, path: video.path })
+    if (res.code !== 200) return false
+    const vi: IVideoInfo = res.data
+    if (manualGps) {
+      vi.GPSLatitude = manualGps.lat
+      vi.GPSLongitude = manualGps.lng
+    }
+    pushVideoToSchema(vi)
+    schemaStore.pushVideoToUploadedVideoIds(vi.id)
+    await saveSchema()
+
+    const tempMarker = markerService.getMarkerById(vi.id)
+    if (tempMarker && tempMarker.options.type === 'temporary-video') {
+      markerService.deleteMarkerInMap(tempMarker)
+    }
+
+    if (vi.GPSLatitude && vi.GPSLongitude) {
+      await markerService.addVideoMarkerToMap(vi)
+    }
+    video.imported = true
+    loadUploadedVideoCover(vi)
+    return true
+  } catch (e) {
+    console.error('导入失败', e)
+    return false
+  } finally {
+    importingMap.value[video.id] = false
+  }
+}
+
+/**
+ * @description: 批量上传所有待上传项（图片需有 GPS，视频需有 GPS 或已手动定位）
+ */
+async function handleBatchUploadAll() {
+  // 待上传图片（必须有 GPS）
+  const locateImages = pendingImageList.value.filter(item => item.GPSInfo?.GPSLatitude && item.GPSInfo?.GPSLongitude)
+  // 待上传视频（内嵌 GPS 或已手动定位）
+  const locateVideos = pendingVideoList.value.filter(v => v.hasGpsData || manualGpsMap.value[v.id])
+
+  if (locateImages.length < 1 && locateVideos.length < 1) {
+    ElMessage.warning(t('description.noPictureCanUpload'))
+    return
+  }
+
+  imageUploading.value = true
+  videoImporting.value = true
+  try {
+    // 1. 批量上传图片
+    if (locateImages.length > 0) {
+      imageProgress.value = { processed: 0, total: locateImages.length }
+      const onProgress = (current: number, total: number) => { imageProgress.value = { processed: current, total } }
+      await UploadImages(locateImages, onProgress)
+      await saveSchema()
+    }
+    // 2. 批量导入视频
+    for (const video of locateVideos) {
+      await importVideoItem(video)
+    }
+    await saveSchema()
+    emit('uploadSuccess')
+    ElMessage.success(t('description.pictureUploadedSuccess'))
+  } finally {
+    imageUploading.value = false
+    videoImporting.value = false
+    imageProgress.value = { processed: 0, total: 0 }
+  }
+}
+
+/**
+ * @description: 清空所有待上传项（图片 + 视频），并移除地图上对应临时节点
+ */
+function handleClearAll() {
+  // 清空待上传图片
+  pendingImageList.value.forEach(item => {
+    const marker = markerService.getMarkerById(item.id)
+    if (marker) markerService.deleteMarkerInMap(marker)
+  })
+  imageList.value = []
+  // 清空待上传视频
+  pendingVideoList.value.forEach(video => {
+    const marker = markerService.getMarkerById(video.id)
+    if (marker) markerService.deleteMarkerInMap(marker)
+  })
+  videoList.value = []
+  manualGpsMap.value = {}
+}
+
 // ---- 通用工具 ----
 // 获取视频的经纬度显示文本（与图片项对齐）：手动定位优先，其次内嵌 GPS
 function getVideoCoordText(video: ISelectedVideo): string {
@@ -592,12 +703,13 @@ onUnmounted(() => {
   background-color: rgba(255, 255, 255, 0.95);
   border-radius: 10px;
   padding: 10px;
+  height: fit-content;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 
   .toolbar {
     display: flex;
     gap: 6px;
-    margin-bottom: 8px;
+    margin-bottom: 0;
 
     .toolbar-btn {
       flex: 1;
@@ -621,6 +733,22 @@ onUnmounted(() => {
       color: #909399;
       margin: 0 0 8px;
       font-weight: 600;
+    }
+
+  }
+
+  .panel-actions {
+    display: flex;
+    gap: 6px;
+    justify-content: space-around;
+    align-items: center;
+    margin-top: 8px;
+    border-top: 1px solid #ebeef5;
+    padding-top: 8px;
+
+    .el-button {
+      flex: 1;
+      margin-left: 0;
     }
   }
 

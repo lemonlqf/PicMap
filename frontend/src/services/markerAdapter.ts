@@ -19,6 +19,38 @@ export interface MarkerOptions {
   iconUrl?: string
 }
 
+// 飞行动画配置（聚合/散开过渡，可自由配置速度与透明度）
+export interface FlyAnimationOptions {
+  /** 动画时长（ms），默认 300 */
+  duration?: number
+  /** 缓动函数（控制位移），输入 0-1 返回 0-1，默认 easeInOutCubic */
+  easing?: (t: number) => number
+  /** 是否在移动时做透明度过渡 */
+  fade?: boolean
+  /** 起点透明度（0-1），配合 fade 使用 */
+  fadeFrom?: number
+  /** 终点透明度（0-1），配合 fade 使用 */
+  fadeTo?: number
+  /** 透明度的缓动函数（独立于位移 easing），默认与 easing 一致 */
+  fadeEasing?: (t: number) => number
+}
+
+// 常用缓动函数
+export const Easing = {
+  linear: (t: number) => t,
+  easeInOutCubic: (t: number) => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2),
+  easeOutCubic: (t: number) => 1 - Math.pow(1 - t, 3),
+  easeOutBack: (t: number) => {
+    const c1 = 1.70158
+    const c3 = c1 + 1
+    return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2)
+  },
+  // 提前完成淡出：在动画 40% 前完成过渡（透明到 0），之后保持全透明（用于聚合节点淡出）
+  fadeOutAt40: (t: number) => Math.min(t / 0.4, 1),
+  // 延迟淡入：前 20% 保持透明，之后淡入到不透明（用于散开/分裂节点飞出的淡入）
+  fadeInFrom20: (t: number) => (t <= 0.2 ? 0 : (t - 0.2) / 0.8),
+}
+
 // 包裹一层：外层负责 MapLibre 定位（translate，无 transition），内层负责缩放（scale，有 transition）
 function wrapMarkerElement(
   iconElement: HTMLElement,
@@ -88,6 +120,10 @@ export class MapMarkerAdapter {
       this.currentAnimation.cancel()
       this.currentAnimation = null
     }
+    if (this.latLngRafId !== null) {
+      cancelAnimationFrame(this.latLngRafId)
+      this.latLngRafId = null
+    }
     this.currentAnimationOnFinish = null
     this.animating = false
   }
@@ -98,10 +134,84 @@ export class MapMarkerAdapter {
       this.currentAnimation.cancel()
       this.currentAnimation = null
     }
+    if (this.latLngRafId !== null) {
+      cancelAnimationFrame(this.latLngRafId)
+      this.latLngRafId = null
+    }
+    // 中断时恢复目标透明度，避免残留中间值
+    if (this.currentFadeTo !== null) {
+      this.setOpacity(this.currentFadeTo)
+      this.currentFadeTo = null
+    }
     const onFinish = this.currentAnimationOnFinish
     this.currentAnimationOnFinish = null
     this.animating = false
     if (onFinish) onFinish()
+  }
+
+  // 设置透明度（作用于整个 marker 外层元素）
+  setOpacity(opacity: number) {
+    this.mlMarker.getElement().style.opacity = String(opacity)
+  }
+
+  // 基于经纬度插值的移动动画：marker 平滑从当前位置移动到目标坐标（rAF 逐帧 setLngLat）
+  // 支持配置 duration / easing / fade（透明度过渡），比 CSS transform 脱离地图的方案更简单可靠
+  private latLngRafId: number | null = null
+  // 当前动画的目标透明度（用于中断时恢复，null 表示未做透明度过渡）
+  private currentFadeTo: number | null = null
+
+  animateToLatLng(targetLat: number, targetLng: number, options?: FlyAnimationOptions, onFinish?: () => void) {
+    this.cancelAnimation()
+    const from = this.mlMarker.getLngLat()
+    const startLat = from.lat
+    const startLng = from.lng
+    const duration = options?.duration ?? 300
+    const easing = options?.easing ?? Easing.easeInOutCubic
+    const fade = options?.fade ?? false
+    const fadeFrom = options?.fadeFrom ?? 0
+    const fadeTo = options?.fadeTo ?? 1
+    const fadeEasing = options?.fadeEasing ?? easing
+
+    // 起点与终点一致时，无移动，但保留透明度过渡
+    const samePos = startLat === targetLat && startLng === targetLng
+    if (samePos && !fade) {
+      this.currentFadeTo = null
+      this.setOpacity(fadeTo)
+      onFinish?.()
+      return
+    }
+
+    // 记录目标透明度（中断时恢复用）
+    this.currentFadeTo = fade ? fadeTo : null
+
+    // 从起始透明度开始（fade 时）
+    if (fade) this.setOpacity(fadeFrom)
+
+    this.animating = true
+    this.currentAnimationOnFinish = onFinish ?? null
+    const startTime = performance.now()
+    const step = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1)
+      const eased = easing(t)
+      if (!samePos) {
+        this.mlMarker.setLngLat([startLng + (targetLng - startLng) * eased, startLat + (targetLat - startLat) * eased])
+      }
+      if (fade) {
+        this.setOpacity(fadeFrom + (fadeTo - fadeFrom) * fadeEasing(t))
+      }
+      if (t < 1) {
+        this.latLngRafId = requestAnimationFrame(step)
+      } else {
+        this.latLngRafId = null
+        this.currentFadeTo = null
+        if (fade) this.setOpacity(fadeTo)
+        const cb = this.currentAnimationOnFinish
+        this.currentAnimationOnFinish = null
+        this.animating = false
+        if (cb) cb()
+      }
+    }
+    this.latLngRafId = requestAnimationFrame(step)
   }
 
   // 开始飞行动画（记录 animating 状态，动画完成后清理）

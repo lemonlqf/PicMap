@@ -21,6 +21,8 @@ import { useSchemaStore } from '@/store/schema'
 import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
+import trackService from '@/services/track'
+import API from '@/wails/api'
 
 const props = defineProps({
   // 瓦片信息
@@ -157,6 +159,51 @@ function removeAllMarkers() {
 }
 
 /**
+ * @description: 渲染主地图上开启"显示在主地图"的轨迹
+ * 遍历 schema.trackInfo，对 showOnMainMap 为 true 的轨迹 addMap 显示，已关闭的 removeMap 隐藏
+ * @return {*}
+ */
+function renderMainMapTracks() {
+  if (!map) return
+  const mainMap = map
+  const schemaStore = useSchemaStore()
+  const trackInfoList = schemaStore.getSchema.trackInfo || []
+  const targetIds = new Set(
+    trackInfoList
+      .filter((t: any) => t.setting?.showOnMainMap)
+      .map((t: any) => t.id)
+  )
+  trackService.getInstances().forEach((instance) => {
+    const id = instance.getTrackId()
+    const normalizedId = id.replace(/\.gpx$/i, '')
+    const isTarget = targetIds.has(id) || targetIds.has(normalizedId) || Array.from(targetIds).some((tid: string) => tid.replace(/\.gpx$/i, '') === normalizedId)
+    if (!isTarget) {
+      instance.removeMap(mainMap)
+    }
+  })
+  targetIds.forEach((trackId) => {
+    const existing = trackService.getTrackInstanceById(trackId) ||
+      trackService.getTrackInstanceById(`${trackId}.gpx`)
+    if (existing) {
+      existing.addMap(mainMap)
+      return
+    }
+    // 实例不存在时从后端加载
+    API.track.getTrack(trackId).then((res: any) => {
+      const payload = res?.data?.code !== undefined ? res.data : res
+      const fileContent = payload?.data?.fileContent || payload?.fileContent
+      if (!fileContent) return
+      const fileName = trackId.includes('.gpx') ? trackId : `${trackId}.gpx`
+      const file = new File([new Blob([fileContent], { type: 'application/gpx+xml' })], fileName, {
+        type: 'application/gpx+xml'
+      })
+      const instance = trackService.activeTrack(file)
+      instance.addMap(mainMap)
+    })
+  })
+}
+
+/**
  * @description: 地图实例获取接口，提供给外部调用
  * @return {*}
  */
@@ -174,6 +221,12 @@ async function init() {
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
   markerService.observeClisterClick()
+  // 注册主地图轨迹渲染回调，供轨迹开关变化时即时增删轨迹
+  mapService.registerTrackRender(() => {
+    renderMainMapTracks()
+  })
+  // 渲染主地图上开启"显示在主地图"的轨迹
+  renderMainMapTracks()
   // 切换用户后重新加载 marker（首次初始化由 map load 回调处理）
   if (!isFirstInit && map) {
     markerService.reset()

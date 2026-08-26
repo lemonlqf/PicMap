@@ -192,7 +192,8 @@ export default {
     averageHr: '平均心率',
     averageCadence: '平均踏频',
     averageTemp: '平均温度',
-    unnamed: '未命名轨迹'
+    unnamed: '未命名轨迹',
+    showOnMainMap: '显示在主地图'
   },
 
   description: {

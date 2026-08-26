@@ -40,6 +40,13 @@
         </div>
       </template>
     </el-table-column>
+    <el-table-column :label="$t('track.showOnMainMap')" width="120" align="center">
+      <template #default="{ row }">
+        <el-switch v-if="row.uploaded" :model-value="row.setting?.showOnMainMap"
+          @change="(val: string | number | boolean) => { if (!row.setting) row.setting = {}; row.setting.showOnMainMap = !!val; emit('main-map-change', row) }" />
+        <span v-else>-</span>
+      </template>
+    </el-table-column>
     <el-table-column :label="$t('actions')" width="80" fixed="right">
       <template #default="{ row }">
         <el-button v-if="!row.uploaded" type="primary" size="small" @click="emit('upload-row', row)">
@@ -70,6 +77,7 @@ type TrackData = {
   groupIds?: string[]
   setting?: {
     lineColor?: string
+    showOnMainMap?: boolean
   }
   [key: string]: any
 }
@@ -91,6 +99,7 @@ const emit = defineEmits<{
   (e: 'delete-row', row: any): void
   (e: 'group-change', row: any): void
   (e: 'color-change', row: any): void
+  (e: 'main-map-change', row: any): void
   (e: 'name-change', row: any, newName: string): void
 }>()
 
