@@ -13,6 +13,7 @@
     <ImageContentMenu v-else-if="markerType === 'image'" :imageId="marker.options.id"></ImageContentMenu>
     <GroupContentMenu v-else-if="markerType === 'group'" :groupId="marker.options.id"></GroupContentMenu>
     <VideoContentMenu v-else-if="markerType === 'video'" :videoId="marker.options.id"></VideoContentMenu>
+    <TrackContentMenu v-else-if="markerType === 'track'" :trackId="marker.options.id"></TrackContentMenu>
     <!-- 其他情况都是临时节点 -->
     <TemporaryMarkerContentMenu v-else-if="markerType?.includes('temporary')" :markerId="marker.options.id"></TemporaryMarkerContentMenu>
   </div>
@@ -24,6 +25,7 @@ import eventBus from '@/utils/eventBus'
 import ImageContentMenu from './component/ImageContentMenu.vue'
 import GroupContentMenu from './component/GroupContentMenu.vue'
 import VideoContentMenu from './component/VideoContentMenu.vue'
+import TrackContentMenu from './component/TrackContentMenu.vue'
 import TemporaryMarkerContentMenu from './component/TemporaryMarkerContentMenu.vue'
 import MultiSelectContentMenu from './component/MultiSelectContentMenu.vue'
 import { useSelectStore } from '@/store/select'

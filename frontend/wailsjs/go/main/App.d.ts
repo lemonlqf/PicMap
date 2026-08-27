@@ -8,6 +8,8 @@ export function CreateUser(arg1:string):Promise<model.Result>;
 
 export function DeleteBackup(arg1:string):Promise<model.Result>;
 
+export function DeleteIcon(arg1:string,arg2:string):Promise<model.Result>;
+
 export function DeleteImages(arg1:string,arg2:Array<string>):Promise<model.Result>;
 
 export function DeleteTrack(arg1:string,arg2:string):Promise<model.Result>;
@@ -26,9 +28,13 @@ export function GetBackupSize():Promise<model.Result>;
 
 export function GetFullImage(arg1:string,arg2:string):Promise<model.Result>;
 
+export function GetIcon(arg1:string,arg2:string):Promise<model.Result>;
+
 export function GetMarkerThumbnail(arg1:string,arg2:string):Promise<model.Result>;
 
 export function GetSchema(arg1:string):Promise<model.Result>;
+
+export function GetStorageConfig():Promise<model.Result>;
 
 export function GetThumbnail(arg1:string,arg2:string):Promise<model.Result>;
 
@@ -52,6 +58,12 @@ export function ImportImages(arg1:string,arg2:Array<model.ImportFile>):Promise<m
 
 export function ImportVideo(arg1:string,arg2:model.ImportVideoFile):Promise<model.Result>;
 
+export function ListIcons(arg1:string):Promise<model.Result>;
+
+export function SelectBackupFile():Promise<model.Result>;
+
+export function SelectDirectory():Promise<model.Result>;
+
 export function SelectImages():Promise<model.Result>;
 
 export function SelectVideos():Promise<model.Result>;
@@ -60,6 +72,10 @@ export function SetAppSchema(arg1:string):Promise<model.Result>;
 
 export function SetSchema(arg1:string,arg2:string):Promise<model.Result>;
 
+export function SetStorageConfig(arg1:string,arg2:string):Promise<model.Result>;
+
 export function UpdateImages():Promise<model.Result>;
+
+export function UploadIcon(arg1:string,arg2:string,arg3:string):Promise<model.Result>;
 
 export function UploadTrack(arg1:string,arg2:string,arg3:string):Promise<model.Result>;

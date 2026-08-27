@@ -67,6 +67,8 @@ export type ITrackInfo = {
   setting?: {
     lineColor?: string
     showOnMainMap?: boolean
+    startIconId?: string
+    endIconId?: string
   },
   videos?: IVideoRef[]
   images?: string[]

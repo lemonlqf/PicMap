@@ -2,6 +2,7 @@ import * as maplibregl from 'maplibre-gl'
 import { wgs84ToGcj02 } from '../utils/WGS84-GCJ02'
 import API from '@/wails/api'
 import { getDefaultLineColor } from '@/utils/track'
+import { resolveIconUrl } from '@/utils/icon'
 import { useSchemaStore } from '@/store/schema'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 
@@ -337,8 +338,11 @@ class TrackInstance {
   private coordinatesReadyCallbacks: (() => void)[] = []
   private coordinatesReady = false
   private lineColor: string | undefined = getDefaultLineColor(true)
+  private startIconId: string | undefined
+  private endIconId: string | undefined
   private hoverCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void> = new Map()
   private clickCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>) => void> = new Map()
+  private contextMenuCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, event: any) => void> = new Map()
   private highlightedMapId: string | null = null
   private edgeMarkers: Map<maplibregl.Map, maplibregl.Marker[]> = new Map()
 
@@ -361,6 +365,17 @@ class TrackInstance {
     })
   }
 
+  // 更新起终点图标并刷新所有地图上的边缘 marker
+  setEdgeIcons(startIconId: string | undefined, endIconId: string | undefined) {
+    this.startIconId = startIconId
+    this.endIconId = endIconId
+    this.edgeMarkers.forEach((markers, map) => {
+      const [startMarker, endMarker] = markers
+      if (startMarker && this.startIconId) this.applyEdgeIcon(startMarker, this.startIconId, 'start')
+      if (endMarker && this.endIconId) this.applyEdgeIcon(endMarker, this.endIconId, 'end')
+    })
+  }
+
   // 多条轨迹起终点重叠时，做极小偏移避免完全遮挡
   private disambiguateEdgeMarker(marker: maplibregl.Marker, pointType: 'start' | 'end') {
     const origin = marker.getLngLat()
@@ -372,7 +387,8 @@ class TrackInstance {
     const lng = origin.lng + radius * Math.cos(angle)
     marker.setLngLat([lng, lat])
     const el = marker.getElement()
-    el.style.zIndex = String(1000 + slot + (pointType === 'end' ? 100 : 0))
+    // 地图内分层即可，避免过高 z-index 盖过弹窗
+    el.style.zIndex = String(10 + slot + (pointType === 'end' ? 1 : 0))
   }
 
   constructor(file: File, maps: maplibregl.Map[] = [], options: any = defaultOptions, schemaTrackInfo?: any) {
@@ -382,6 +398,8 @@ class TrackInstance {
 
     if (schemaTrackInfo) {
       this.initTrackInfo(schemaTrackInfo)
+      this.startIconId = schemaTrackInfo.setting?.startIconId
+      this.endIconId = schemaTrackInfo.setting?.endIconId
     }
 
     this.readFileAsText(file).then((fileContent) => {
@@ -444,6 +462,11 @@ class TrackInstance {
       const cb = this.clickCallbacks.get(map)
       if (cb) cb(this.getTrackInfo())
     })
+    map.on('contextmenu', layerId, (e) => {
+      e.preventDefault()
+      const cb = this.contextMenuCallbacks.get(map)
+      if (cb) cb(this.getTrackInfo(), e)
+    })
     this.addEdgeMarkers(map)
     if (!this.trackInfo.name) {
       this.trackInfo = {
@@ -472,6 +495,23 @@ class TrackInstance {
     this.disambiguateEdgeMarker(startMarker, 'start')
     this.disambiguateEdgeMarker(endMarker, 'end')
     this.edgeMarkers.set(map, [startMarker, endMarker])
+    // 应用自定义起终点图标（异步解析后更新）
+    if (this.startIconId) {
+      this.applyEdgeIcon(startMarker, this.startIconId, 'start')
+    }
+    if (this.endIconId) {
+      this.applyEdgeIcon(endMarker, this.endIconId, 'end')
+    }
+  }
+
+  private applyEdgeIcon(marker: maplibregl.Marker, iconId: string, type: 'start' | 'end') {
+    resolveIconUrl(iconId, 'track').then((url) => {
+      if (!url) return
+      const img = marker.getElement()?.querySelector('img')
+      if (img) {
+        ;(img as HTMLImageElement).src = url
+      }
+    })
   }
 
   addMap(map: maplibregl.Map) {
@@ -544,6 +584,7 @@ class TrackInstance {
     this.layerByMap.delete(map)
     this.hoverCallbacks.delete(map)
     this.clickCallbacks.delete(map)
+    this.contextMenuCallbacks.delete(map)
 
     const index = this.mapInstances.indexOf(map)
     if (index !== -1) {
@@ -569,6 +610,10 @@ class TrackInstance {
 
   setClickCallback(map: maplibregl.Map, callback: (trackInfo: Partial<TrackInfo>) => void) {
     this.clickCallbacks.set(map, callback)
+  }
+
+  setContextMenuCallback(map: maplibregl.Map, callback: (trackInfo: Partial<TrackInfo>, event: any) => void) {
+    this.contextMenuCallbacks.set(map, callback)
   }
 
   highlight(map: maplibregl.Map, mapId: string) {

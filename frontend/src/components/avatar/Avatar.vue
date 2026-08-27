@@ -1,6 +1,6 @@
 <template>
   <div :style="{ width: width, height: height }" class="avatar-box">
-    <img class="avatar-img" :src="getAvatarUrl(userInfo?.userAvatar)" alt="">
+    <img class="avatar-img" :src="displayAvatarUrl" alt="">
     <div class="upload-button" @click="editAvatar">
       <UploadIcon width="20px"></UploadIcon>
     </div>
@@ -9,22 +9,29 @@
     <h3 class="title">{{ $t("defaultAvatar") }}</h3>
     <!-- 默认头像 -->
     <div class="avatar-list">
-      <template v-for="(item, name) of DEFAULT_AVATAR" :key="name">
+      <template v-for="[name, item] in Object.entries(DEFAULT_AVATAR)" :key="name">
         <div class="img-card" v-if="name !== 'default_0'" @click="selectAvatar(userId, name)">
-          <img :src="item" alt="name">
+          <img :src="item as string" alt="name">
         </div>
       </template>
     </div>
     <!-- 自定义头像 -->
-    <div class="avatar-list">
-
-    </div>
+    <template v-if="customAvatars.length">
+      <h3 class="title">{{ $t('icon.avatarIcons') }}</h3>
+      <div class="avatar-list">
+        <div v-for="item in customAvatars" :key="item.id" class="img-card"
+          @click="selectAvatar(userId, item.id)">
+          <img :src="item.url" :alt="item.name">
+        </div>
+      </div>
+    </template>
   </el-dialog>
 </template>
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import { getUserInfoById, getAvatarUrl, DEFAULT_AVATAR, changeUsreAvatar } from '@/utils/user'
+import { getUserInfoById, getAvatarUrl, getCustomAvatarUrlCache, DEFAULT_AVATAR, changeUsreAvatar } from '@/utils/user'
+import { getIconListByCategory, resolveIconUrl } from '@/utils/icon'
 
 import UploadIcon from '@/assets/icon/更新.svg?component'
 
@@ -49,16 +56,33 @@ const userInfo = computed(() => {
   return getUserInfoById(props.userId)
 })
 
+// 依赖自定义头像缓存，解析完成后自动刷新显示
+const displayAvatarUrl = computed(() => {
+  getCustomAvatarUrlCache()
+  return getAvatarUrl(userInfo.value?.userAvatar || '')
+})
+
+// 自定义头像（来自图标库 avatar 分类）
+const customAvatars = ref<{ id: string; name: string; url: string }[]>([])
 
 function selectAvatar(userId: string, imgId: string) {
   changeUsreAvatar(userId, imgId)
   avatarDialog.value = false
 }
 
-
-
 function editAvatar() {
   avatarDialog.value = true
+  loadCustomAvatars()
+}
+
+async function loadCustomAvatars() {
+  const items = getIconListByCategory('avatar').filter((i) => i.source === 'custom')
+  const loaded: { id: string; name: string; url: string }[] = []
+  for (const item of items) {
+    const url = await resolveIconUrl(item.id, 'avatar')
+    if (url) loaded.push({ id: item.id, name: item.name, url })
+  }
+  customAvatars.value = loaded
 }
 </script>
 

@@ -107,6 +107,25 @@ $location-border-color: rgba(200, 0, 0, 1);
   line-height: 1;
 }
 
+// 全景图片标记角标（覆盖在封面图左上角，标识 360° 全景）
+.panorama-marker-badge {
+  position: absolute;
+  left: 2px;
+  top: 2px;
+  padding: 1px 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(22, 119, 255, 0.9);
+  color: #fff;
+  font-size: 8px;
+  font-weight: 600;
+  border-radius: 3px;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  z-index: 5;
+  line-height: 1;
+}
+
 .track-marker-icon {
   border-width: 0;
 }

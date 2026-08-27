@@ -21,6 +21,8 @@ import defaultTile from '@/assets/map/defaultTile.png'
 import { saveAppSchema } from "./appSchema";
 import { ElMessage } from "element-plus";
 import { cloneDeep } from 'lodash-es';
+import { ref } from 'vue';
+import { resolveIconUrl } from '@/utils/icon';
 import type { IUserInfo } from "@/type/appSchema";
 /**
  * @description: 切换当前用户
@@ -39,7 +41,11 @@ export function changeCurrentUser(userId: string) {
 
 export function getUserInfoById(userId: string) {
   const appStore = useAppStore()
-  return appStore.getUserInfos.find(item => {
+  const userInfos = appStore.getUserInfos
+  if (!userInfos || !Array.isArray(userInfos)) {
+    return undefined
+  }
+  return userInfos.find(item => {
     return item.userId === userId
   })
 }
@@ -56,17 +62,37 @@ export const DEFAULT_AVATAR: any = {
   "default_8": img8,
 }
 
+// 自定义头像 URL 的响应式缓存，key = 头像 id，值 = 已解析的 dataURL
+const customAvatarUrlCache = ref<Record<string, string>>({})
+
+// 暴露缓存供组件响应式依赖（读取时建立依赖，解析后自动刷新）
+export function getCustomAvatarUrlCache() {
+  return customAvatarUrlCache.value
+}
+
 /**
  * @description: 获取用户头像
+ * - 预设头像：直接返回 DEFAULT_AVATAR 对应 URL
+ * - 自定义头像：从响应式缓存读取（首次返回空，异步解析后触发组件刷新）
  * @param {string} avatar
- * @return {*}
+ * @return {string}
  */
 export function getAvatarUrl(avatar: string): string {
-  let url = DEFAULT_AVATAR[avatar]
-  if (!url) {
-    // 请求实际的图片
+  if (!avatar) return DEFAULT_AVATAR['default_0']
+  const presetUrl = DEFAULT_AVATAR[avatar]
+  if (presetUrl) return presetUrl
+  // 自定义图标 id（custom_avatar_*），从缓存读取
+  if (avatar.startsWith('custom_')) {
+    const cached = customAvatarUrlCache.value[avatar]
+    if (cached) return cached
+    // 异步解析并写入响应式缓存，触发所有组件重新渲染
+    resolveIconUrl(avatar, 'avatar').then((url) => {
+      if (url && !customAvatarUrlCache.value[avatar]) {
+        customAvatarUrlCache.value[avatar] = url
+      }
+    })
   }
-  return url ?? DEFAULT_AVATAR['default_0']
+  return DEFAULT_AVATAR['default_0']
 }
 
 export function getMapTile(imageId: string) {

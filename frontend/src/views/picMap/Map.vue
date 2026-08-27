@@ -6,11 +6,15 @@
       <span class="pitch-label">俯仰角: {{ pitch }}°</span>
       <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
     </div>
+    <!-- 轨迹详情面板（复用现有详情面板） -->
+    <TrackDetailPanel :visible="detailPanelVisible" :trackList="detailPanelTrackList"
+      :currentTrackId="detailPanelTrackId" :trackInfo="detailPanelTrackInfo"
+      @update:visible="detailPanelVisible = $event" @track-change="handleTrackChange" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import * as maplibregl from 'maplibre-gl'
 import mapService from '@/services/map'
 import { useMapStore } from '../../store/map'
@@ -23,6 +27,8 @@ import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 import trackService from '@/services/track'
 import API from '@/wails/api'
+import eventBus from '@/utils/eventBus'
+import TrackDetailPanel from '@/components/trackDetail/TrackDetailPanel.vue'
 
 const props = defineProps({
   // 瓦片信息
@@ -56,6 +62,14 @@ const props = defineProps({
 let map: maplibregl.Map | null = null
 const pitch = ref(props.mapPitch)
 
+// 轨迹详情面板状态
+const detailPanelVisible = ref(false)
+const detailPanelTrackId = ref('')
+const detailPanelTrackInfo = ref<any>(null)
+const detailPanelTrackList = ref<any[]>([])
+let currentSelectedInstance: any = null
+let trackPanelCloseBound = false
+
 /**
  * @description: 初始化地图
  * @return {*}
@@ -78,11 +92,12 @@ function initMap() {
     mapService.initMapInstance(map)
     // 框选：Ctrl + 左键拖拽（原生事件 + 自绘矩形，preventDefault 阻止旋转/平移）
     initBoxSelect()
-    // style 异步加载完成后再初始化瓦片与标记
+    // style 异步加载完成后再初始化瓦片与标记、轨迹
     map.on('load', () => {
       mapLoaded = true
       initTile()
       initMarker()
+      renderMainMapTracks()
     })
     // 监听地图 pitch 变化（鼠标旋转/手势），同步滑块显示
     map.on('pitch', () => {
@@ -159,6 +174,36 @@ function removeAllMarkers() {
 }
 
 /**
+ * @description: 为指定轨迹绑定主地图上的点击（展示信息）与右键（移除菜单）交互
+ * @param {*} instance - 轨迹实例
+ * @param {maplibregl.Map} mainMap - 主地图实例
+ * @return {*}
+ */
+function bindTrackInteractions(instance: any, mainMap: maplibregl.Map) {
+  const trackId = instance.getTrackId()
+  instance.setClickCallback(mainMap, (info: any) => {
+    const normalizedId = trackId.replace(/\.gpx$/i, '')
+    const instanceId = `${normalizedId}_main`
+    if (currentSelectedInstance && currentSelectedInstance !== instance) {
+      currentSelectedInstance.unhighlight()
+    }
+    instance.highlight(mainMap, instanceId)
+    currentSelectedInstance = instance
+    detailPanelTrackId.value = instanceId
+    detailPanelTrackInfo.value = { instanceId, id: trackId, instance, ...info }
+    detailPanelVisible.value = true
+  })
+  instance.setContextMenuCallback(mainMap, (_info: any, e: any) => {
+    // 构造兼容 contentMenu 的事件结构
+    const menuEvent = {
+      target: { options: { id: trackId, type: 'track' } },
+      originalEvent: { x: e?.originalEvent?.clientX ?? e?.point?.x ?? 0, y: e?.originalEvent?.clientY ?? e?.point?.y ?? 0 },
+    }
+    eventBus.emit('show-content-menu', menuEvent)
+  })
+}
+
+/**
  * @description: 渲染主地图上开启"显示在主地图"的轨迹
  * 遍历 schema.trackInfo，对 showOnMainMap 为 true 的轨迹 addMap 显示，已关闭的 removeMap 隐藏
  * @return {*}
@@ -186,6 +231,7 @@ function renderMainMapTracks() {
       trackService.getTrackInstanceById(`${trackId}.gpx`)
     if (existing) {
       existing.addMap(mainMap)
+      bindTrackInteractions(existing, mainMap)
       return
     }
     // 实例不存在时从后端加载
@@ -199,9 +245,69 @@ function renderMainMapTracks() {
       })
       const instance = trackService.activeTrack(file)
       instance.addMap(mainMap)
+      bindTrackInteractions(instance, mainMap)
     })
   })
+  updateDetailTrackList()
 }
+
+/**
+ * @description: 同步主地图详情面板的轨迹列表（用于详情面板头部切换轨迹）
+ * @return {*}
+ */
+function updateDetailTrackList() {
+  if (!map) return
+  const schemaStore = useSchemaStore()
+  const trackInfoList = schemaStore.getSchema.trackInfo || []
+  const targetIds = new Set(
+    trackInfoList
+      .filter((t: any) => t.setting?.showOnMainMap)
+      .map((t: any) => t.id)
+  )
+  const list: any[] = []
+  trackService.getInstances().forEach((instance) => {
+    const id = instance.getTrackId()
+    const normalizedId = id.replace(/\.gpx$/i, '')
+    const isTarget = targetIds.has(id) || targetIds.has(normalizedId) || Array.from(targetIds).some((tid: string) => tid.replace(/\.gpx$/i, '') === normalizedId)
+    if (!isTarget) return
+    const info = instance.getTrackInfo()
+    list.push({ instanceId: `${normalizedId}_main`, id, instance, ...info })
+  })
+  detailPanelTrackList.value = list
+  if (!detailPanelTrackList.value.some((t) => t.instanceId === detailPanelTrackId.value)) {
+    detailPanelVisible.value = false
+    detailPanelTrackId.value = ''
+    detailPanelTrackInfo.value = null
+  }
+}
+
+/**
+ * @description: 处理详情面板轨迹切换（高亮切换）
+ * @param {string} instanceId - 轨迹实例ID
+ * @return {*}
+ */
+function handleTrackChange(instanceId: string) {
+  const track = detailPanelTrackList.value.find((t) => t.instanceId === instanceId)
+  if (track) {
+    if (currentSelectedInstance && currentSelectedInstance !== track.instance) {
+      currentSelectedInstance.unhighlight()
+    }
+    if (track.instance && map) {
+      track.instance.highlight(map, instanceId)
+      currentSelectedInstance = track.instance
+    }
+    detailPanelTrackId.value = instanceId
+    detailPanelTrackInfo.value = track
+  }
+}
+
+// 监听详情面板关闭，取消高亮
+watch(detailPanelVisible, (newVal) => {
+  if (!newVal && currentSelectedInstance) {
+    currentSelectedInstance.unhighlight()
+    currentSelectedInstance = null
+  }
+})
 
 /**
  * @description: 地图实例获取接口，提供给外部调用
@@ -209,6 +315,47 @@ function renderMainMapTracks() {
  */
 function getMapInstance() {
   return map
+}
+
+/**
+ * @description: 判断点击点是否命中主地图上的任意轨迹图层
+ * 用于区分点击轨迹（不关闭详情）与点击空白/其他节点（关闭详情）
+ * @param {*} e - MapLibre 地图点击事件
+ * @return {boolean}
+ */
+function isClickOnTrack(e: any): boolean {
+  if (!map) return false
+  const mainMap = map
+  const layerIds: string[] = []
+  trackService.getInstances().forEach((instance) => {
+    const ref = instance.getTrackLayer(mainMap)
+    if (ref && mainMap.getLayer(ref.layerId)) {
+      layerIds.push(ref.layerId)
+    }
+  })
+  if (layerIds.length === 0) return false
+  const features = mainMap.queryRenderedFeatures(e.point, { layers: layerIds })
+  return features.length > 0
+}
+
+/**
+ * @description: 点击地图空白或节点时关闭轨迹详情面板（与图片详情交互一致）
+ * 点击空白：监听 map click（轨迹图层命中时不关闭）
+ * 点击图片/分组/视频节点：节点点击会阻止地图 click，通过 show-image-data 事件关闭
+ * @return {*}
+ */
+function closeTrackPanelOnMapClick() {
+  if (!map || trackPanelCloseBound) return
+  trackPanelCloseBound = true
+  map.on('click', (e: any) => {
+    // 点击轨迹线本身不关闭详情
+    if (isClickOnTrack(e)) return
+    detailPanelVisible.value = false
+  })
+  // 点击其他图片/分组/视频节点时关闭轨迹详情面板
+  eventBus.on('show-image-data', () => {
+    detailPanelVisible.value = false
+  })
 }
 
 /**
@@ -220,6 +367,7 @@ async function init() {
   initMap()
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
+  closeTrackPanelOnMapClick()
   markerService.observeClisterClick()
   // 注册主地图轨迹渲染回调，供轨迹开关变化时即时增删轨迹
   mapService.registerTrackRender(() => {

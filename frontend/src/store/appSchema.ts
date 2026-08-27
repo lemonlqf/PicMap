@@ -21,7 +21,7 @@ export const useAppStore = defineStore('appInfo', {
   }),
   getters: {
     getAppSchema: state => state.appSchema as IAppSchema,
-    getUserInfos: state => state.appSchema.userInfos as IUserInfo[],
+    getUserInfos: state => (state.appSchema.userInfos ?? []) as IUserInfo[],
     getCurrentUserInfo: state => state.currentUserInfo as IUserInfo,
   },
   actions: {

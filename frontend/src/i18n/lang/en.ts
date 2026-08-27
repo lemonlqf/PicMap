@@ -103,6 +103,7 @@ export default {
   selectFile: 'Select file',
   fold: 'Fold',
   expand: 'Expand',
+  save: 'Save',
   pictureToBeUploaded: 'Picture to be uploaded',
   locate: 'Locate',
   upload: 'Upload',
@@ -158,6 +159,9 @@ export default {
   noBackup: 'No backup',
   restore: 'Restore',
   restoreData: 'Restore Data',
+  restoreFromFile: 'Restore from File',
+  backupFile: 'Backup File',
+  restoreWarning: 'Restoring will overwrite current data (in Cover Mode). Make sure you have created a backup first.',
   coverMode: 'Cover Mode',
   mergeMode: 'Merge Mode',
   coverModeTip: 'Replace existing data with backup data, existing data will be lost',
@@ -194,7 +198,33 @@ export default {
     averageCadence: 'Average Cadence',
     averageTemp: 'Average Temp',
     unnamed: 'Unnamed Track',
-    showOnMainMap: 'Show on main map'
+    showOnMainMap: 'Show on main map',
+    removeFromMap: 'Remove from map'
+  },
+
+  icon: {
+    iconLibrary: 'Icon Library',
+    avatarIcons: 'Avatar Icons',
+    trackIcons: 'Track Icons',
+    uploadIcon: 'Upload Icon',
+    uploadSuccess: 'Icon uploaded successfully',
+    uploadFailed: 'Icon upload failed',
+    startIcon: 'Start Icon',
+    endIcon: 'End Icon'
+  },
+
+  storage: {
+    storageDir: 'Storage Directory',
+    archiveDir: 'Data Directory',
+    backupDir: 'Backup Directory',
+    selectDir: 'Select',
+    save: 'Save',
+    changeTip: 'After changing the data directory, the new directory only contains initial data. Create a backup (including icons and all data) BEFORE changing, then after restarting, restore from the backup history. Otherwise existing data will not appear in the new directory.',
+    changeConfirm: 'Changing the data directory requires an app restart, and the new directory only has initial data. Please create a backup first, then restore after restarting. Continue?',
+    saveSuccess: 'Storage directory saved. Restart to apply.',
+    saveFailed: 'Failed to save storage directory',
+    selectBackupFirst: 'Please select a backup file first',
+    coverWarning: 'Restoring will overwrite current data (in Cover Mode). Please confirm you have created a backup first. Continue?'
   },
 
   description: {

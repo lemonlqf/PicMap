@@ -357,6 +357,84 @@ export async function deleteBackup(data: { filePath: string }) {
   throw new Error('Wails bindings not available')
 }
 
+// ---- Icon (全局图标库) ----
+
+export async function uploadIcon(fileName: string, file: File, category: string) {
+  const binding = getGoBinding()
+  if (binding) {
+    const buffer = await file.arrayBuffer()
+    const base64 = arrayBufferToBase64(buffer)
+    const result = await binding.UploadIcon(fileName, base64, category)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function getIcon(category: string, fileName: string) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetIcon(category, fileName)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function deleteIcon(category: string, fileName: string) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.DeleteIcon(category, fileName)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function listIcons(category: string) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.ListIcons(category)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// ---- Storage (存储目录) ----
+
+export async function getStorageConfig() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetStorageConfig()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function selectDirectory() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.SelectDirectory()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function selectBackupFile() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.SelectBackupFile()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+export async function setStorageConfig(data: { archiveDir: string; backupDir: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.SetStorageConfig(data.archiveDir, data.backupDir)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 // ---- User ----
 
 export async function createUserDir(data: { userId: string }) {
@@ -437,6 +515,20 @@ const user = {
   deleteUserDir,
 }
 
+const icon = {
+  uploadIcon,
+  getIcon,
+  deleteIcon,
+  listIcons,
+}
+
+const storage = {
+  getStorageConfig,
+  selectDirectory,
+  selectBackupFile,
+  setStorageConfig,
+}
+
 // Default export matching original http/index.ts API shape
 const API: Record<string, any> = {
   image,
@@ -446,6 +538,8 @@ const API: Record<string, any> = {
   video,
   backup,
   user,
+  icon,
+  storage,
 }
 
 export default API

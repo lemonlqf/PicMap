@@ -16,6 +16,7 @@ import SettingUser from '@/views/setting/settingUser/SettingUser.vue'
 import SettingMap from '@/views/setting/settingMap/SettingMap.vue'
 import SettingImg from '@/views/setting/settingImg/SettingImg.vue'
 import SettingData from '@/views/setting/settingData/SettingData.vue'
+import SettingIcon from '@/views/setting/settingIcon/SettingIcon.vue'
 
 const routes = [
   { path: '/', redirect: '/picMap', },
@@ -48,6 +49,10 @@ const routes = [
       {
         path: 'data',
         component: SettingData
+      },
+      {
+        path: 'icon',
+        component: SettingIcon
       }
     ]
   },

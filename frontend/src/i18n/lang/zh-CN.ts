@@ -101,6 +101,7 @@ export default {
   selectFile: '选择文件',
   fold: '折叠',
   expand: '展开',
+  save: '保存',
   yes: '是',
   no: '否',
   pictureToBeUploaded: '待上传图片',
@@ -157,6 +158,9 @@ export default {
   noBackup: '暂无备份',
   restore: '恢复',
   restoreData: '恢复数据',
+  restoreFromFile: '从文件恢复',
+  backupFile: '备份文件',
+  restoreWarning: '恢复将覆盖当前数据（覆盖模式下），请确认已提前创建备份',
   coverMode: '覆盖模式',
   mergeMode: '合并模式',
   coverModeTip: '用备份数据完全替换现有数据，现有数据将丢失',
@@ -193,7 +197,33 @@ export default {
     averageCadence: '平均踏频',
     averageTemp: '平均温度',
     unnamed: '未命名轨迹',
-    showOnMainMap: '显示在主地图'
+    showOnMainMap: '显示在主地图',
+    removeFromMap: '从地图移除'
+  },
+
+  icon: {
+    iconLibrary: '图标库',
+    avatarIcons: '头像图标',
+    trackIcons: '轨迹图标',
+    uploadIcon: '上传图标',
+    uploadSuccess: '图标上传成功',
+    uploadFailed: '图标上传失败',
+    startIcon: '起点图标',
+    endIcon: '终点图标'
+  },
+
+  storage: {
+    storageDir: '存储目录',
+    archiveDir: '数据目录',
+    backupDir: '备份目录',
+    selectDir: '选择',
+    save: '保存',
+    changeTip: '修改数据目录后，新目录只有初始化数据。请在修改前先创建备份（含图标等所有数据），修改并重启后，再在备份历史中导入恢复，否则原有数据将无法在新目录看到。',
+    changeConfirm: '修改数据目录后需重启应用生效，且新目录只有初始化数据。请务必先在“备份”中创建备份，重启后导入恢复，否则原数据将丢失。确定继续吗？',
+    saveSuccess: '存储目录保存成功，重启后生效',
+    saveFailed: '存储目录保存失败',
+    selectBackupFirst: '请先选择备份文件',
+    coverWarning: '恢复备份会覆盖当前数据（覆盖模式下），请确认已提前创建备份。确定继续吗？'
   },
 
   description: {

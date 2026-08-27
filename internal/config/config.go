@@ -19,12 +19,24 @@ const (
 	ImageReactivePath  = "images"
 	TrackReactivePath  = "tracks"
 	VideoReactivePath  = "videos"
+	IconReactivePath   = "icons"
+	// 存储配置文件名（存用户主目录，避免修改数据目录后找不到配置）
+	RootConfigFileName = ".picmap-config.json"
+	// 默认备份目录名
+	BackupDirName = "PicMap_Backup"
 )
 
 var DefaultCenter = []float64{30.2489634, 120.2052342}
 
+// StorageConfig 存储目录配置
+type StorageConfig struct {
+	ArchiveDir string `json:"archiveDir"`
+	BackupDir  string `json:"backupDir"`
+}
+
 type Config struct {
 	archiveDir      string
+	backupDir       string
 	defaultAppInfo  string
 	defaultSchema   string
 }
@@ -38,13 +50,80 @@ func (c *Config) ArchiveDir() string {
 }
 
 func (c *Config) Init() {
-	c.archiveDir = c.findArchiveDir()
+	// 先读取固定位置的存储配置（用户主目录），确定数据目录与备份目录
+	c.loadStorageConfig()
+	if c.archiveDir == "" {
+		c.archiveDir = c.findDefaultArchiveDir()
+	}
+	if c.backupDir == "" {
+		c.backupDir = filepath.Join(filepath.Dir(c.archiveDir), BackupDirName)
+	}
 	log.Println("Archive directory:", c.archiveDir)
+	log.Println("Backup directory:", c.backupDir)
 	c.initAppSchema()
 	c.initUsers()
 }
 
-func (c *Config) findArchiveDir() string {
+// 固定位置的存储配置文件路径（用户主目录）
+func (c *Config) rootConfigPath() string {
+	home, _ := os.UserHomeDir()
+	return filepath.Join(home, RootConfigFileName)
+}
+
+// 读取存储配置，若存在则应用
+func (c *Config) loadStorageConfig() {
+	data, err := os.ReadFile(c.rootConfigPath())
+	if err != nil {
+		return
+	}
+	var sc StorageConfig
+	if err := json.Unmarshal(data, &sc); err != nil {
+		return
+	}
+	c.archiveDir = sc.ArchiveDir
+	c.backupDir = sc.BackupDir
+}
+
+// 保存存储配置到固定位置
+func (c *Config) saveStorageConfig(sc StorageConfig) error {
+	data, err := json.MarshalIndent(sc, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(c.rootConfigPath(), data, 0644)
+}
+
+// 获取当前存储配置
+func (c *Config) GetStorageConfig() StorageConfig {
+	return StorageConfig{
+		ArchiveDir: c.archiveDir,
+		BackupDir:  c.backupDir,
+	}
+}
+
+// 设置并持久化存储配置（archiveDir 为空则保留当前；backupDir 为空则自动推断）
+func (c *Config) SetStorageConfig(archiveDir, backupDir string) error {
+	newArchive := archiveDir
+	if newArchive == "" {
+		newArchive = c.archiveDir
+	}
+	newBackup := backupDir
+	if newBackup == "" {
+		newBackup = filepath.Join(filepath.Dir(newArchive), BackupDirName)
+	}
+	sc := StorageConfig{
+		ArchiveDir: newArchive,
+		BackupDir:  newBackup,
+	}
+	if err := c.saveStorageConfig(sc); err != nil {
+		return err
+	}
+	c.archiveDir = newArchive
+	c.backupDir = newBackup
+	return nil
+}
+
+func (c *Config) findDefaultArchiveDir() string {
 	if runtime.GOOS == "windows" {
 		for drive := 'D'; drive <= 'Z'; drive++ {
 			path := fmt.Sprintf("%c:/", drive)
@@ -112,12 +191,20 @@ func (c *Config) VideoDirPath(userId string) string {
 	return filepath.Join(c.archiveDir, userId, VideoReactivePath)
 }
 
+// 全局图标库目录，category: "avatar" 或 "track"
+func (c *Config) IconDirPath(category string) string {
+	return filepath.Join(c.archiveDir, IconReactivePath, category)
+}
+
 func (c *Config) AppSchemaPath() string {
 	return filepath.Join(c.archiveDir, AppSchemaFileName)
 }
 
 func (c *Config) BackupDir() string {
-	return filepath.Join(filepath.Dir(c.archiveDir), "PicMap_Backup")
+	if c.backupDir != "" {
+		return c.backupDir
+	}
+	return filepath.Join(filepath.Dir(c.archiveDir), BackupDirName)
 }
 
 func (c *Config) DefaultSchema() model.Schema {

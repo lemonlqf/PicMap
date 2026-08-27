@@ -77,6 +77,12 @@ const menuList = [
     label: t('dataManagement'),
     router: 'data',
     img: DataSvg
+  },
+  {
+    title: t('icon.iconLibrary'),
+    label: t('icon.iconLibrary'),
+    router: 'icon',
+    img: ImgSvg
   }
 ]
 const activeRouter = ref(menuList[0].router)

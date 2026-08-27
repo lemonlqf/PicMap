@@ -19,8 +19,17 @@ type AppSchemaMapInfo struct {
 	DefaultTileID string    `json:"defaultTileId,omitempty"`
 }
 
+type IconItem struct {
+	ID       string `json:"id"`
+	Name     string `json:"name"`
+	URL      string `json:"url"`
+	Category string `json:"category"` // "avatar" | "track"
+	Source   string `json:"source"`   // "preset" | "custom"
+}
+
 type AppSchema struct {
-	Version   string          `json:"version"`
-	UserInfos []UserInfo      `json:"userInfos"`
-	MapInfo   AppSchemaMapInfo `json:"mapInfo"`
+	Version      string           `json:"version"`
+	UserInfos    []UserInfo       `json:"userInfos"`
+	MapInfo      AppSchemaMapInfo `json:"mapInfo"`
+	IconLibrary  []IconItem       `json:"iconLibrary,omitempty"`
 }

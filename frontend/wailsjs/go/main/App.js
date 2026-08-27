@@ -14,6 +14,10 @@ export function DeleteBackup(arg1) {
   return window['go']['main']['App']['DeleteBackup'](arg1);
 }
 
+export function DeleteIcon(arg1, arg2) {
+  return window['go']['main']['App']['DeleteIcon'](arg1, arg2);
+}
+
 export function DeleteImages(arg1, arg2) {
   return window['go']['main']['App']['DeleteImages'](arg1, arg2);
 }
@@ -50,12 +54,20 @@ export function GetFullImage(arg1, arg2) {
   return window['go']['main']['App']['GetFullImage'](arg1, arg2);
 }
 
+export function GetIcon(arg1, arg2) {
+  return window['go']['main']['App']['GetIcon'](arg1, arg2);
+}
+
 export function GetMarkerThumbnail(arg1, arg2) {
   return window['go']['main']['App']['GetMarkerThumbnail'](arg1, arg2);
 }
 
 export function GetSchema(arg1) {
   return window['go']['main']['App']['GetSchema'](arg1);
+}
+
+export function GetStorageConfig() {
+  return window['go']['main']['App']['GetStorageConfig']();
 }
 
 export function GetThumbnail(arg1, arg2) {
@@ -102,6 +114,18 @@ export function ImportVideo(arg1, arg2) {
   return window['go']['main']['App']['ImportVideo'](arg1, arg2);
 }
 
+export function ListIcons(arg1) {
+  return window['go']['main']['App']['ListIcons'](arg1);
+}
+
+export function SelectBackupFile() {
+  return window['go']['main']['App']['SelectBackupFile']();
+}
+
+export function SelectDirectory() {
+  return window['go']['main']['App']['SelectDirectory']();
+}
+
 export function SelectImages() {
   return window['go']['main']['App']['SelectImages']();
 }
@@ -118,8 +142,16 @@ export function SetSchema(arg1, arg2) {
   return window['go']['main']['App']['SetSchema'](arg1, arg2);
 }
 
+export function SetStorageConfig(arg1, arg2) {
+  return window['go']['main']['App']['SetStorageConfig'](arg1, arg2);
+}
+
 export function UpdateImages() {
   return window['go']['main']['App']['UpdateImages']();
+}
+
+export function UploadIcon(arg1, arg2, arg3) {
+  return window['go']['main']['App']['UploadIcon'](arg1, arg2, arg3);
 }
 
 export function UploadTrack(arg1, arg2, arg3) {

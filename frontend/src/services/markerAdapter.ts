@@ -306,6 +306,13 @@ export function createImageMarkerIcon(imageInfo: IImageInfo, imageUrl?: string):
   const iconElement = url
     ? IconHTMLFactory.createIcon(IconType.SingleImage, url)
     : IconHTMLFactory.createIcon(IconType.NoImage, imageInfo.name)
+  // 全景图片标记角标
+  if (imageInfo.isPanorama) {
+    const badge = document.createElement('div')
+    badge.className = 'panorama-marker-badge'
+    badge.textContent = '360°'
+    iconElement.appendChild(badge)
+  }
   const { element, inner } = wrapMarkerElement(
     iconElement,
     MARKER_CONSTANT.IMAGE_MARKER_SIZE[0],

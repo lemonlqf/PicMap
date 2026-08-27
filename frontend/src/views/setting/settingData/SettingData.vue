@@ -12,6 +12,26 @@
 <template>
   <div class="data-management">
     <div class="section">
+      <div class="section-title">{{ $t('storage.storageDir') }}</div>
+      <div class="section-content">
+        <div class="storage-row">
+          <span class="label">{{ $t('storage.archiveDir') }}:</span>
+          <span class="path">{{ storageConfig.archiveDir }}</span>
+          <el-button size="small" @click="selectArchiveDir">{{ $t('storage.selectDir') }}</el-button>
+        </div>
+        <div class="storage-row">
+          <span class="label">{{ $t('storage.backupDir') }}:</span>
+          <span class="path">{{ storageConfig.backupDir }}</span>
+          <el-button size="small" @click="selectBackupDir">{{ $t('storage.selectDir') }}</el-button>
+        </div>
+        <div class="storage-actions">
+          <el-button type="primary" :loading="savingStorage" @click="saveStorageConfig">{{ $t('save') }}</el-button>
+          <span class="tip">{{ $t('storage.changeTip') }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="section">
       <div class="section-title">{{ $t('backup') }}</div>
       <div class="section-content">
         <el-button type="primary" @click="openBackupDialog" :loading="backupLoading">
@@ -22,7 +42,10 @@
     </div>
 
     <div class="section">
-      <div class="section-title">{{ $t('backupHistory') }}</div>
+      <div class="section-title">
+        {{ $t('backupHistory') }}
+        <el-button class="restore-file-btn" size="small" @click="restoreFromFile">{{ $t('restoreFromFile') }}</el-button>
+      </div>
       <div class="backup-list">
         <div v-if="backupList.length === 0" class="empty">{{ $t('noBackup') }}</div>
         <div v-for="item in backupList" :key="item.filePath" class="backup-item">
@@ -55,7 +78,11 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="restoreDialogVisible" :title="$t('restoreData')" width="400px">
+    <el-dialog v-model="restoreDialogVisible" :title="$t('restoreData')" width="460px">
+      <div class="restore-file" v-if="selectedBackupPath">
+        <span class="label">{{ $t('backupFile') }}:</span>
+        <span class="path">{{ selectedBackupPath }}</span>
+      </div>
       <div class="restore-mode">
         <el-radio-group v-model="restoreMode">
           <el-radio value="cover">{{ $t('coverMode') }}</el-radio>
@@ -64,6 +91,7 @@
         <div class="mode-tip">
           {{ restoreMode === 'cover' ? $t('coverModeTip') : $t('mergeModeTip') }}
         </div>
+        <div class="mode-tip restore-warning">{{ $t('restoreWarning') }}</div>
       </div>
       <template #footer>
         <el-button @click="restoreDialogVisible = false" :disabled="restoreLoading">{{ $t('cancel') }}</el-button>
@@ -96,13 +124,107 @@ const restoreLoading = ref(false)
 const restoreMode = ref<'cover' | 'merge'>('cover')
 // 当前选中的备份文件
 const selectedBackup = ref<any>(null)
+// 当前选中的备份文件路径（列表或手动选择）
+const selectedBackupPath = ref('')
 // 备份名称
 const backupName = ref('')
 
-// 页面加载时获取备份列表
+// 存储目录配置
+const storageConfig = ref<{ archiveDir: string; backupDir: string }>({ archiveDir: '', backupDir: '' })
+const savingStorage = ref(false)
+// 保存前已生效的存储配置（用于检测是否修改了数据目录）
+let currentStorageConfig: { archiveDir: string; backupDir: string } = { archiveDir: '', backupDir: '' }
+
+// 页面加载时获取备份列表与存储配置
 onMounted(() => {
   loadBackupList()
+  loadStorageConfig()
 })
+
+/**
+ * 获取当前存储目录配置
+ */
+async function loadStorageConfig() {
+  try {
+    const res = await API.storage.getStorageConfig() as any
+    if (res.code === 200) {
+      storageConfig.value = res.data
+      currentStorageConfig = { ...res.data }
+    }
+  } catch (error) {
+    console.error('Load storage config error:', error)
+  }
+}
+
+/**
+ * 选择数据保存目录
+ */
+async function selectArchiveDir() {
+  try {
+    const res = await API.storage.selectDirectory() as any
+    if (res.code === 200 && res.data?.path) {
+      storageConfig.value.archiveDir = res.data.path
+    }
+  } catch (error) {
+    console.error('Select archive dir error:', error)
+  }
+}
+
+/**
+ * 选择备份目录
+ */
+async function selectBackupDir() {
+  try {
+    const res = await API.storage.selectDirectory() as any
+    if (res.code === 200 && res.data?.path) {
+      storageConfig.value.backupDir = res.data.path
+    }
+  } catch (error) {
+    console.error('Select backup dir error:', error)
+  }
+}
+
+/**
+ * 保存存储目录配置
+ * 修改数据目录后需重启生效，数据迁移需用户先备份再恢复
+ */
+async function saveStorageConfig() {
+  const changedArchive = storageConfig.value.archiveDir !== currentStorageConfig.archiveDir
+  if (changedArchive) {
+    try {
+      await ElMessageBox.confirm(
+        t('storage.changeConfirm'),
+        t('storage.storageDir'),
+        {
+          confirmButtonText: t('confirm'),
+          cancelButtonText: t('cancel'),
+          type: 'warning'
+        }
+      )
+    } catch {
+      return // 用户取消
+    }
+  }
+
+  savingStorage.value = true
+  try {
+    const res = await API.storage.setStorageConfig({
+      archiveDir: storageConfig.value.archiveDir,
+      backupDir: storageConfig.value.backupDir
+    }) as any
+    if (res.code === 200) {
+      ElMessage.success(t('storage.saveSuccess'))
+      storageConfig.value = res.data
+      currentStorageConfig = { ...res.data }
+    } else {
+      ElMessage.error(res.message || t('storage.saveFailed'))
+    }
+  } catch (error) {
+    ElMessage.error(t('storage.saveFailed'))
+  } finally {
+    savingStorage.value = false
+  }
+}
 
 /**
  * 获取备份文件列表
@@ -175,30 +297,68 @@ async function handleBackup() {
 }
 
 /**
- * 打开恢复数据弹窗
+ * 打开恢复数据弹窗（从备份列表选择）
  * @param item - 选中的备份文件信息
  */
 function handleRestore(item: any) {
   selectedBackup.value = item
+  selectedBackupPath.value = item.filePath
   restoreDialogVisible.value = true
 }
 
 /**
+ * 从文件系统手动选择备份文件进行恢复
+ */
+async function restoreFromFile() {
+  try {
+    const res = await API.storage.selectBackupFile() as any
+    if (res.code === 200 && res.data?.filePath) {
+      selectedBackup.value = { filePath: res.data.filePath, fileName: res.data.filePath.split(/[\\/]/).pop() }
+      selectedBackupPath.value = res.data.filePath
+      restoreDialogVisible.value = true
+    }
+  } catch (error) {
+    ElMessage.error(t('restoreFailed'))
+  }
+}
+
+/**
  * 确认恢复数据
- * 根据选择的模式恢复数据
+ * 根据选择的模式恢复数据，恢复前提示覆盖风险
  */
 async function confirmRestore() {
-  if (!selectedBackup.value) return
+  if (!selectedBackupPath.value) {
+    ElMessage.warning(t('storage.selectBackupFirst'))
+    return
+  }
+
+  // 覆盖模式恢复前明确警告：会覆盖当前数据，请提前备份
+  if (restoreMode.value === 'cover') {
+    try {
+      await ElMessageBox.confirm(
+        t('storage.coverWarning'),
+        t('warning'),
+        {
+          confirmButtonText: t('confirm'),
+          cancelButtonText: t('cancel'),
+          type: 'warning'
+        }
+      )
+    } catch {
+      return // 用户取消
+    }
+  }
 
   restoreLoading.value = true
   try {
     const res = await API.backup.import({
-      filePath: selectedBackup.value.filePath,
+      filePath: selectedBackupPath.value,
       mode: restoreMode.value
     })
     if (res.code === 200) {
       ElMessage.success(t('restoreSuccess'))
       restoreDialogVisible.value = false
+      loadBackupList()
     } else {
       ElMessage.error(res.message || t('restoreFailed'))
     }
@@ -272,6 +432,13 @@ function formatTime(date: string): string {
     font-weight: 600;
     margin-bottom: 15px;
     color: #333;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    .restore-file-btn {
+      margin-left: 12px;
+    }
   }
 
   .section-content {
@@ -279,6 +446,35 @@ function formatTime(date: string): string {
       margin-top: 10px;
       color: #999;
       font-size: 14px;
+    }
+
+    .storage-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+
+      .label {
+        color: #666;
+        flex-shrink: 0;
+        width: 80px;
+      }
+
+      .path {
+        flex: 1;
+        color: #333;
+        word-break: break-all;
+        background: #f5f7fa;
+        padding: 6px 10px;
+        border-radius: 4px;
+        font-size: 13px;
+      }
+    }
+
+    .storage-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
   }
 }
@@ -331,5 +527,35 @@ function formatTime(date: string): string {
   margin-top: 10px;
   color: #666;
   font-size: 14px;
+}
+
+.restore-file {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 15px;
+
+  .label {
+    color: #666;
+    flex-shrink: 0;
+  }
+
+  .path {
+    flex: 1;
+    color: #333;
+    word-break: break-all;
+    background: #f5f7fa;
+    padding: 6px 10px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+}
+
+.restore-mode {
+  .restore-warning {
+    margin-top: 10px;
+    color: #e6a23c;
+    font-size: 13px;
+  }
 }
 </style>

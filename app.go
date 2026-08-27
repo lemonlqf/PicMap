@@ -80,6 +80,21 @@ func (a *App) GetTrack(userId, fileName string) model.Result {
 	return a.handler.GetTrack(userId, fileName)
 }
 
+// ---- 全局图标库 ----
+
+func (a *App) UploadIcon(fileName, fileData, category string) model.Result {
+	return a.handler.UploadIcon(fileName, fileData, category)
+}
+func (a *App) GetIcon(category, fileName string) model.Result {
+	return a.handler.GetIcon(category, fileName)
+}
+func (a *App) DeleteIcon(category, fileName string) model.Result {
+	return a.handler.DeleteIcon(category, fileName)
+}
+func (a *App) ListIcons(category string) model.Result {
+	return a.handler.ListIcons(category)
+}
+
 // ---- 轨迹视频 ----
 
 func (a *App) SelectVideos() model.Result {
@@ -115,3 +130,12 @@ func (a *App) GetBackupSize() model.Result                       { return a.hand
 func (a *App) GetBackupList() model.Result                       { return a.handler.GetBackupList() }
 func (a *App) ImportBackup(filePath, mode string) model.Result   { return a.handler.ImportBackup(filePath, mode) }
 func (a *App) DeleteBackup(filePath string) model.Result         { return a.handler.DeleteBackup(filePath) }
+
+// ---- 存储目录 ----
+
+func (a *App) GetStorageConfig() model.Result       { return a.handler.GetStorageConfig() }
+func (a *App) SelectDirectory() model.Result        { return a.handler.SelectDirectory() }
+func (a *App) SelectBackupFile() model.Result       { return a.handler.SelectBackupFile() }
+func (a *App) SetStorageConfig(archiveDir, backupDir string) model.Result {
+	return a.handler.SetStorageConfig(archiveDir, backupDir)
+}

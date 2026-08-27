@@ -25,7 +25,7 @@
         <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
           :current-row-id="currentRow?.id" @row-change="handleRowChange" @group-change="handleGroupChange"
           @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange"
-          @main-map-change="handleMainMapChange" @name-change="handleNameChange" />
+          @main-map-change="handleMainMapChange" @icon-change="handleIconChange" @name-change="handleNameChange" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
@@ -118,7 +118,7 @@ function loadTableDataFromSchema() {
         lineColor: getDefaultLineColor(),
         ...trackInfo.setting
       }
-    }
+    } as TrackData
   })
   // 如果有数据，自动选中第一行并加载轨迹到地图
   if (tableData.value.length > 0) {
@@ -400,6 +400,45 @@ async function handleMainMapChange(row: TrackData) {
     mapService.renderMainMapTracks()
   } catch (error) {
     console.error('更新轨迹显示失败:', error)
+    ElMessage.error(t('description.updateFailed'))
+  }
+}
+
+/**
+ * @description: 处理轨迹起终点图标变化
+ * 更新 schema 中的 setting.startIconId/endIconId，并即时刷新地图上已显示轨迹的图标
+ * @param {TrackData} row - 轨迹行数据
+ * @param {string} type - 'start' | 'end'
+ * @param {string} iconId - 选中的图标 id
+ */
+async function handleIconChange(row: TrackData, type: 'start' | 'end', iconId: string) {
+  try {
+    const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
+    const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
+    if (trackIndex >= 0) {
+      if (!trackInfoList[trackIndex].setting) {
+        trackInfoList[trackIndex].setting = {}
+      }
+      if (type === 'start') {
+        trackInfoList[trackIndex].setting!.startIconId = iconId
+      } else {
+        trackInfoList[trackIndex].setting!.endIconId = iconId
+      }
+      await editSchemaAttrAndSave('trackInfo', trackInfoList)
+    }
+    // 即时刷新已显示轨迹的起终点图标
+    const instance = trackService.getTrackInstanceById(row.id) ||
+      trackService.getTrackInstanceById(`${row.id}.gpx`) ||
+      trackService.getInstances().find((i: any) => i.getTrackId() === row.id)
+    if (instance) {
+      instance.setEdgeIcons(
+        row.setting?.startIconId,
+        row.setting?.endIconId
+      )
+    }
+    ElMessage.success(t('description.updateSuccess'))
+  } catch (error) {
+    console.error('更新轨迹图标失败:', error)
     ElMessage.error(t('description.updateFailed'))
   }
 }

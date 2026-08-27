@@ -1,14 +1,14 @@
 <!--
  * @Author: Do not edit
  * @Date: 2025-07-01 21:16:03
- * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2025-07-17 22:50:58
+ * @LastEditors: Please set LastEditors
+ * @LastEditTime: 2026-08-27 19:12:03
  * @FilePath: \Code\picMap_fontend\src\views\setting\settingUser\SettingUser.vue
  * @Description: 
 -->
 <template>
   <div class="">
-    <h2 class="user-nums">{{ $t('userNumber') }}：{{ userInfos.length }}</h2>
+    <h2 class="user-nums">{{ $t('userNumber') }}：{{ userInfos?.length }}</h2>
     <!-- 用户选择 -->
     <el-scrollbar class="el-scroll-bar">
       <div class="user-list">

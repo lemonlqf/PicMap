@@ -40,6 +40,28 @@
         </div>
       </template>
     </el-table-column>
+    <el-table-column :label="$t('icon.startIcon')" width="64" align="center">
+      <template #default="{ row }">
+        <el-tooltip :content="$t('icon.startIcon')" placement="top">
+          <div v-if="row.uploaded" class="edge-icon" @click="openIconSelect(row, 'start')">
+            <img v-if="edgeIconUrl(row, 'start')" :src="edgeIconUrl(row, 'start')" alt="" />
+            <span v-else class="edge-icon-empty">-</span>
+          </div>
+          <span v-else>-</span>
+        </el-tooltip>
+      </template>
+    </el-table-column>
+    <el-table-column :label="$t('icon.endIcon')" width="64" align="center">
+      <template #default="{ row }">
+        <el-tooltip :content="$t('icon.endIcon')" placement="top">
+          <div v-if="row.uploaded" class="edge-icon" @click="openIconSelect(row, 'end')">
+            <img v-if="edgeIconUrl(row, 'end')" :src="edgeIconUrl(row, 'end')" alt="" />
+            <span v-else class="edge-icon-empty">-</span>
+          </div>
+          <span v-else>-</span>
+        </el-tooltip>
+      </template>
+    </el-table-column>
     <el-table-column :label="$t('track.showOnMainMap')" width="120" align="center">
       <template #default="{ row }">
         <el-switch v-if="row.uploaded" :model-value="row.setting?.showOnMainMap"
@@ -58,6 +80,8 @@
       </template>
     </el-table-column>
   </el-table>
+  <IconSelector v-model:visible="iconSelectorVisible" category="track" :current-id="iconSelectorCurrentId"
+    :title="iconSelectorTitle" @select="handleIconSelect" @closed="iconTarget = null" />
 </template>
 
 <script lang="ts" setup>
@@ -65,6 +89,9 @@ import { ref } from 'vue'
 import { ColorPicker } from 'vue3-colorpicker'
 import { Edit } from '@element-plus/icons-vue'
 import 'vue3-colorpicker/style.css'
+import IconSelector from '@/components/iconSelector/IconSelector.vue'
+import { getIconItemById, resolveIconUrl } from '@/utils/icon'
+import type { IIconItem } from '@/type/appSchema'
 
 type TrackData = {
   id: string
@@ -78,6 +105,8 @@ type TrackData = {
   setting?: {
     lineColor?: string
     showOnMainMap?: boolean
+    startIconId?: string
+    endIconId?: string
   }
   [key: string]: any
 }
@@ -100,8 +129,62 @@ const emit = defineEmits<{
   (e: 'group-change', row: any): void
   (e: 'color-change', row: any): void
   (e: 'main-map-change', row: any): void
+  (e: 'icon-change', row: any, type: 'start' | 'end', iconId: string): void
   (e: 'name-change', row: any, newName: string): void
 }>()
+
+// 图标选择弹窗状态
+const iconSelectorVisible = ref(false)
+const iconSelectorCurrentId = ref('')
+const iconSelectorTitle = ref('')
+const iconTarget = ref<{ row: TrackData; type: 'start' | 'end' } | null>(null)
+// 图标 URL 缓存：key = row.id + type，值 = resolved url
+const iconUrlCache = ref<Record<string, string>>({})
+
+function openIconSelect(row: TrackData, type: 'start' | 'end') {
+  iconTarget.value = { row, type }
+  iconSelectorTitle.value = type === 'start' ? '起点图标' : '终点图标'
+  const iconId = type === 'start' ? row.setting?.startIconId : row.setting?.endIconId
+  iconSelectorCurrentId.value = iconId || ''
+  iconSelectorVisible.value = true
+  // 预加载当前选中图标的 URL
+  if (iconId) {
+    resolveIconUrl(iconId, 'track').then((url) => {
+      if (url) iconUrlCache.value[`${row.id}_${type}`] = url
+    })
+  }
+}
+
+function handleIconSelect(item: IIconItem) {
+  const target = iconTarget.value
+  if (!target) return
+  const { row, type } = target
+  if (!row.setting) row.setting = {}
+  if (type === 'start') {
+    row.setting.startIconId = item.id
+  } else {
+    row.setting.endIconId = item.id
+  }
+  iconUrlCache.value[`${row.id}_${type}`] = item.url
+  emit('icon-change', row, type, item.id)
+}
+
+function edgeIconUrl(row: TrackData, type: 'start' | 'end') {
+  const iconId = type === 'start' ? row.setting?.startIconId : row.setting?.endIconId
+  if (!iconId) return ''
+  const cached = iconUrlCache.value[`${row.id}_${type}`]
+  if (cached) return cached
+  // 预设图标直接从库中取 URL（同步）
+  const presetItem = getIconItemById(iconId, 'track')
+  if (presetItem?.source === 'preset') {
+    return presetItem.url
+  }
+  // 自定义图标异步解析后缓存
+  resolveIconUrl(iconId, 'track').then((url) => {
+    if (url) iconUrlCache.value[`${row.id}_${type}`] = url
+  })
+  return ''
+}
 
 const innerTableRef = ref<any>(null)
 const editingRowId = ref<string | null>(null)
@@ -189,6 +272,34 @@ defineExpose({
 
 .name-cell .edit-icon:hover {
   color: #637141;
+}
+
+.edge-icon {
+  width: 32px;
+  height: 32px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  overflow: hidden;
+
+  img {
+    width: 24px;
+    height: 24px;
+    object-fit: contain;
+  }
+
+  &:hover {
+    border-color: #542de2;
+  }
+}
+
+.edge-icon-empty {
+  color: #909399;
+  font-size: 14px;
 }
 </style>
 

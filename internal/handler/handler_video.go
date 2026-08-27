@@ -163,11 +163,12 @@ func (h *Handler) processSelectedVideo(filePath string) (model.SelectedVideo, er
 			item.StartTimeMS = pinfo.CreationTime
 			item.ParsedTimeText = time.UnixMilli(pinfo.CreationTime).Format("2006-01-02 15:04:05")
 		}
-		// 内嵌 GPS 单点
+		// 内嵌 GPS 单点（WGS84 → GCJ02，与图片一致）
 		if pinfo.HasGPS {
 			item.HasGpsData = true
-			item.GPSLatitude = pinfo.GPSLatitude
-			item.GPSLongitude = pinfo.GPSLongitude
+			gcLat, gcLon := util.WGS84toGCJ02(pinfo.GPSLatitude, pinfo.GPSLongitude)
+			item.GPSLatitude = gcLat
+			item.GPSLongitude = gcLon
 		}
 	}
 
@@ -210,8 +211,9 @@ func (h *Handler) ImportVideo(userId string, file model.ImportVideoFile) model.R
 			vi.StartTimeMS = p.CreationTime
 		}
 		if p.HasGPS {
-			vi.GPSLatitude = p.GPSLatitude
-			vi.GPSLongitude = p.GPSLongitude
+			gcLat, gcLon := util.WGS84toGCJ02(p.GPSLatitude, p.GPSLongitude)
+			vi.GPSLatitude = gcLat
+			vi.GPSLongitude = gcLon
 		}
 	}
 	// 文件名起点时间兜底（若 creation_time 缺失）
