@@ -10,6 +10,8 @@
     <TrackDetailPanel :visible="detailPanelVisible" :trackList="detailPanelTrackList"
       :currentTrackId="detailPanelTrackId" :trackInfo="detailPanelTrackInfo"
       @update:visible="detailPanelVisible = $event" @track-change="handleTrackChange" />
+    <!-- 视频播放弹窗（点击视频节点弹出） -->
+    <VideoPlayDialog v-model:visible="videoPlayVisible" :video-id="videoPlayId" />
   </div>
 </template>
 
@@ -29,6 +31,7 @@ import trackService from '@/services/track'
 import API from '@/wails/api'
 import eventBus from '@/utils/eventBus'
 import TrackDetailPanel from '@/components/trackDetail/TrackDetailPanel.vue'
+import VideoPlayDialog from '@/components/videoPlayer/VideoPlayDialog.vue'
 
 const props = defineProps({
   // 瓦片信息
@@ -68,6 +71,11 @@ const detailPanelTrackId = ref('')
 const detailPanelTrackInfo = ref<any>(null)
 const detailPanelTrackList = ref<any[]>([])
 let currentSelectedInstance: any = null
+
+// 视频播放弹窗状态
+const videoPlayVisible = ref(false)
+const videoPlayId = ref('')
+let videoPlayBound = false
 let trackPanelCloseBound = false
 
 /**
@@ -365,6 +373,18 @@ function closeTrackPanelOnMapClick() {
 }
 
 /**
+ * @description: 点击视频节点 → 弹出视频播放弹窗（事件由 marker.ts 发出）
+ */
+function bindVideoPlayDialog() {
+  if (videoPlayBound) return
+  videoPlayBound = true
+  eventBus.on('show-video-play', (payload: { videoId: string }) => {
+    videoPlayId.value = payload.videoId
+    videoPlayVisible.value = true
+  })
+}
+
+/**
  * @description: 地图初始化
  * @return {*}
  */
@@ -374,6 +394,7 @@ async function init() {
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
   closeTrackPanelOnMapClick()
+  bindVideoPlayDialog()
   markerService.observeClisterClick()
   // 注册主地图轨迹渲染回调，供轨迹开关变化时即时增删轨迹
   mapService.registerTrackRender(() => {

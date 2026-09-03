@@ -118,6 +118,10 @@
               :class="['action-btn', 'locate', { active: !!linkedTrackMap[video.id] }]" @click="openTrackAssociation(video)">
               <img :src="linkTrackIcon" alt="">
             </div>
+            <div :title="video.isPanorama ? $t('cancelPanorama') : $t('setPanorama')"
+              :class="['action-btn', 'panorama', { active: video.isPanorama }]" @click="toggleVideoPanorama(video)">
+              <span class="panorama-text">360</span>
+            </div>
             <div :title="$t('upload')" class="action-btn upload" @click="handleImport(video)">
               <img src="@/assets/icon/上传 (白色).png" alt="">
             </div>
@@ -571,6 +575,8 @@ async function handleImport(video: ISelectedVideo) {
       return
     }
     const vi: IVideoInfo = res.data
+    // 透传用户在导入前标记的全景类型
+    vi.isPanorama = video.isPanorama
     if (manualGps) {
       vi.GPSLatitude = manualGps.lat
       vi.GPSLongitude = manualGps.lng
@@ -610,6 +616,14 @@ function handleRemoveVideo(videoId: string) {
   if (marker) markerService.deleteMarkerInMap(marker)
 }
 
+/**
+ * @description: 切换待上传视频是否为全景（导入时写入 schema）
+ * @param {ISelectedVideo} video
+ */
+function toggleVideoPanorama(video: ISelectedVideo) {
+  video.isPanorama = !video.isPanorama
+}
+
 // ---- 批量操作（覆盖待上传的图片 + 视频） ----
 
 /**
@@ -624,6 +638,8 @@ async function importVideoItem(video: ISelectedVideo): Promise<boolean> {
     const res = await API.video.importVideo({ id: video.id, name: video.name, path: video.path })
     if (res.code !== 200) return false
     const vi: IVideoInfo = res.data
+    // 透传用户在导入前标记的全景类型
+    vi.isPanorama = video.isPanorama
     if (manualGps) {
       vi.GPSLatitude = manualGps.lat
       vi.GPSLongitude = manualGps.lng

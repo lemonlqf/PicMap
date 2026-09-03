@@ -332,7 +332,7 @@ export function createImageMarkerIcon(imageInfo: IImageInfo, imageUrl?: string):
   }
 }
 
-// 视频标记图标：封面图 + 播放角标
+// 视频标记图标：封面图 + 播放角标；全景视频额外叠加全景角标
 export function createVideoMarkerIcon(videoInfo: IVideoInfo, coverUrl?: string): MarkerIcon {
   const url = coverUrl || ''
   const iconElement = url
@@ -342,6 +342,17 @@ export function createVideoMarkerIcon(videoInfo: IVideoInfo, coverUrl?: string):
   badge.className = 'video-marker-badge'
   badge.textContent = '▶'
   iconElement.appendChild(badge)
+  // 全景视频：右上角叠加全景角标（与右下角播放角标错开，复用图片全景图标）
+  if (videoInfo.isPanorama) {
+    const panoBadge = document.createElement('div')
+    panoBadge.className = 'panorama-video-marker-badge'
+    const panoImg = document.createElement('img')
+    panoImg.className = 'panorama-marker-icon'
+    panoImg.src = panoramaBadgeUrl
+    panoImg.alt = '全景'
+    panoBadge.appendChild(panoImg)
+    iconElement.appendChild(panoBadge)
+  }
   const { element, inner } = wrapMarkerElement(
     iconElement,
     MARKER_CONSTANT.IMAGE_MARKER_SIZE[0],

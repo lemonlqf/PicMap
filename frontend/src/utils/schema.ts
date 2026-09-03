@@ -9,7 +9,7 @@
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/wails/api'
-import type { IGroupInfo, IImageInfo, ISchema } from '@/type/schema'
+import type { IGroupInfo, IImageInfo, ISchema, IVideoInfo } from '@/type/schema'
 
 type IGroupList = IGroupInfo & {
   showType: 'group'
@@ -197,6 +197,30 @@ export async function editVideoGpsAndSave(videoId: string, lat: number, lng: num
   if (!videoInfo) return
   set(videoInfo, 'GPSLatitude', lat)
   set(videoInfo, 'GPSLongitude', lng)
+  await saveSchema()
+}
+
+/**
+ * @description: 按 id 查找已上传视频信息（schema.videoInfo）
+ * @param {string} videoId
+ * @return {IVideoInfo | undefined}
+ */
+export function getVideoInfoById(videoId: string): IVideoInfo | undefined {
+  const schemaStore = useSchemaStore()
+  return schemaStore.getSchema.videoInfo?.find(item => item.id === videoId)
+}
+
+/**
+ * @description: 设置视频是否为全景并保存（右键菜单切换用）
+ * @param {string} videoId
+ * @param {boolean} isPanorama
+ * @return {*}
+ */
+export async function setVideoPanoramaAndSave(videoId: string, isPanorama: boolean) {
+  const schemaStore = useSchemaStore()
+  const videoInfo = schemaStore.getSchema.videoInfo?.find(item => item.id === videoId)
+  if (!videoInfo) return
+  set(videoInfo, 'isPanorama', isPanorama)
   await saveSchema()
 }
 

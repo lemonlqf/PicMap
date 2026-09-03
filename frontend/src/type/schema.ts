@@ -36,6 +36,8 @@ export type IVideoInfo = {
   durationMs?: number,
   startTimeMs?: number,   // 视频自身绝对开始时间（从文件解析的固有属性）
   viewType?: string,
+  // 是否为 360 全景视频（整个视频维度标记，类似图片的 isPanorama）
+  isPanorama?: boolean,
   size?: number,
   lastModified?: number,
   GPSLatitude?: number,

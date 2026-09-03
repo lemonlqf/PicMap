@@ -241,7 +241,14 @@ func (h *Handler) GetVideoRange(userId, videoId string, start, end int64) model.
 	if err != nil {
 		return model.NewFailResult("读取视频信息失败")
 	}
-	if start < 0 || end <= start || end > info.Size() {
+	// end 越界时截断到文件末尾，避免小文件(<请求块大小)的首块探测失败
+	if start < 0 {
+		return model.NewFailResult("范围参数不合法")
+	}
+	if end > info.Size() {
+		end = info.Size()
+	}
+	if end <= start {
 		return model.NewFailResult("范围参数不合法")
 	}
 

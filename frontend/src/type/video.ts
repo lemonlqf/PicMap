@@ -17,6 +17,7 @@ export type ISelectedVideo = {
   GPSLatitude?: number      // 内嵌 GPS 单点纬度（WGS84）
   GPSLongitude?: number     // 内嵌 GPS 单点经度（WGS84）
   imported?: boolean        // 前端标记：是否已导入
+  isPanorama?: boolean      // 前端标记：是否为 360 全景视频（导入前手动勾选）
 }
 
 // 上传到后端导入视频的请求项

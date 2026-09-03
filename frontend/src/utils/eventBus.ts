@@ -12,6 +12,7 @@ export type EventMap = {
   'hidden-content-menu': void
   'show-content-menu': any
   'show-image-data': any
+  'show-video-play': { videoId: string }
   'drawer-hidden': void
   'drawer-show': any
   'delete-image': string

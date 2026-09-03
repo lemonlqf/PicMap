@@ -149,6 +149,27 @@ $location-border-color: rgb(214, 70, 70);
   }
 }
 
+// 全景视频标记角标（位于右上角，与右下角的播放角标错开）
+.panorama-video-marker-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 5;
+  line-height: 1;
+  box-sizing: border-box;
+
+  .panorama-marker-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
+}
+
 .track-marker-icon {
   border-width: 0;
 }

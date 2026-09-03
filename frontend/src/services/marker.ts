@@ -18,7 +18,7 @@ import {
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
 import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
 import { getVideoThumbnailUrl } from '@/utils/video'
-import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema'
+import { judgeHadUploadImage, getSchemaInfoById, getVideoInfoById } from '@/utils/schema'
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
 import eventBus from '@/utils/eventBus'
 import { GPSInfoLegality } from '@/utils/map'
@@ -461,12 +461,16 @@ class MarkerService {
     this.markers.set(videoInfo.id, marker)
     // 与图片一致：只登记到 clusterGroup，实际放置由 renderClusters 决定（聚合时不显示单点）
     this.clusterGroup.addLayer(marker)
-    // 视频标记只绑定 hover 与右键菜单（点击操作后续补充），避免误触图片详情
+    // 视频标记绑定 hover、点击（弹出播放弹窗）与右键菜单
     marker.on('mouseover', () => {
       this.highlightMarker(marker)
     })
     marker.on('mouseout', () => {
       this.resetMarker(marker)
+    })
+    // 点击已导入视频 marker → 通知宿主弹出视频播放弹窗
+    marker.on('click', () => {
+      eventBus.emit('show-video-play', { videoId: marker.options.id })
     })
     marker.on('contextmenu', (event: any) => {
       eventBus.emit('show-content-menu', event)
@@ -502,7 +506,9 @@ class MarkerService {
     if (!url) return false
     const current = this.markers.get(marker.options.id)
     if (current && current === marker && !current.options.iconUrl) {
-      current.setIcon(createVideoMarkerIcon({ id: marker.options.id, name: marker.options.name }, url))
+      // 查 schema 取全景标记，重建图标时保留角标
+      const vi = getVideoInfoById(marker.options.id)
+      current.setIcon(createVideoMarkerIcon({ id: marker.options.id, name: marker.options.name, isPanorama: vi?.isPanorama }, url))
       current.options.iconUrl = url
       return true
     }

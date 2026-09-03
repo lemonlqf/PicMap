@@ -10,10 +10,11 @@
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { computed } from 'vue'
 import eventBus from '@/utils/eventBus'
 import { ElMessage } from 'element-plus'
 import { deleteVideos } from '@/utils/video'
+import { getVideoInfoById, setVideoPanoramaAndSave } from '@/utils/schema'
 import { canDragMenu } from './markerOperate'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
@@ -24,17 +25,28 @@ const props = defineProps({
   }
 })
 
-const menuList = ref([
-  {
-    label: t('deleteVideo'),
-    clickEvent: async () => {
-      await deleteVideos([props.videoId])
-      ElMessage.success(t('deleteSuccess'))
-      menuHidden()
-    }
-  },
-  canDragMenu()
-])
+// 右键项：根据 isPanorama 响应式显示"设为全景/取消全景"
+const menuList = computed(() => {
+  const isPanorama = !!getVideoInfoById(props.videoId)?.isPanorama
+  return [
+    {
+      label: isPanorama ? t('cancelPanorama') : t('setPanorama'),
+      clickEvent: async () => {
+        await setVideoPanoramaAndSave(props.videoId, !isPanorama)
+        menuHidden()
+      }
+    },
+    {
+      label: t('deleteVideo'),
+      clickEvent: async () => {
+        await deleteVideos([props.videoId])
+        ElMessage.success(t('deleteSuccess'))
+        menuHidden()
+      }
+    },
+    canDragMenu()
+  ]
+})
 
 function menuHidden() {
   eventBus.emit('hidden-content-menu')
