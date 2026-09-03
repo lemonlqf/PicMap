@@ -2,11 +2,18 @@ $border-color: rgb(122, 195, 224);
 $background-color: rgb(0, 0, 0);
 // 定位标记的宽度
 $location-width: 13px;
-$location-border-color: rgba(200, 0, 0, 1);
+$location-border-color: rgb(214, 70, 70);
 
 // MapLibre marker 容器：拖动/旋转时用 transform 更新位置，开启 GPU 合成提升流畅度
 .maplibregl-marker {
   will-change: transform;
+  cursor: pointer;
+}
+
+// 可拖动的临时定位节点保持移动光标
+.maplibregl-marker .draggable-marker,
+.maplibregl-marker.draggable-marker {
+  cursor: grab;
 }
 
 // 外层定位容器：MapLibre 在这里设置 translate，不设 transition，位移即时生效
@@ -35,11 +42,13 @@ $location-border-color: rgba(200, 0, 0, 1);
   -moz-border-radius: 3px;
   -ms-border-radius: 3px;
   -o-border-radius: 3px;
+
   img {
     object-fit: cover;
     backface-visibility: hidden;
   }
 }
+
 .location {
   content: '';
   display: inline-block;
@@ -60,6 +69,18 @@ $location-border-color: rgba(200, 0, 0, 1);
 // 可拖动定位的临时节点，尖角用红色标识
 .draggable-marker .location {
   background-color: $location-border-color;
+}
+
+// 可拖动节点（maplibregl-marker-draggable 是 MapLibre 官方可拖动标记）：
+// 处于可拖动状态时边框与节点变红，定位完成（变为不可拖动）后恢复
+.maplibregl-marker-draggable {
+  .image-icon {
+    border-color: $location-border-color;
+  }
+
+  .location {
+    background-color: $location-border-color;
+  }
 }
 
 // spiderfy 展开的节点，尖角用红色标识
@@ -107,23 +128,25 @@ $location-border-color: rgba(200, 0, 0, 1);
   line-height: 1;
 }
 
-// 全景图片标记角标（覆盖在封面图左上角，标识 360° 全景）
+// 全景图片标记角标（覆盖在封面图右下角，标识 360° 全景，无背景色）
 .panorama-marker-badge {
   position: absolute;
-  left: 2px;
-  top: 2px;
-  padding: 1px 4px;
+  right: 2px;
+  bottom: 2px;
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(22, 119, 255, 0.9);
-  color: #fff;
-  font-size: 8px;
-  font-weight: 600;
-  border-radius: 3px;
-  border: 1px solid rgba(255, 255, 255, 0.7);
   z-index: 5;
   line-height: 1;
+  box-sizing: border-box;
+
+  .panorama-marker-icon {
+    width: 18px;
+    height: 18px;
+    display: block;
+  }
 }
 
 .track-marker-icon {

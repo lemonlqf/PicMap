@@ -10,7 +10,7 @@
   <el-dialog :append-to-body="true" :z-index="1000" v-model="dialogVisible" :title="$t('uploadTrack')" width="80vw"
     height="80vh" :before-close="handleBeforeClose">
     <div class="track-upload-content">
-      <div class="input-search-box">
+      <div v-if="!isRestricted" class="input-search-box">
         <!-- 搜索框 -->
         <el-input v-model="searchKeyword" :placeholder="$t('description.searchPlaceholder')" clearable
           class="search-input" />
@@ -21,17 +21,25 @@
         </el-upload>
         <span class="gpx-size-hint">{{ $t('gpxSizeLimit') }}</span>
       </div>
+      <div v-if="isRestricted" class="restricted-hint">
+        {{ $t('selectTrackToLinkVideo') }}
+      </div>
       <div class="content-box">
         <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
-          :current-row-id="currentRow?.id" @row-change="handleRowChange" @group-change="handleGroupChange"
+          :current-row-id="currentRow?.id" :restricted="isRestricted" @row-change="handleRowChange"
+          @group-change="handleGroupChange"
           @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange"
-          @main-map-change="handleMainMapChange" @icon-change="handleIconChange" @name-change="handleNameChange" />
+          @main-map-change="handleMainMapChange" @icon-change="handleIconChange" @name-change="handleNameChange"
+          @align-video-row="handleAlignVideo" />
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
         </div>
       </div>
     </div>
+    <!-- 轨迹视频时间线对齐弹窗 -->
+    <TrackVideoAlignDialog v-model="alignDialogVisible" :track-id="alignTrackId" :track-name="alignTrackName"
+      :pending-video="pendingVideo" @aligned="handleAligned" />
   </el-dialog>
 </template>
 
@@ -46,6 +54,7 @@ import mapService from '@/services/map'
 import { formatDate } from '@/utils/date'
 import MapComponent from '@/components/map/Map.vue'
 import TrackUploadTable from './TrackUploadTable.vue'
+import TrackVideoAlignDialog from './TrackVideoAlignDialog.vue'
 import { useSchemaStore } from '@/store/schema'
 import type { ITrackInfo } from '@/type/schema'
 import { getGroupIdAndNameLists, updateGroupInfoToSchema } from '@/utils/group'
@@ -55,6 +64,31 @@ const schemaStore = useSchemaStore()
 
 // 弹窗可见性
 const dialogVisible = defineModel<boolean>('modelValue', { required: true })
+
+// 关联模式：传入待上传视频时，仅保留"对齐视频"功能，其余编辑禁用；对齐后自动上传并通知父组件
+const props = defineProps<{
+  pendingVideo?: {
+    id: string
+    name: string
+    path: string
+    durationMs?: number
+  } | null
+}>()
+
+const emit = defineEmits<{
+  (e: 'track-linked', videoId: string, trackId: string): void
+}>()
+
+// 受限模式：有待上传视频即受限
+const isRestricted = computed(() => !!props.pendingVideo)
+
+// 对齐完成后：通知父组件视频已关联轨迹并自动上传，然后关闭受限表格
+function handleAligned() {
+  if (props.pendingVideo) {
+    emit('track-linked', props.pendingVideo.id, alignTrackId.value)
+  }
+  dialogVisible.value = false
+}
 
 // 上传组件的文件列表
 const trackFileList = ref<any[]>([])
@@ -68,6 +102,21 @@ const activeTrackIds = ref<string[]>([])
 const tableRef = ref<any>(null)
 // 搜索关键词
 const searchKeyword = ref('')
+
+// 轨迹视频对齐弹窗状态
+const alignDialogVisible = ref(false)
+const alignTrackId = ref('')
+const alignTrackName = ref('')
+
+/**
+ * @description: 处理"对齐视频"按钮，打开时间线对齐弹窗
+ * @param {TrackData} row - 轨迹行数据
+ */
+function handleAlignVideo(row: TrackData) {
+  alignTrackId.value = row.id
+  alignTrackName.value = row.name || ''
+  alignDialogVisible.value = true
+}
 
 const groupList = computed(() => {
   const res = getGroupIdAndNameLists();
@@ -545,6 +594,16 @@ function resetState() {
   font-size: 12px;
   transform: translate(-9px, 9px);
   color: #909399;
+}
+
+.restricted-hint {
+  padding: 8px 12px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: #409eff;
+  background-color: #ecf5ff;
+  border: 1px solid #d9ecff;
+  border-radius: 6px;
 }
 
 .track-file-name {

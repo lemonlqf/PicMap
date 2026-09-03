@@ -41,7 +41,7 @@
           </div>
           <div class="uploaded-card" v-for="video in uploadedVideoList" :key="video.id">
             <el-tooltip :show-after="500" :content="video.name" placement="top">
-              <div class="video-card">
+              <div class="video-card" @click="locateUploadedVideo(video)">
                 <img v-if="videoCoverMap[video.id]" class="thumb" :src="videoCoverMap[video.id]" alt="" />
                 <div v-else class="video-thumb">
                   <VideoCamera class="video-icon" />
@@ -96,7 +96,8 @@
         <!-- 视频项 -->
         <div v-for="video in pendingVideoList" :key="video.id" class="upload-item">
           <div class="item-info">
-            <div class="video-thumb" :class="video.hasGpsData || manualGpsMap[video.id] ? '' : 'no-gps'">
+            <div class="video-thumb" :class="video.hasGpsData || manualGpsMap[video.id] ? '' : 'no-gps'"
+              @click="locatePendingVideo(video)">
               <img v-if="videoCoverMap[video.id]" class="thumb-img" :src="videoCoverMap[video.id]" alt="" />
               <VideoCamera v-else class="video-icon" />
               <span class="play-badge">▶</span>
@@ -112,6 +113,10 @@
             <div :title="manualGpsMap[video.id] ? '已定位' : $t('locate')"
               :class="['action-btn', 'locate', { active: manualGpsMap[video.id] }]" @click="showVideoLocate(video.id)">
               <img src="@/assets/icon/定位(白色).png" alt="">
+            </div>
+            <div :title="linkedTrackMap[video.id] ? '已关联' : '关联轨迹'"
+              :class="['action-btn', 'locate', { active: !!linkedTrackMap[video.id] }]" @click="openTrackAssociation(video)">
+              <img :src="linkTrackIcon" alt="">
             </div>
             <div :title="$t('upload')" class="action-btn upload" @click="handleImport(video)">
               <img src="@/assets/icon/上传 (白色).png" alt="">
@@ -139,6 +144,9 @@
   <!-- 视频定位弹框 -->
   <LocateDialog v-model="videoLocateShow" :image-id="videoLocateId" @confirm="handleVideoLocateConfirm"
     @manual-locate="handleVideoLocateManual" />
+  <!-- 受限轨迹管理表格（关联待上传视频） -->
+  <TrackUploadDialog v-model="trackDialogVisible" :pending-video="pendingAssociateVideo"
+    @track-linked="handleTrackLinked" />
   <!-- 图片分组设置弹框 -->
   <GroupInfoDialog v-model="imageGroupShow" :imageIds="editImageIds"
     @group-setup-complete="handleImageGroupSetupComplete" />
@@ -169,7 +177,10 @@ import LocateDialog from '@/components/imgUpload/LocateDialog.vue'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
 import PanoramaViewer from '@/components/imagePreview/PanoramaViewer.vue'
+import TrackUploadDialog from '@/components/trackUpload/TrackUploadDialog.vue'
 import markerService from '@/services/marker'
+import mapService from '@/services/map'
+import linkTrackIcon from '@/assets/icon/30H轨迹.png'
 import type { IImageDetailInfo } from '@/type/image'
 import type { ISelectedVideo } from '@/type/video'
 import type { IVideoInfo } from '@/type/schema'
@@ -214,6 +225,12 @@ const importingMap = ref<Record<string, boolean>>({})
 const manualGpsMap = ref<Record<string, { lat: number; lng: number }>>({})
 const videoLocateShow = ref(false)
 const videoLocateId = ref<string | null>(null)
+// 关联轨迹：videoId -> trackId（幂等叠加，不影响独立定位/上传）
+const linkedTrackMap = ref<Record<string, string>>({})
+// 当前要关联轨迹的待上传视频
+const pendingAssociateVideo = ref<ISelectedVideo | null>(null)
+// 受限的轨迹管理表格弹框可见性
+const trackDialogVisible = ref(false)
 // 视频封面：videoId/path -> data URL（待上传用原路径，已上传用 videoId）
 const videoCoverMap = ref<Record<string, string>>({})
 
@@ -502,6 +519,44 @@ function handleVideoLocateManual(data: { id: string | null; lat: number; lng: nu
   }
 }
 
+/**
+ * @description: 打开受限的轨迹管理表格（仅可对齐视频），关联待上传视频
+ */
+function openTrackAssociation(video: ISelectedVideo) {
+  pendingAssociateVideo.value = video
+  trackDialogVisible.value = true
+}
+
+// 轨迹关联完成（对齐后自动上传），记录关联状态，视频保留在待上传列表
+function handleTrackLinked(videoId: string, trackId: string) {
+  linkedTrackMap.value[videoId] = trackId
+  const v = videoList.value.find(item => item.id === videoId)
+  if (v) {
+    v.imported = true
+  }
+  pendingAssociateVideo.value = null
+}
+
+/**
+ * @description: 点击待上传视频缩略图：有 GPS 则定位到地图（marker 在加入列表时已预建）
+ */
+function locatePendingVideo(video: ISelectedVideo) {
+  markerService.setViewByMarkerId(video.id)
+}
+
+/**
+ * @description: 点击已上传视频：有独立 GPS 定位到该坐标，否则提示
+ */
+function locateUploadedVideo(video: IVideoInfo) {
+  if (video.GPSLatitude && video.GPSLongitude) {
+    mapService.setViewByLatLng(video.GPSLatitude, video.GPSLongitude)
+    return
+  }
+  // 从 trackInfo.videos 反查该视频是否关联了轨迹
+  const linked = (schemaStore.getSchema.trackInfo || []).some(t => (t.videos || []).some(v => v.videoId === video.id))
+  ElMessage.info(linked ? '该视频关联轨迹，无独立定位坐标' : '该视频暂无定位信息')
+}
+
 async function handleImport(video: ISelectedVideo) {
   const manualGps = manualGpsMap.value[video.id]
   if (!video.hasGpsData && !manualGps) {
@@ -533,6 +588,8 @@ async function handleImport(video: ISelectedVideo) {
     if (vi.GPSLatitude && vi.GPSLongitude) {
       await markerService.addVideoMarkerToMap(vi)
     }
+    // 视频参与聚合后需重建渲染以放置节点（原先直接 addTo 即可，现在由 renderClusters 决定是否聚合）
+    markerService.updateVisibleMarkers()
     video.imported = true
     // 导入后加载已上传封面（用户目录按 videoId 提取）
     loadUploadedVideoCover(vi)
@@ -583,6 +640,8 @@ async function importVideoItem(video: ISelectedVideo): Promise<boolean> {
     if (vi.GPSLatitude && vi.GPSLongitude) {
       await markerService.addVideoMarkerToMap(vi)
     }
+    // 视频参与聚合后需重建渲染以放置节点
+    markerService.updateVisibleMarkers()
     video.imported = true
     loadUploadedVideoCover(vi)
     return true

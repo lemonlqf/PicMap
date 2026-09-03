@@ -272,7 +272,8 @@ export default {
     trackNameDuplicate: 'Track name already exists, please use a different name',
     closeUploadTrackConfirm: 'There are unuploaded track data. Closing will lose this data. Are you sure you want to close?',
     warning: 'Warning',
-    searchPlaceholder: 'Search name or time'
+    searchPlaceholder: 'Search name or time',
+    selectTrackToLinkVideo: 'Select a track and click "Align Video" to link this video to the track and upload it automatically'
   },
   placeholder: {
     selectGroup: 'Plaese select group'

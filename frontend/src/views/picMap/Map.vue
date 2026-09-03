@@ -326,11 +326,17 @@ function getMapInstance() {
 function isClickOnTrack(e: any): boolean {
   if (!map) return false
   const mainMap = map
+  // 点击轨迹起终点标记：等同点击轨迹线，不关闭详情
+  const target = e?.originalEvent?.target as HTMLElement | null
+  if (target && (target.closest('.track-marker-start') || target.closest('.track-marker-end'))) {
+    return true
+  }
   const layerIds: string[] = []
   trackService.getInstances().forEach((instance) => {
     const ref = instance.getTrackLayer(mainMap)
-    if (ref && mainMap.getLayer(ref.layerId)) {
-      layerIds.push(ref.layerId)
+    if (ref) {
+      if (ref.hitLayerId && mainMap.getLayer(ref.hitLayerId)) layerIds.push(ref.hitLayerId)
+      if (mainMap.getLayer(ref.layerId)) layerIds.push(ref.layerId)
     }
   })
   if (layerIds.length === 0) return false

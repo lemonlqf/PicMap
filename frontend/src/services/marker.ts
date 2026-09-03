@@ -18,7 +18,7 @@ import {
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
 import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
 import { getVideoThumbnailUrl } from '@/utils/video'
-import { judgeHadUploadImage } from '@/utils/schema'
+import { judgeHadUploadImage, getSchemaInfoById } from '@/utils/schema'
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
 import eventBus from '@/utils/eventBus'
 import { GPSInfoLegality } from '@/utils/map'
@@ -109,6 +109,8 @@ class MarkerService {
   private spiderfiedMarkers: { marker: MapMarkerAdapter; original: [number, number] }[] = []
   // 刚触发展开的标志，避免紧随的 map click 立即收回
   private spiderfyJustTriggered = false
+  // 视频封面正在做带重试加载的节点 id（避免拖动过程中并发重复加载）
+  private videoCoverLoading: Set<string> = new Set()
 
   getMarkerClusters() {
     return this.clusterGroup
@@ -444,6 +446,7 @@ class MarkerService {
 
   // 添加视频标记（有坐标的视频在地图上显示一个节点，封面为视频第一帧）
   // coverUrl 可选：待上传场景传入原路径封面，导入后省略则从用户目录拉取
+  // 视频标记与图片一样参与聚合：进入 imagePoints 由 renderClusters 统一管理（聚合/离散/懒加载封面）
   async addVideoMarkerToMap(videoInfo: IVideoInfo, coverUrl?: string) {
     if (!videoInfo.GPSLatitude || !videoInfo.GPSLongitude) return
     if (this.markers.has(videoInfo.id)) return
@@ -453,11 +456,12 @@ class MarkerService {
     const marker = new MapMarkerAdapter(
       icon,
       toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
-      { id: videoInfo.id, type: 'video' }
+      { id: videoInfo.id, type: 'video', name: videoInfo.name, iconUrl: coverUrl || '' }
     )
     this.markers.set(videoInfo.id, marker)
-    marker.addTo(this.MAP_INSTANCE!)
-    // 视频标记暂只绑定 hover 与右键菜单（点击操作后续补充），避免误触图片详情
+    // 与图片一致：只登记到 clusterGroup，实际放置由 renderClusters 决定（聚合时不显示单点）
+    this.clusterGroup.addLayer(marker)
+    // 视频标记只绑定 hover 与右键菜单（点击操作后续补充），避免误触图片详情
     marker.on('mouseover', () => {
       this.highlightMarker(marker)
     })
@@ -470,17 +474,39 @@ class MarkerService {
     mapStore.addMarkerId(videoInfo.id)
     this.applySelectionState(marker)
 
-    // 未传封面时异步加载第一帧封面并更新图标
-    if (!coverUrl) {
-      const url = await getVideoThumbnailUrl(videoInfo.id)
-      if (url) {
-        const current = this.markers.get(videoInfo.id)
-        if (current) {
-          current.setIcon(createVideoMarkerIcon(videoInfo, url))
-          current.options.iconUrl = url
-        }
-      }
+    // 维护聚合索引（与图片一致，标记脏，批量添加后统一重建）
+    this.imagePoints.push({
+      type: 'Feature',
+      properties: { id: videoInfo.id },
+      geometry: {
+        type: 'Point',
+        coordinates: toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+      },
+    })
+    this.clusterDirty = true
+
+    // 传入封面立即设置；未传时由 updateVisibleMarkers 在单点进入视口时懒加载
+    if (coverUrl) {
+      marker.setIcon(createVideoMarkerIcon(videoInfo, coverUrl))
+      marker.options.iconUrl = coverUrl
     }
+  }
+
+  // 惰性加载视频第一帧封面：仅在 marker 位于视口内时才请求（内部缓存防重）
+  // @returns 是否成功设置了封面（失败时调用方不应将节点标记为"已加载"，以便后续再次尝试）
+  private async ensureVideoCover(marker: MapMarkerAdapter): Promise<boolean> {
+    if (!marker) return false
+    if (marker.options.iconUrl) return true
+    if (!this.isMarkerInView(marker)) return false
+    const url = await getVideoThumbnailUrl(marker.options.id)
+    if (!url) return false
+    const current = this.markers.get(marker.options.id)
+    if (current && current === marker && !current.options.iconUrl) {
+      current.setIcon(createVideoMarkerIcon({ id: marker.options.id, name: marker.options.name }, url))
+      current.options.iconUrl = url
+      return true
+    }
+    return false
   }
 
   deleteMarkerInMap(marker: MapMarkerAdapter) {
@@ -510,8 +536,8 @@ class MarkerService {
       return
     }
     const markerType = marker.options.type
-    const isImage = markerType === 'image' || markerType === 'temporary-image'
-    const isGroup = markerType === 'group' || markerType === 'temporary-group' || markerType === 'video'
+    const isImage = markerType === 'image' || markerType === 'temporary-image' || markerType === 'video'
+    const isGroup = markerType === 'group' || markerType === 'temporary-group'
     if (isImage) {
       this.hiddenMarkerIds.add(markerId)
       this.renderClusters()
@@ -525,8 +551,8 @@ class MarkerService {
     const marker = this.getMarkerById(markerId)
     if (marker) {
       const markerType = marker.options.type
-      const isImage = markerType === 'image' || markerType === 'temporary-image'
-      const isGroup = markerType === 'group' || markerType === 'temporary-group' || markerType === 'video'
+      const isImage = markerType === 'image' || markerType === 'temporary-image' || markerType === 'video'
+      const isGroup = markerType === 'group' || markerType === 'temporary-group'
       if (isImage) {
         this.hiddenMarkerIds.delete(markerId)
         this.renderClusters()
@@ -574,13 +600,13 @@ class MarkerService {
     this.clusterMarkers.clear()
     this.clusterLeafCache.clear()
 
-    // 无图片点时移除所有图片单点（视频标记不参与聚合，始终保留）
+    // 无聚合点时移除所有图片/视频单点（分组仍按视口单独加载/卸载）
     if (this.imagePoints.length === 0) {
       this.lastClusterMarkers.forEach((m) => m.remove())
       this.lastClusterMarkers.clear()
       this.markers.forEach((m) => {
         const t = m.options.type
-        if (t === 'image' || t === 'temporary-image') {
+        if (t === 'image' || t === 'temporary-image' || t === 'video') {
           m.remove()
         }
       })
@@ -588,12 +614,8 @@ class MarkerService {
       this.lastClusterCenters.clear()
       this.lastClusterIds.clear()
       this.lastClusterCentersById.clear()
-      // 确保视频标记显示
-      this.markers.forEach((m) => {
-        if (m.options.type === 'video' && !this.hiddenMarkerIds.has(m.options.id) && !this.isMarkerOnMap(m)) {
-          m.addTo(map)
-        }
-      })
+      // 分组按当前视口加载/卸载
+      this.updateEdgeMarkersVisibility(map.getBounds())
       return
     }
 
@@ -711,10 +733,10 @@ class MarkerService {
     })
     this.lastClusterMarkers.clear()
 
-    // 图片单点过渡：聚合时飞向 cluster 中心，离散时从中心飞散（参照 Leaflet.markercluster）
+    // 单点过渡（图片/视频）：聚合时飞向 cluster 中心，离散时从中心飞散（参照 Leaflet.markercluster）
     this.markers.forEach((m) => {
       const t = m.options.type
-      if (t !== 'image' && t !== 'temporary-image') return
+      if (t !== 'image' && t !== 'temporary-image' && t !== 'video') return
       // 跳过动画中的 marker，避免连续缩放时状态冲突
       if (m.animating) return
 
@@ -768,23 +790,8 @@ class MarkerService {
       }
     })
 
-    // 重新显示非聚合的分组 marker（分组不参与聚合）
-    this.markers.forEach((m) => {
-      if (m.options.type === 'group' && !this.hiddenMarkerIds.has(m.options.id)) {
-        if (!this.isMarkerOnMap(m)) {
-          m.addTo(map)
-        }
-      }
-    })
-
-    // 视频标记不参与聚合，始终显示
-    this.markers.forEach((m) => {
-      if (m.options.type === 'video' && !this.hiddenMarkerIds.has(m.options.id)) {
-        if (!this.isMarkerOnMap(m)) {
-          m.addTo(map)
-        }
-      }
-    })
+    // 分组不参与聚合：仅加载当前可视范围内的，视口外的移除（实时 move 触发）
+    this.updateEdgeMarkersVisibility(bounds)
 
     // 更新上次状态
     this.lastShownImageIds = new Set(visibleImageIds)
@@ -794,6 +801,28 @@ class MarkerService {
     })
     this.lastClusterIds = currentClusterIds
     this.lastZoom = zoom
+  }
+
+  // 分组节点按当前视口加载/卸载：视口内且未隐藏 → 显示；视口外 → 移除
+  // 视频与图片一样参与聚合，不在此处按视口单独管理（其封面由 updateVisibleMarkers 懒加载）
+  private updateEdgeMarkersVisibility(bounds: maplibregl.LngLatBounds) {
+    const map = this.MAP_INSTANCE
+    if (!map) return
+    this.markers.forEach((m) => {
+      const t = m.options.type
+      if (t !== 'group' && t !== 'temporary-group') return
+      if (this.hiddenMarkerIds.has(m.options.id)) {
+        if (this.isMarkerOnMap(m)) m.remove()
+        return
+      }
+      const { lat, lng } = m.getLatLng()
+      const inView = bounds.contains([lng, lat])
+      if (inView) {
+        if (!this.isMarkerOnMap(m)) m.addTo(map)
+      } else if (this.isMarkerOnMap(m)) {
+        m.remove()
+      }
+    })
   }
 
   // 查找 cluster 的父 cluster 中心（分裂动画时子 cluster 从父中心飞入）
@@ -851,14 +880,35 @@ class MarkerService {
   // moveend 时触发（由 map.ts 防抖调用）
   updateVisibleMarkers() {
     this.renderClusters()
-    // 只对当前显示为单点的图片加载缩略图（聚合在 cluster 中的不加载，避免大量并发）
+    // 只对当前显示为单点的图片/视频加载缩略图/封面（聚合在 cluster 中的不加载，避免大量并发）
     const mapStore = useMapStore()
     const visibleMarkerIdList = mapStore.getVisibleMarkerIdList
     this.lastShownImageIds.forEach((imageId: string) => {
       const marker = this.getMarkerById(imageId)
-      if (marker && marker.options.type === 'image' && !visibleMarkerIdList.includes(imageId)) {
+      if (!marker || visibleMarkerIdList.includes(imageId)) return
+      if (marker.options.type === 'image') {
         this.updateImageMarker(marker)
         this.addVisibleMarkerById(imageId)
+      } else if (marker.options.type === 'video') {
+        // 封面加载成功后才标记为"已加载"；失败时短暂重试几次，避免拖入视口后封面迟迟不出现
+        this.loadVideoCoverWithRetry(marker, imageId)
+      }
+    })
+  }
+
+  // 视频单点封面加载：成功才标记可见；失败做几次带间隔的重试（封面提取为 ffmpeg，可能偶发失败/较慢）
+  private loadVideoCoverWithRetry(marker: MapMarkerAdapter, videoId: string, attempt = 0) {
+    if (this.videoCoverLoading.has(videoId)) return
+    this.videoCoverLoading.add(videoId)
+    this.ensureVideoCover(marker).then((ok) => {
+      this.videoCoverLoading.delete(videoId)
+      if (ok) {
+        this.addVisibleMarkerById(videoId)
+        return
+      }
+      // 提取失败：短暂延迟后重试（最多 3 次），期间不标记可见，保证后续 move 也能继续尝试
+      if (attempt < 3 && marker.options.type === 'video' && !marker.options.iconUrl) {
+        setTimeout(() => this.loadVideoCoverWithRetry(marker, videoId, attempt + 1), 800 * (attempt + 1))
       }
     })
   }
@@ -876,10 +926,9 @@ class MarkerService {
         mapStore.deleteVisbleMarkerId(marker.options.id)
         return
       }
-      marker.setIcon({
-        element: IconHTMLFactory.createIcon(IconType.SingleImage, fileUrl),
-        iconUrl: fileUrl,
-      })
+      // 复用 createImageMarkerIcon：保留全景角标等标识（聚合节点进入视口时重建图标不能丢角标）
+      const schemaInfo = getSchemaInfoById(marker.options.id) as IImageInfo | null
+      marker.setIcon(createImageMarkerIcon(schemaInfo ?? { id: marker.options.id } as IImageInfo, fileUrl))
     }
   }
 
@@ -1018,10 +1067,10 @@ class MarkerService {
   filterMarkersByTimeRange(timeRange: { min: number; max: number }) {
     // 重建聚合索引（只包含时间范围内的图片点），使 cluster 数量与成员跟随筛选
     this.timeRange = timeRange
-    // 先移除所有单点图片 marker，renderClusters 会重新添加时间范围内的
+    // 先移除所有单点图片/视频 marker，renderClusters 会重新添加时间范围内的
     this.markers.forEach((m) => {
       const t = m.options.type
-      if (t === 'image' || t === 'temporary-image') {
+      if (t === 'image' || t === 'temporary-image' || t === 'video') {
         m.remove()
       }
     })

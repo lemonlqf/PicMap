@@ -108,14 +108,23 @@ function interpolateAt(gpx: IGpxPoint[], timeMs: number): [number, number] | nul
  * 通过后端 GetTrack 获取 GPX 内容并解析（不依赖内存中的 track 实例）
  */
 async function fetchTrackPoints(trackId: string): Promise<IGpxPoint[] | null> {
-  try {
-    const res = await API.track.getTrack(trackId)
-    if (res.code !== 200 || !res.data?.fileContent) return null
-    return parseGpxPoints(res.data.fileContent)
-  } catch (e) {
-    console.error('获取轨迹点失败', trackId, e)
-    return null
+  // 重试等待 Wails 运行时 WebSocket 连接就绪，避免 CONNECTING 状态下 send 报错
+  for (let attempt = 0; attempt < 30; attempt++) {
+    try {
+      const res = await API.track.getTrack(trackId)
+      if (res.code !== 200 || !res.data?.fileContent) return null
+      return parseGpxPoints(res.data.fileContent)
+    } catch (e: any) {
+      const isConnecting = e && e.name === 'InvalidStateError'
+      if (!isConnecting) {
+        console.error('获取轨迹点失败', trackId, e)
+        return null
+      }
+      // WebSocket 尚未就绪，稍后重试
+      await new Promise(r => setTimeout(r, 100))
+    }
   }
+  return null
 }
 
 // 供预览等场景直接获取轨迹逐点坐标
@@ -124,29 +133,29 @@ export { fetchTrackPoints }
 /**
  * @description: 生成视频节点
  * 视频节点坐标 = GPX 时间对应位置的插值；短视频保证至少 1 个节点（起点处）。
- * 支持两种时间对齐模式（二选一）：
- *  - "absolute"：video.startTimeMs 为视频起点绝对时刻
- *  - "offset"：video.timeOffsetMs 为视频起点相对 GPX 起始时间的偏移
+ * 关联信息（轨迹 + 偏移）由调用方从 trackInfo.videos 传入，视频自身不再持有 trackId/timeOffsetMs。
  * @param {IVideoInfo} video 视频信息
+ * @param {string} trackId 关联的 GPX 轨迹 ID
+ * @param {number} timeOffsetMs 视频起点相对 GPX 起点的偏移（毫秒）
  * @param {number} sampleIntervalMs 节点采样间隔（毫秒），长视频按此间隔生成多个节点
  * @param {number} minDistanceM 节点最小距离（米）
  * @returns {IVideoNode[]} 生成的节点
  */
 export async function generateVideoNodes(
   video: IVideoInfo,
+  trackId: string,
+  timeOffsetMs = 0,
   sampleIntervalMs = 5000,
   minDistanceM = 50
 ): Promise<IVideoNode[]> {
-  if (!video.trackId) return []
+  if (!trackId) return []
 
-  const gpx = await fetchTrackPoints(video.trackId)
+  const gpx = await fetchTrackPoints(trackId)
   if (!gpx || gpx.length === 0) return []
 
-  // 计算视频起点的绝对时刻（二选一）
-  // GPX 起始绝对时刻取第一个点的时间戳（offset 模式需要）
+  // 计算视频起点的绝对时刻：偏移 + GPX 起始绝对时刻
   const gpxStartAbsMs = gpx[0]?.timeMs || 0
-  const startAbsMs = computeVideoStartAbsMs(video, gpxStartAbsMs)
-  if (startAbsMs === null) return []
+  const startAbsMs = gpxStartAbsMs + (timeOffsetMs || 0)
 
   const nodes: IVideoNode[] = []
 
@@ -187,23 +196,6 @@ export async function generateVideoNodes(
   }
 
   return nodes
-}
-
-/**
- * @description: 计算视频起点绝对时刻（epoch ms），支持两种对齐模式二选一
- * @param {IVideoInfo} video
- * @param {number} gpxStartAbsMs GPX 起始绝对时刻（offset 模式需要），由调用方传入
- * @returns {number | null} 绝对时刻，无法确定时返回 null
- */
-export function computeVideoStartAbsMs(video: IVideoInfo, gpxStartAbsMs?: number): number | null {
-  if (video.timeMode === 'offset') {
-    // 相对 GPX 起始时间的偏移
-    if (gpxStartAbsMs === undefined) return null
-    return gpxStartAbsMs + (video.timeOffsetMs ?? 0)
-  }
-  // 默认 absolute
-  if (video.startTimeMs === undefined || video.startTimeMs <= 0) return null
-  return video.startTimeMs
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {

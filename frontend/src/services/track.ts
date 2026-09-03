@@ -17,6 +17,8 @@ const TRACK_INSTANCE_GC_DELAY_MS = 2000
 interface TrackLayerRef {
   sourceId: string
   layerId: string
+  // 加宽的透明命中层（扩大可点击判定范围），与可见线层共用 source
+  hitLayerId?: string
 }
 
 /**
@@ -76,18 +78,16 @@ class TrackService {
   hideTrack(trackId: string, map?: maplibregl.Map) {
     const trackInstance = this.trackInstances.get(trackId)
     if (trackInstance) {
+      const setHidden = (m: maplibregl.Map) => {
+        const ref = trackInstance.getTrackLayer(m)
+        if (!ref) return
+        if (m.getLayer(ref.layerId)) m.setLayoutProperty(ref.layerId, 'visibility', 'none')
+        if (ref.hitLayerId && m.getLayer(ref.hitLayerId)) m.setLayoutProperty(ref.hitLayerId, 'visibility', 'none')
+      }
       if (map) {
-        const ref = trackInstance.getTrackLayer(map)
-        if (ref && map.getLayer(ref.layerId)) {
-          map.setLayoutProperty(ref.layerId, 'visibility', 'none')
-        }
+        setHidden(map)
       } else {
-        trackInstance.getMapInstances().forEach((m) => {
-          const ref = trackInstance.getTrackLayer(m)
-          if (ref && m.getLayer(ref.layerId)) {
-            m.setLayoutProperty(ref.layerId, 'visibility', 'none')
-          }
-        })
+        trackInstance.getMapInstances().forEach(setHidden)
       }
     }
   }
@@ -95,8 +95,9 @@ class TrackService {
   hideAllTracks(map: maplibregl.Map) {
     this.getInstances().forEach((trackInstance) => {
       const ref = trackInstance.getTrackLayer(map)
-      if (ref && map.getLayer(ref.layerId)) {
-        map.setLayoutProperty(ref.layerId, 'visibility', 'none')
+      if (ref) {
+        if (map.getLayer(ref.layerId)) map.setLayoutProperty(ref.layerId, 'visibility', 'none')
+        if (ref.hitLayerId && map.getLayer(ref.hitLayerId)) map.setLayoutProperty(ref.hitLayerId, 'visibility', 'none')
       }
       trackInstance.removeMap(map)
     })
@@ -428,6 +429,7 @@ class TrackInstance {
     const hash = this.hashTrackId(this.trackId)
     const sourceId = `track-src-${hash}`
     const layerId = `track-layer-${hash}`
+    const hitLayerId = `track-hit-${hash}`
     if (!map.getSource(sourceId)) {
       map.addSource(sourceId, {
         type: 'geojson',
@@ -438,6 +440,7 @@ class TrackInstance {
         },
       })
     }
+    // 可见线层（细线展示）
     if (!map.getLayer(layerId)) {
       map.addLayer({
         id: layerId,
@@ -450,19 +453,36 @@ class TrackInstance {
         },
       })
     }
-    map.on('mouseenter', layerId, () => {
+    // 加宽透明的命中层：扩大 hover/点击判定范围，置于可见线层之下
+    if (!map.getLayer(hitLayerId)) {
+      map.addLayer({
+        id: hitLayerId,
+        type: 'line',
+        source: sourceId,
+        paint: {
+          'line-color': 'transparent',
+          'line-width': 24,
+          'line-opacity': 0,
+        },
+      }, layerId)
+    }
+    // 交互事件绑定到命中层（判定范围更大）
+    map.on('mouseenter', hitLayerId, () => {
+      // 悬停轨迹线时切换为可点击光标
+      if (map.getCanvas()) map.getCanvas().style.cursor = 'pointer'
       const cb = this.hoverCallbacks.get(map)
       if (cb) cb(this.getTrackInfo(), 'enter')
     })
-    map.on('mouseleave', layerId, () => {
+    map.on('mouseleave', hitLayerId, () => {
+      if (map.getCanvas()) map.getCanvas().style.cursor = 'grab'
       const cb = this.hoverCallbacks.get(map)
       if (cb) cb(this.getTrackInfo(), 'leave')
     })
-    map.on('click', layerId, () => {
+    map.on('click', hitLayerId, () => {
       const cb = this.clickCallbacks.get(map)
       if (cb) cb(this.getTrackInfo())
     })
-    map.on('contextmenu', layerId, (e) => {
+    map.on('contextmenu', hitLayerId, (e) => {
       e.preventDefault()
       const cb = this.contextMenuCallbacks.get(map)
       if (cb) cb(this.getTrackInfo(), e)
@@ -477,7 +497,7 @@ class TrackInstance {
       this.pendingCallbacks.forEach((cb) => cb(this.trackInfo))
       this.pendingCallbacks = []
     }
-    return { sourceId, layerId }
+    return { sourceId, layerId, hitLayerId }
   }
 
   private addEdgeMarkers(map: maplibregl.Map) {
@@ -486,6 +506,26 @@ class TrackInstance {
     const end = this.points[this.points.length - 1]
     const startEl = createEdgeMarkerElement(startIconUrl, 'track-marker-start')
     const endEl = createEdgeMarkerElement(endIconUrl, 'track-marker-end')
+    // 起终点标记可点击：hover 时切换为可点击光标
+    const bindEdgeCursor = (el: HTMLElement) => {
+      el.addEventListener('mouseenter', () => {
+        if (map.getCanvas()) map.getCanvas().style.cursor = 'pointer'
+      })
+      el.addEventListener('mouseleave', () => {
+        if (map.getCanvas()) map.getCanvas().style.cursor = 'grab'
+      })
+    }
+    bindEdgeCursor(startEl)
+    bindEdgeCursor(endEl)
+    // 点击起终点标记时，等同点击轨迹线（触发高亮等回调）
+    startEl.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this.triggerClickCallback(map)
+    })
+    endEl.addEventListener('click', (e) => {
+      e.stopPropagation()
+      this.triggerClickCallback(map)
+    })
     const startMarker = new maplibregl.Marker({ element: startEl, anchor: 'bottom' })
       .setLngLat(toMapLibreLngLat(start.lat, start.lng))
       .addTo(map)
@@ -502,6 +542,12 @@ class TrackInstance {
     if (this.endIconId) {
       this.applyEdgeIcon(endMarker, this.endIconId, 'end')
     }
+  }
+
+  // 触发某地图上注册的轨迹点击回调（轨迹线或起终点标记点击共用）
+  private triggerClickCallback(map: maplibregl.Map) {
+    const cb = this.clickCallbacks.get(map)
+    if (cb) cb(this.getTrackInfo())
   }
 
   private applyEdgeIcon(marker: maplibregl.Marker, iconId: string, type: 'start' | 'end') {
@@ -573,6 +619,7 @@ class TrackInstance {
   removeMap(map: maplibregl.Map) {
     const ref = this.layerByMap.get(map)
     if (ref) {
+      if (ref.hitLayerId && map.getLayer(ref.hitLayerId)) map.removeLayer(ref.hitLayerId)
       if (map.getLayer(ref.layerId)) map.removeLayer(ref.layerId)
       if (map.getSource(ref.sourceId)) map.removeSource(ref.sourceId)
     }
@@ -625,7 +672,7 @@ class TrackInstance {
 
     const ref = this.layerByMap.get(map)
     if (ref && map.getLayer(ref.layerId)) {
-      map.setPaintProperty(ref.layerId, 'line-color', '#409eff')
+      map.setPaintProperty(ref.layerId, 'line-color', this.lineColor ?? getDefaultLineColor(true))
       map.setPaintProperty(ref.layerId, 'line-width', 6)
       map.setPaintProperty(ref.layerId, 'line-opacity', 1)
       map.moveLayer(ref.layerId)

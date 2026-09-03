@@ -5,6 +5,8 @@ import { GROUP_CONSTANT, MARKER_CONSTANT } from '@/utils/constant'
 import { getMarkerImageUrlByIds } from '@/utils/Image'
 import type { IImageInfo, INewGroupFormData, IVideoInfo } from '@/type/schema'
 
+const panoramaBadgeUrl = new URL('../assets/icon/panorama.svg', import.meta.url).href
+
 export interface MarkerIcon {
   element: HTMLElement
   inner?: HTMLElement
@@ -17,6 +19,7 @@ export interface MarkerOptions {
   type: string
   draggable?: boolean
   iconUrl?: string
+  name?: string
 }
 
 // 飞行动画配置（聚合/散开过渡，可自由配置速度与透明度）
@@ -306,11 +309,15 @@ export function createImageMarkerIcon(imageInfo: IImageInfo, imageUrl?: string):
   const iconElement = url
     ? IconHTMLFactory.createIcon(IconType.SingleImage, url)
     : IconHTMLFactory.createIcon(IconType.NoImage, imageInfo.name)
-  // 全景图片标记角标
+  // 全景图片标记角标（右下角显示全景图标）
   if (imageInfo.isPanorama) {
     const badge = document.createElement('div')
     badge.className = 'panorama-marker-badge'
-    badge.textContent = '360°'
+    const img = document.createElement('img')
+    img.className = 'panorama-marker-icon'
+    img.src = panoramaBadgeUrl
+    img.alt = '全景'
+    badge.appendChild(img)
     iconElement.appendChild(badge)
   }
   const { element, inner } = wrapMarkerElement(

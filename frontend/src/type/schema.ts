@@ -34,10 +34,7 @@ export type IVideoInfo = {
   name?: string,
   path?: string,
   durationMs?: number,
-  trackId?: string,
-  timeMode?: 'absolute' | 'offset',
-  startTimeMs?: number,
-  timeOffsetMs?: number,
+  startTimeMs?: number,   // 视频自身绝对开始时间（从文件解析的固有属性）
   viewType?: string,
   size?: number,
   lastModified?: number,

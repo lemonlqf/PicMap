@@ -12,8 +12,8 @@
             @blur="confirmRename(row)"
             @keyup.escape="cancelRename"
           />
-          <span v-else class="track-name" @dblclick="startRename(row)">{{ row.name }}</span>
-          <el-icon class="edit-icon" @click="startRename(row)"><Edit /></el-icon>
+          <span v-else class="track-name" @dblclick="!props.restricted && startRename(row)">{{ row.name }}</span>
+          <el-icon v-if="!props.restricted" class="edit-icon" @click="startRename(row)"><Edit /></el-icon>
         </div>
       </template>
     </el-table-column>
@@ -24,7 +24,7 @@
       <template #default="{ row }">
         <el-select v-if="row.uploaded" v-model="row.groupIds" multiple collapse-tags collapse-tags-limit="1"
           popper-class="track-group-select-popper" append-to="body" :placeholder="$t('placeholder.selectGroup')"
-          class="track-group-select" size="small" @change="emit('group-change', row)">
+          class="track-group-select" size="small" :disabled="props.restricted" @change="emit('group-change', row)">
           <el-option v-for="group in groupList" :key="group.id" :label="group.name" :value="group.id">
             {{ group.name }}
           </el-option>
@@ -35,7 +35,7 @@
     <el-table-column :label="$t('trackColor')" width="100">
       <template #default="{ row }">
         <div class="color-picker-wrapper">
-          <ColorPicker :pureColor="row.setting?.lineColor"
+          <ColorPicker :pureColor="row.setting?.lineColor" :disabled="props.restricted"
             @update:pureColor="(color: string) => { if (!row.setting) row.setting = {}; row.setting.lineColor = color; emit('color-change', row) }" />
         </div>
       </template>
@@ -43,7 +43,7 @@
     <el-table-column :label="$t('icon.startIcon')" width="64" align="center">
       <template #default="{ row }">
         <el-tooltip :content="$t('icon.startIcon')" placement="top">
-          <div v-if="row.uploaded" class="edge-icon" @click="openIconSelect(row, 'start')">
+          <div v-if="row.uploaded && !props.restricted" class="edge-icon" @click="openIconSelect(row, 'start')">
             <img v-if="edgeIconUrl(row, 'start')" :src="edgeIconUrl(row, 'start')" alt="" />
             <span v-else class="edge-icon-empty">-</span>
           </div>
@@ -54,7 +54,7 @@
     <el-table-column :label="$t('icon.endIcon')" width="64" align="center">
       <template #default="{ row }">
         <el-tooltip :content="$t('icon.endIcon')" placement="top">
-          <div v-if="row.uploaded" class="edge-icon" @click="openIconSelect(row, 'end')">
+          <div v-if="row.uploaded && !props.restricted" class="edge-icon" @click="openIconSelect(row, 'end')">
             <img v-if="edgeIconUrl(row, 'end')" :src="edgeIconUrl(row, 'end')" alt="" />
             <span v-else class="edge-icon-empty">-</span>
           </div>
@@ -64,19 +64,28 @@
     </el-table-column>
     <el-table-column :label="$t('track.showOnMainMap')" width="120" align="center">
       <template #default="{ row }">
-        <el-switch v-if="row.uploaded" :model-value="row.setting?.showOnMainMap"
+        <el-switch v-if="row.uploaded" :model-value="row.setting?.showOnMainMap" :disabled="props.restricted"
           @change="(val: string | number | boolean) => { if (!row.setting) row.setting = {}; row.setting.showOnMainMap = !!val; emit('main-map-change', row) }" />
         <span v-else>-</span>
       </template>
     </el-table-column>
-    <el-table-column :label="$t('actions')" width="80" fixed="right">
+    <el-table-column :label="$t('actions')" :width="props.restricted ? 90 : 160" fixed="right">
       <template #default="{ row }">
-        <el-button v-if="!row.uploaded" type="primary" size="small" @click="emit('upload-row', row)">
+        <el-button v-if="props.restricted" size="small" type="primary" :disabled="!row.uploaded"
+          @click="emit('align-video-row', row)">
+          对齐视频
+        </el-button>
+        <el-button v-else-if="!row.uploaded" type="primary" size="small" @click="emit('upload-row', row)">
           {{ $t('upload') }}
         </el-button>
-        <el-button v-else type="danger" size="small" @click="emit('delete-row', row)">
-          {{ $t('delete') }}
-        </el-button>
+        <template v-else>
+          <el-button size="small" @click="emit('align-video-row', row)">
+            对齐视频
+          </el-button>
+          <el-button type="danger" size="small" @click="emit('delete-row', row)">
+            {{ $t('delete') }}
+          </el-button>
+        </template>
       </template>
     </el-table-column>
   </el-table>
@@ -120,6 +129,7 @@ const props = defineProps<{
   data: TrackData[]
   groupList: GroupItem[]
   currentRowId?: string
+  restricted?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -131,6 +141,7 @@ const emit = defineEmits<{
   (e: 'main-map-change', row: any): void
   (e: 'icon-change', row: any, type: 'start' | 'end', iconId: string): void
   (e: 'name-change', row: any, newName: string): void
+  (e: 'align-video-row', row: any): void
 }>()
 
 // 图标选择弹窗状态
