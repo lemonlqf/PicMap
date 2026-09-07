@@ -9,6 +9,14 @@
 import GDSatellite from '@/assets/map/GDSatellite.png'
 import GDGraphics from '@/assets/map/GDGraphics.png'
 import i18n from '@/i18n/index'
+import type { ITileOverlay } from '@/type/appSchema'
+
+// 卫星底图（tile_default1）预置的路网叠加层，作为初始值，可被用户编辑/删除
+export const SATELLITE_ROAD_OVERLAY: ITileOverlay = {
+  url: 'https://webst01.is.autonavi.com/appmaptile?style=8&x={x}&y={y}&z={z}',
+  name: '路网标注'
+}
+
 export interface IMapTile {
   id: string,
   isDefault?: boolean

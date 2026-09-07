@@ -44,14 +44,32 @@
         </template>
       </div>
     </div>
+    <!-- 叠加层（如路网标注）配置 -->
+    <div class="overlays">
+      <div class="overlays-header">
+        <span class="overlays-title">{{ $t('tileOverlays') }}</span>
+        <el-button size="small" text type="primary" :icon="Plus" @click="addOverlayRow">{{ $t('addOverlay') }}</el-button>
+      </div>
+      <div v-if="localOverlays.length" class="overlay-list">
+        <div v-for="(ov, i) in localOverlays" :key="i" class="overlay-row">
+          <el-input v-model="ov.name" size="small" :placeholder="$t('overlayName')" @change="persistOverlays"></el-input>
+          <el-input v-model="ov.url" size="small" :placeholder="$t('overlayUrl')" @change="persistOverlays"></el-input>
+          <el-button size="small" type="danger" :icon="Delete" @click="removeOverlayRow(i)"></el-button>
+        </div>
+      </div>
+      <div v-else class="overlay-empty">
+        <span>{{ $t('noOverlay') }}</span>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import ImageUpload from '@/components/imgUpload2/ImageUpload.vue'
-import { Delete, Edit, Back, Star, MapLocation } from '@element-plus/icons-vue'
+import { Delete, Edit, Back, Star, MapLocation, Plus } from '@element-plus/icons-vue'
 import * as maplibregl from 'maplibre-gl'
+import type { ITileOverlay } from '@/type/appSchema'
 import type { IMapTile } from '@/components/mapSelector/defaultMap';
 import { ElMessage } from 'element-plus';
 import { useAppStore } from '@/store/appSchema';
@@ -89,6 +107,11 @@ const props = defineProps({
   isDefault: {
     type: Boolean,
     default: false
+  },
+  // 该瓦片配置的叠加层列表（路网标注等）
+  overlays: {
+    type: Array as () => ITileOverlay[],
+    default: () => []
   },
 })
 const emits = defineEmits(['activeChange'])
@@ -154,7 +177,33 @@ watch(() => props.url, () => {
   inputUrl.value = props.url
 }, { immediate: true })
 
+// 叠加层（路网标注等）配置：本地副本，编辑后统一持久化到 mapInfo.tileOverlays
+const localOverlays = ref<ITileOverlay[]>([])
+watch(() => props.overlays, (newVal) => {
+  localOverlays.value = cloneDeep(newVal ?? [])
+}, { immediate: true, deep: true })
 
+function getTileOverlays(): Record<string, ITileOverlay[]> {
+  const appSchemaStore = useAppStore()
+  return cloneDeep(appSchemaStore.getAppSchema?.mapInfo?.tileOverlays ?? {})
+}
+
+// 持久化当前卡片的叠加层列表到应用级 schema
+async function persistOverlays() {
+  const overlays = getTileOverlays()
+  overlays[props.tileId] = localOverlays.value.map(ov => ({ url: ov.url, name: ov.name }))
+  await editAppSchemaAttrAndSave('mapInfo.tileOverlays', overlays)
+}
+
+function addOverlayRow() {
+  localOverlays.value.push({ name: '', url: '' })
+  persistOverlays()
+}
+
+function removeOverlayRow(index: number) {
+  localOverlays.value.splice(index, 1)
+  persistOverlays()
+}
 
 function changeName(value: string) {
   if (value.length < 1) {
@@ -358,7 +407,50 @@ onMounted(() => {
     }
   }
 
+  .overlays {
+    border-top: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 10px 12px 12px;
+    background-color: rgba(0, 0, 0, 0.02);
 
+    .overlays-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+
+      .overlays-title {
+        font-size: 13px;
+        font-weight: 600;
+        color: rgb(27, 25, 122);
+      }
+    }
+
+    .overlay-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+
+      .overlay-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+
+        .el-input {
+          flex: 1;
+        }
+
+        .el-button {
+          flex-shrink: 0;
+        }
+      }
+    }
+
+    .overlay-empty {
+      font-size: 12px;
+      color: #999;
+      padding: 4px 2px;
+    }
+  }
 
 }
 

@@ -82,6 +82,8 @@ export type IMapInfo = {
   bearing?: number,
   activeTiles: string[],
   defaultTileId?: string
+  // tileId -> 该瓦片叠加层开关状态（未记录时视为开启）
+  overlayVisible?: Record<string, boolean>
 }
 
 export type IGroupInfo = {

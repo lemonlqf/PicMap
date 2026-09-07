@@ -9,10 +9,11 @@
 <template>
   <div class="home-page">
     <!-- 地图 -->
-    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" :mapPitch="mapPitch" :mapBearing="mapBearing" ref="mapRef"></Map>
+    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" :mapPitch="mapPitch" :mapBearing="mapBearing"
+      :tileOverlays="currentOverlays" :showTileOverlays="mapShowOverlay" ref="mapRef"></Map>
     <div :class="['fix-group switch-group', getAnimateClass('switch')]">
-      <!-- 瓦片选择器 -->
-      <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile"></MapSelector>
+      <!-- 瓦片选择器（内含叠加层/路网开关） -->
+      <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile" v-model:overlay-on="mapShowOverlay"></MapSelector>
     </div>
     <div class="buttons">
       <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
@@ -64,6 +65,7 @@ import SelectionBar from '@/components/selection/SelectionBar.vue'
 // 直接引用API可能还没有解析完成，所以在这里还是直接引入模块内的接口
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
+import { useAppStore } from '@/store/appSchema'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema, getAllVideoIdInSchema } from '@/utils/schema'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 import Map from './Map.vue'
@@ -88,6 +90,22 @@ const timeRanges = ref({
 const timeLineRef = ref()
 const minAndMaxTime = ref(timeRanges.value)
 const timeLineData = ref<TimeLineDataPoint[]>([])
+
+// ===== 叠加层（路网标注）逻辑 =====
+const appStore = useAppStore()
+
+// 当前选中瓦片 id（由 MapSelector 通过 v-model 同步到 currentMapTile）
+const currentTileId = computed<string>(() => currentMapTile.value?.id ?? '')
+
+// 当前选中瓦片配置的叠加层（纯只读计算，不在此处写任何响应式状态）
+const currentOverlays = computed<any[]>(() => {
+  const id = currentTileId.value
+  if (!id) return []
+  return appStore.getAppSchema?.mapInfo?.tileOverlays?.[id] ?? []
+})
+
+// 地图上是否展示叠加层（由 MapSelector 内开关通过 v-model:overlay-on 双向绑定）
+const mapShowOverlay = ref(false)
 
 function timeChange(dataRange: { min: number; max: number }) {
   timeRanges.value = dataRange

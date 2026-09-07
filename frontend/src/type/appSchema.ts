@@ -13,12 +13,20 @@ type IMapTile = {
   image: string
 }
 
+// 瓦片叠加层（路网标注等）配置项
+export type ITileOverlay = {
+  url: string   // 叠加层瓦片 URL（含 {x}{y}{z} 占位）
+  name: string  // 叠加层名称（如 "路网标注"）
+}
+
 export type IAppSchema = {
   version: string
   userInfos: IUserInfo[],
   mapInfo: {
     mapTiles: IMapTile[]
     defaultTileId?: string
+    // tileId -> 该瓦片配置的叠加层列表（按瓦片 id 全局存储）
+    tileOverlays?: Record<string, ITileOverlay[]>
   },
   iconLibrary?: IIconItem[]
 }

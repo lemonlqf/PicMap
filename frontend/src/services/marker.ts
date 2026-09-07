@@ -23,7 +23,7 @@ import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
 import eventBus from '@/utils/eventBus'
 import { GPSInfoLegality } from '@/utils/map'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
-import { MARKER_CONSTANT } from '@/utils/constant'
+import { MARKER_CONSTANT, MARKER_OVERLAP_THRESHOLD } from '@/utils/constant'
 import { useSelectStore } from '@/store/select'
 import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo, IVideoInfo } from '@/type/schema'
 
@@ -461,20 +461,8 @@ class MarkerService {
     this.markers.set(videoInfo.id, marker)
     // 与图片一致：只登记到 clusterGroup，实际放置由 renderClusters 决定（聚合时不显示单点）
     this.clusterGroup.addLayer(marker)
-    // 视频标记绑定 hover、点击（弹出播放弹窗）与右键菜单
-    marker.on('mouseover', () => {
-      this.highlightMarker(marker)
-    })
-    marker.on('mouseout', () => {
-      this.resetMarker(marker)
-    })
-    // 点击已导入视频 marker → 通知宿主弹出视频播放弹窗
-    marker.on('click', () => {
-      eventBus.emit('show-video-play', { videoId: marker.options.id })
-    })
-    marker.on('contextmenu', (event: any) => {
-      eventBus.emit('show-content-menu', event)
-    })
+    // 视频标记与图片走同一套交互：点击做重叠展开检测，单点/已展开时播放视频
+    this.markerMouseListener(marker)
     mapStore.addMarkerId(videoInfo.id)
     this.applySelectionState(marker)
 
@@ -949,20 +937,29 @@ class MarkerService {
     return bounds.contains([lng, lat])
   }
 
+  // 展示某个节点自身的详情：已导入视频→播放弹窗；图片/临时图→图片详情
+  private showMarkerDetail(marker: MapMarkerAdapter, event: any) {
+    if (marker.options.type === 'video') {
+      eventBus.emit('show-video-play', { videoId: marker.options.id })
+      return
+    }
+    eventBus.emit('show-image-data', event)
+  }
+
   markerMouseListener(marker: MapMarkerAdapter) {
     if (!marker) return
     marker.on('click', (event: any) => {
-      // 展开状态下点击某张：保持展开，直接显示详情
+      // 展开状态下点击某张：保持展开，直接显示该节点自身详情
       if (this.spiderfiedMarkers.length > 0) {
-        eventBus.emit('show-image-data', event)
+        this.showMarkerDetail(marker, event)
         return
       }
-      // 检测同位置重叠的照片，重叠则蜘蛛网展开
+      // 检测同位置重叠的图片/视频，重叠则蜘蛛网展开
       const overlapping = this.getOverlappingMarkers(marker)
       if (overlapping.length > 1) {
         this.spiderfy(overlapping)
       } else {
-        eventBus.emit('show-image-data', event)
+        this.showMarkerDetail(marker, event)
       }
     })
     marker.on('contextmenu', (event: MouseEvent) => {
@@ -993,16 +990,16 @@ class MarkerService {
     marker.setZIndexOffset(0)
   }
 
-  // 找出与指定 marker 同位置（极近）的图片 marker，用于重叠检测
+  // 找出与指定 marker 同位置（极近）的图片/视频 marker，用于重叠检测（分组不参与展开）
   private getOverlappingMarkers(marker: MapMarkerAdapter): MapMarkerAdapter[] {
     const { lat, lng } = marker.getLatLng()
     const result: MapMarkerAdapter[] = []
     this.markers.forEach((m) => {
       const t = m.options.type
-      if (t !== 'image' && t !== 'temporary-image') return
+      if (t !== 'image' && t !== 'temporary-image' && t !== 'video') return
       if (!this.isMarkerOnMap(m)) return
       const ll = m.getLatLng()
-      if (Math.abs(ll.lat - lat) < 0.000005 && Math.abs(ll.lng - lng) < 0.000005) {
+      if (Math.abs(ll.lat - lat) < MARKER_OVERLAP_THRESHOLD && Math.abs(ll.lng - lng) < MARKER_OVERLAP_THRESHOLD) {
         result.push(m)
       }
     })

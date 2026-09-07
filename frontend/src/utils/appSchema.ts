@@ -10,6 +10,7 @@ import type { IAppSchema, IUserInfo } from '@/type/appSchema';
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/wails/api'
 import { useAppStore } from '@/store/appSchema'
+import { SATELLITE_ROAD_OVERLAY } from '@/components/mapSelector/defaultMap'
 
 // 将用户信息保存在store中
 export async function getUserInfos() {
@@ -35,6 +36,19 @@ export async function getAppSchema() {
     const res = await API.appSchema.getAppSchema()
   if (res.code === 200) {
     const appSchema: IAppSchema = res.data
+    // 一次性叠加层种子迁移：仅当 tileOverlays 字段缺失时初始化并写入卫星默认路网，
+    // 之后（即使用户删空）不再重复填充，保证可编辑语义
+    if (!appSchema.mapInfo) {
+      appSchema.mapInfo = { mapTiles: [] }
+    }
+    if (appSchema.mapInfo.tileOverlays === undefined) {
+      appSchema.mapInfo.tileOverlays = {
+        tile_default1: [cloneDeep(SATELLITE_ROAD_OVERLAY)]
+      }
+      // 持久化种子，避免下次启动重复写入
+      appStore.setAppSchema(appSchema)
+      await saveAppSchema()
+    }
     appStore.setAppSchema(appSchema)
     const userId = localStorage.getItem('currentUserId')
     const currentUserInfo = appSchema.userInfos.find((item: IUserInfo) => {

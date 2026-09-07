@@ -16,7 +16,8 @@
           <template v-for="item in tileInfoList" :key="item.id">
             <MapTileCard :can-edit="!item?.isDefault" :active="activeTileList.includes(item.id)"
               @activeChange="tileActiveChange" class="card" :url="item.url" :name="item.name" :image="item.image"
-              :tileId="item.id" :is-default="defaultTileId === item.id"></MapTileCard>
+              :tileId="item.id" :is-default="defaultTileId === item.id"
+              :overlays="tileOverlays[item.id] || []"></MapTileCard>
           </template>
           <div class="add" @click="addMapTile">
             <AddIcon width="70"></AddIcon>
@@ -60,6 +61,12 @@ const activeTileList = computed<string[]>(() => {
 const defaultTileId = computed<string>(() => {
   const appSchemaStore = useAppStore()
   return appSchemaStore.getAppSchema?.mapInfo?.defaultTileId ?? ''
+})
+
+// tileId -> 该瓦片配置的叠加层列表（全局应用级存储）
+const tileOverlays = computed<Record<string, any[]>>(() => {
+  const appSchemaStore = useAppStore()
+  return appSchemaStore.getAppSchema?.mapInfo?.tileOverlays ?? {}
 })
 
 async function tileActiveChange(arg: any) {

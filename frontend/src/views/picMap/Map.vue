@@ -17,7 +17,9 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
+import type { PropType } from 'vue'
 import * as maplibregl from 'maplibre-gl'
+import type { ITileOverlay } from '@/type/appSchema'
 import mapService from '@/services/map'
 import { useMapStore } from '../../store/map'
 import markerService from '@/services/marker'
@@ -25,7 +27,7 @@ import { initBoxSelect } from '@/services/boxSelect'
 import { getGroupAndImageList } from '@/utils/schema'
 import { useSchemaStore } from '@/store/schema'
 import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
-import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT } from '@/utils/constant'
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT, OVERLAY_LAYER_PREFIX, OVERLAY_SOURCE_PREFIX } from '@/utils/constant'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
 import trackService from '@/services/track'
 import API from '@/wails/api'
@@ -38,6 +40,16 @@ const props = defineProps({
   tileLayer: {
     type: Object,
     default: null
+  },
+  // 当前瓦片的叠加层（路网标注等）
+  tileOverlays: {
+    type: Array as PropType<ITileOverlay[]>,
+    default: () => []
+  },
+  // 是否展示叠加层
+  showTileOverlays: {
+    type: Boolean,
+    default: false
   },
   // 图片或者组件id
   idList: {
@@ -106,6 +118,7 @@ function initMap() {
       initTile()
       initMarker()
       renderMainMapTracks()
+      syncTileOverlays()
     })
     // 监听地图 pitch 变化（鼠标旋转/手势），同步滑块显示
     map.on('pitch', () => {
@@ -142,7 +155,55 @@ function initTile() {
   map.addSource('tile', { type: 'raster', tiles: [url], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
   map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
   currentTileUrl = url
+  // 底图重新入栈后叠加层需置于其上（addLayer 默认置顶，重新加回底图会盖住叠加层）
+  syncTileOverlays()
 }
+
+// 清理所有叠加层（路网标注等）
+function clearTileOverlays() {
+  if (!map || !mapLoaded) return
+  const mapInst = map
+  let i = 0
+  while (mapInst.getLayer(`${OVERLAY_LAYER_PREFIX}${i}`) || mapInst.getSource(`${OVERLAY_SOURCE_PREFIX}${i}`)) {
+    if (mapInst.getLayer(`${OVERLAY_LAYER_PREFIX}${i}`)) mapInst.removeLayer(`${OVERLAY_LAYER_PREFIX}${i}`)
+    if (mapInst.getSource(`${OVERLAY_SOURCE_PREFIX}${i}`)) mapInst.removeSource(`${OVERLAY_SOURCE_PREFIX}${i}`)
+    i++
+  }
+}
+
+// 在底图之上渲染叠加层（raster 图层，置于 tile-layer 之上）
+function renderTileOverlays(overlays: ITileOverlay[]) {
+  if (!map || !mapLoaded) return
+  const mapInst = map
+  clearTileOverlays()
+  if (!overlays || !overlays.length) return
+  overlays.forEach((ov, i) => {
+    if (!ov?.url) return
+    const srcId = `${OVERLAY_SOURCE_PREFIX}${i}`
+    const layerId = `${OVERLAY_LAYER_PREFIX}${i}`
+    if (mapInst.getSource(srcId)) return
+    mapInst.addSource(srcId, { type: 'raster', tiles: [ov.url], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
+    mapInst.addLayer({ id: layerId, type: 'raster', source: srcId })
+  })
+}
+
+// 依据 props（叠加层列表 + 开关）同步渲染/清理叠加层
+function syncTileOverlays() {
+  if (props.showTileOverlays && props.tileOverlays?.length) {
+    renderTileOverlays(props.tileOverlays)
+  } else {
+    clearTileOverlays()
+  }
+}
+
+// 叠加层配置或开关变化时同步
+watch(
+  () => [props.tileOverlays, props.showTileOverlays],
+  () => {
+    syncTileOverlays()
+  },
+  { deep: true }
+)
 
 /**
  * @description: 初始化标记
@@ -412,6 +473,8 @@ async function init() {
 defineExpose({
   init,
   initTile,
+  renderTileOverlays,
+  clearTileOverlays,
   getMapInstance,
 })
 </script>

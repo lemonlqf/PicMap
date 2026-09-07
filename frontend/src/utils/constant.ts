@@ -45,3 +45,10 @@ export const MARKER_CONSTANT = {
 export const imageMarkerTranslateY = MARKER_CONSTANT.IMAGE_MARKER_SIZE[1]
 // 分组marker向上偏移的量
 export const groupMarkerTranslateY = MARKER_CONSTANT.GROUP_MARKER_SIZE[1]
+
+// 节点重叠判定阈值（经纬度差小于该值视为同一位置，用于点击展开蛛网）
+export const MARKER_OVERLAP_THRESHOLD = 0.000005
+
+// 瓦片叠加层图层 / 源 的 id 前缀（Map.vue 内按序号生成 overlay-layer-<i> / overlay-src-<i>）
+export const OVERLAY_LAYER_PREFIX = 'overlay-layer-'
+export const OVERLAY_SOURCE_PREFIX = 'overlay-src-'
