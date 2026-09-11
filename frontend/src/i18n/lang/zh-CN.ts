@@ -204,7 +204,12 @@ export default {
     averageTemp: '平均温度',
     unnamed: '未命名轨迹',
     showOnMainMap: '显示在主地图',
-    removeFromMap: '从地图移除'
+    removeFromMap: '从地图移除',
+    boundVideos: '关联视频',
+    videoPlay: '视频播放',
+    trackMap: '轨迹地图',
+    prevVideo: '上一个视频',
+    nextVideo: '下一个视频'
   },
 
   icon: {

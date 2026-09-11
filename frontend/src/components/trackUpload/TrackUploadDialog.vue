@@ -72,6 +72,7 @@ const props = defineProps<{
     name: string
     path: string
     durationMs?: number
+    startTimeMs?: number
   } | null
 }>()
 

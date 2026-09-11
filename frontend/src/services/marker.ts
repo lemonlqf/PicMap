@@ -627,6 +627,8 @@ class MarkerService {
     const visibleImageIds = new Set<string>()
     const currentClusterCenters = new Map<string, [number, number]>()
     const currentClusterIds = new Set<number>()
+    // 有选中集时才需要为 cluster 计算叶子 id 与选中态 class（无选中时最常见的平移/缩放帧可跳过）
+    const selectionActive = useSelectStore().getSelectedCount() > 0
 
     // 收集当前 cluster 信息
     clusters.forEach((feature: any) => {
@@ -713,12 +715,15 @@ class MarkerService {
 
       // 记录成员（用于单点离散时从中心飞散）
       const leaves = this.clusterIndex.getLeaves(clusterId, Infinity, 0) as any[]
-      const leafIds = leaves.map((leaf) => leaf.properties.id as string)
       leaves.forEach((leaf) => {
         currentClusterCenters.set(leaf.properties.id, coords)
       })
-      this.clusterLeafCache.set(clusterId, leafIds)
-      this.applyClusterSelectionState(marker, leafIds)
+      // 无选中集时跳过叶子 id 数组构造与 classList 操作（平移热路径最常见场景）
+      if (selectionActive) {
+        const leafIds = leaves.map((leaf) => leaf.properties.id as string)
+        this.clusterLeafCache.set(clusterId, leafIds)
+        this.applyClusterSelectionState(marker, leafIds)
+      }
     })
 
     // 移除残留的上次 cluster marker（未参与合并动画的）
@@ -876,12 +881,13 @@ class MarkerService {
     this.renderClusters()
     // 只对当前显示为单点的图片/视频加载缩略图/封面（聚合在 cluster 中的不加载，避免大量并发）
     const mapStore = useMapStore()
-    const visibleMarkerIdList = mapStore.getVisibleMarkerIdList
+    // 用 Set 做成员判断，避免数组 includes 导致的 O(n²)（可见单点数量大时明显）
+    const visibleMarkerIdSet = new Set(mapStore.getVisibleMarkerIdList)
     this.lastShownImageIds.forEach((imageId: string) => {
       const marker = this.getMarkerById(imageId)
-      if (!marker || visibleMarkerIdList.includes(imageId)) return
+      if (!marker || visibleMarkerIdSet.has(imageId)) return
       if (marker.options.type === 'image') {
-        this.updateImageMarker(marker)
+        this.updateImageMarker(marker, visibleMarkerIdSet)
         this.addVisibleMarkerById(imageId)
       } else if (marker.options.type === 'video') {
         // 封面加载成功后才标记为"已加载"；失败时短暂重试几次，避免拖入视口后封面迟迟不出现
@@ -907,14 +913,12 @@ class MarkerService {
     })
   }
 
-  async updateImageMarker(marker: MapMarkerAdapter) {
+  async updateImageMarker(marker: MapMarkerAdapter, visibleMarkerIdSet: Set<string>) {
     const mapStore = useMapStore()
-    const index = mapStore.getVisibleMarkerIdList.findIndex(
-      (markerId: string) => markerId === marker.options.id
-    )
+    const isVisible = visibleMarkerIdSet.has(marker.options.id)
     const isInSchema = judgeHadUploadImage(marker.options.id)
-    if (index === -1 && marker.options.iconUrl) return
-    if (index === -1 && isInSchema) {
+    if (!isVisible && marker.options.iconUrl) return
+    if (!isVisible && isInSchema) {
       const fileUrl = await getMarkerImageUrlById(marker.options.id)
       if (!fileUrl || fileUrl === '') {
         mapStore.deleteVisbleMarkerId(marker.options.id)

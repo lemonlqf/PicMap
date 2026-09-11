@@ -69,9 +69,9 @@ function handleClose() {
 }
 
 .video-play-title {
-  color: #fff;
+  color: #303133;
   font-size: 15px;
-  font-weight: 500;
+  font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -81,15 +81,15 @@ function handleClose() {
   flex-shrink: 0;
   padding: 1px 8px;
   font-size: 12px;
-  color: #bcc0c4;
-  background: rgba(255, 255, 255, 0.12);
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.12);
   border-radius: 4px;
 }
 
 .video-close-btn {
   margin-left: auto;
   font-size: 20px;
-  color: #d0d0d0;
+  color: #606266;
   cursor: pointer;
   border-radius: 6px;
   padding: 6px;
@@ -97,41 +97,45 @@ function handleClose() {
 }
 
 .video-close-btn:hover {
-  color: #fff;
-  background: rgba(255, 255, 255, 0.16);
+  color: #303133;
+  background: rgba(0, 0, 0, 0.06);
 }
 
 .video-play-body {
+  position: relative;
   width: 100%;
   height: 70vh;
-  background: #000;
-  position: relative;
+  background: radial-gradient(circle at 50% 40%, #2b2f36 0%, #14161a 100%);
   overflow: hidden;
 }
 </style>
 
 <style lang="scss">
-/* 暗色无边框弹框：覆盖 el-dialog 根元素自带的白色背景与内边距（EP 2.9+ padding 在根元素上） */
+/* 浅色毛玻璃弹框：半透明背景 + 模糊，与轨迹视频弹框风格统一（EP 2.9+ padding 在根元素上） */
 .el-dialog.video-play-dialog {
   --el-dialog-bg-color: transparent;
   --el-dialog-padding-primary: 0;
 
   z-index: 99999;
   padding: 0;
-  background: transparent;
-  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(18px) saturate(1.6);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  border-radius: 14px;
   overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
 
   .el-dialog__header {
     padding: 0;
     margin: 0;
-    background: #1f2124;
+    background: rgba(255, 255, 255, 0.5);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
   }
 
   .el-dialog__body {
     padding: 0;
-    background: #000;
+    background: transparent;
   }
 }
 </style>

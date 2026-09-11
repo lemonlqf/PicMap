@@ -5,6 +5,7 @@ import { getDefaultLineColor } from '@/utils/track'
 import { resolveIconUrl } from '@/utils/icon'
 import { useSchemaStore } from '@/store/schema'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
+import { parseGpxTimeToMs } from '@/utils/videoNode'
 
 const startIconUrl = new URL('../assets/icon/起点.png', import.meta.url).href
 const endIconUrl = new URL('../assets/icon/终点.png', import.meta.url).href
@@ -13,12 +14,40 @@ const defaultOptions = {}
 
 const TRACK_INSTANCE_GC_DELAY_MS = 2000
 
+// ---- 轨迹线与流动虚线样式 ----
+const TRACK_LINE_WIDTH = 3
+const TRACK_LINE_OPACITY = 0.8
+const TRACK_LINE_HIGHLIGHT_WIDTH = 6
+const TRACK_LINE_HIGHLIGHT_OPACITY = 0.5
+const TRACK_HIT_LINE_WIDTH = 24
+
+// ---- 流动虚线动画配置 ----
+// 逐帧循环的 line-dasharray 序列（Mapbox 官方 "Animate a line" 用法）
+// 步长越小，每次前进距离越小、流动越平缓
+const FLOW_DASH_SEQUENCE: number[][] = [
+  [0, 4, 3], [0.2, 4, 2.8], [0.4, 4, 2.6], [0.6, 4, 2.4],
+  [0.8, 4, 2.2], [1, 4, 2], [1.2, 4, 1.8], [1.4, 4, 1.6],
+  [1.6, 4, 1.4], [1.8, 4, 1.2], [2, 4, 1], [2.2, 4, 0.8],
+  [2.4, 4, 0.6], [2.6, 4, 0.4], [2.8, 4, 0.2], [3, 4, 0],
+  [0, 0.2, 3, 3.8], [0, 0.4, 3, 3.6], [0, 0.6, 3, 3.4], [0, 0.8, 3, 3.2],
+  [0, 1, 3, 3], [0, 1.2, 3, 2.8], [0, 1.4, 3, 2.6], [0, 1.6, 3, 2.4],
+  [0, 1.8, 3, 2.2], [0, 2, 3, 2], [0, 2.2, 3, 1.8], [0, 2.4, 3, 1.6],
+  [0, 2.6, 3, 1.4], [0, 2.8, 3, 1.2], [0, 3, 3, 1], [0, 3.2, 3, 0.8],
+  [0, 3.4, 3, 0.6], [0, 3.6, 3, 0.4], [0, 3.8, 3, 0.2],
+]
+// 每推进一帧间隔的帧数（越大流动越慢）
+const FLOW_FRAME_INTERVAL = 6
+const FLOW_LINE_WIDTH = 6
+const FLOW_LINE_OPACITY = 1
+
 // 轨迹渲染引用：每个地图独立的 source/layer id
 interface TrackLayerRef {
   sourceId: string
   layerId: string
   // 加宽的透明命中层（扩大可点击判定范围），与可见线层共用 source
   hitLayerId?: string
+  // 流动虚线层（仅高亮轨迹时显示，表示前进方向），与可见线层共用 source
+  flowLayerId?: string
 }
 
 /**
@@ -219,7 +248,7 @@ function parseGpxPoints(gpxText: string): GpxPoint[] {
       lat: Number(gcjLat),
       lng: Number(gcjLng),
       ele: ele ? parseFloat(ele) : null,
-      time: time ? new Date(time).getTime() : null,
+      time: time ? parseGpxTimeToMs(time) : null,
       hr: hr ? parseFloat(hr) : null,
       cadence: cad ? parseFloat(cad) : null,
       temp: temp ? parseFloat(temp) : null,
@@ -342,10 +371,14 @@ class TrackInstance {
   private startIconId: string | undefined
   private endIconId: string | undefined
   private hoverCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, event: 'enter' | 'leave') => void> = new Map()
-  private clickCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>) => void> = new Map()
+  private clickCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, e?: any) => void> = new Map()
   private contextMenuCallbacks: Map<maplibregl.Map, (trackInfo: Partial<TrackInfo>, event: any) => void> = new Map()
   private highlightedMapId: string | null = null
   private edgeMarkers: Map<maplibregl.Map, maplibregl.Marker[]> = new Map()
+  // 流动虚线动画状态（仅高亮轨迹运行）
+  private flowAnimFrame: number | null = null
+  private flowAnimStep = 0
+  private flowAnimMap: maplibregl.Map | null = null
 
   private hashTrackId(seed: string) {
     let hash = 0
@@ -362,6 +395,9 @@ class TrackInstance {
       const ref = this.layerByMap.get(map)
       if (ref && map.getLayer(ref.layerId)) {
         map.setPaintProperty(ref.layerId, 'line-color', color ?? getDefaultLineColor(true))
+      }
+      if (ref?.flowLayerId && map.getLayer(ref.flowLayerId)) {
+        map.setPaintProperty(ref.flowLayerId, 'line-color', color ?? getDefaultLineColor(true))
       }
     })
   }
@@ -430,6 +466,7 @@ class TrackInstance {
     const sourceId = `track-src-${hash}`
     const layerId = `track-layer-${hash}`
     const hitLayerId = `track-hit-${hash}`
+    const flowLayerId = `track-flow-${hash}`
     if (!map.getSource(sourceId)) {
       map.addSource(sourceId, {
         type: 'geojson',
@@ -448,8 +485,23 @@ class TrackInstance {
         source: sourceId,
         paint: {
           'line-color': this.lineColor ?? getDefaultLineColor(true),
-          'line-width': 3,
-          'line-opacity': 0.8,
+          'line-width': TRACK_LINE_WIDTH,
+          'line-opacity': TRACK_LINE_OPACITY,
+        },
+      })
+    }
+    // 流动虚线层：默认隐藏，高亮时显示表示前进方向（颜色跟随轨迹）
+    if (!map.getLayer(flowLayerId)) {
+      map.addLayer({
+        id: flowLayerId,
+        type: 'line',
+        source: sourceId,
+        layout: { visibility: 'none' },
+        paint: {
+          'line-color': this.lineColor ?? getDefaultLineColor(true),
+          'line-width': FLOW_LINE_WIDTH,
+          'line-opacity': FLOW_LINE_OPACITY,
+          'line-dasharray': FLOW_DASH_SEQUENCE[0],
         },
       })
     }
@@ -461,7 +513,7 @@ class TrackInstance {
         source: sourceId,
         paint: {
           'line-color': 'transparent',
-          'line-width': 24,
+          'line-width': TRACK_HIT_LINE_WIDTH,
           'line-opacity': 0,
         },
       }, layerId)
@@ -478,9 +530,9 @@ class TrackInstance {
       const cb = this.hoverCallbacks.get(map)
       if (cb) cb(this.getTrackInfo(), 'leave')
     })
-    map.on('click', hitLayerId, () => {
+    map.on('click', hitLayerId, (e) => {
       const cb = this.clickCallbacks.get(map)
-      if (cb) cb(this.getTrackInfo())
+      if (cb) cb(this.getTrackInfo(), e)
     })
     map.on('contextmenu', hitLayerId, (e) => {
       e.preventDefault()
@@ -497,7 +549,7 @@ class TrackInstance {
       this.pendingCallbacks.forEach((cb) => cb(this.trackInfo))
       this.pendingCallbacks = []
     }
-    return { sourceId, layerId, hitLayerId }
+    return { sourceId, layerId, hitLayerId, flowLayerId }
   }
 
   private addEdgeMarkers(map: maplibregl.Map) {
@@ -520,11 +572,11 @@ class TrackInstance {
     // 点击起终点标记时，等同点击轨迹线（触发高亮等回调）
     startEl.addEventListener('click', (e) => {
       e.stopPropagation()
-      this.triggerClickCallback(map)
+      this.triggerClickCallback(map, { lngLat: { lng: start.lng, lat: start.lat } })
     })
     endEl.addEventListener('click', (e) => {
       e.stopPropagation()
-      this.triggerClickCallback(map)
+      this.triggerClickCallback(map, { lngLat: { lng: end.lng, lat: end.lat } })
     })
     const startMarker = new maplibregl.Marker({ element: startEl, anchor: 'bottom' })
       .setLngLat(toMapLibreLngLat(start.lat, start.lng))
@@ -545,9 +597,9 @@ class TrackInstance {
   }
 
   // 触发某地图上注册的轨迹点击回调（轨迹线或起终点标记点击共用）
-  private triggerClickCallback(map: maplibregl.Map) {
+  private triggerClickCallback(map: maplibregl.Map, e?: any) {
     const cb = this.clickCallbacks.get(map)
-    if (cb) cb(this.getTrackInfo())
+    if (cb) cb(this.getTrackInfo(), e)
   }
 
   private applyEdgeIcon(marker: maplibregl.Marker, iconId: string, type: 'start' | 'end') {
@@ -620,9 +672,12 @@ class TrackInstance {
     const ref = this.layerByMap.get(map)
     if (ref) {
       if (ref.hitLayerId && map.getLayer(ref.hitLayerId)) map.removeLayer(ref.hitLayerId)
+      if (ref.flowLayerId && map.getLayer(ref.flowLayerId)) map.removeLayer(ref.flowLayerId)
       if (map.getLayer(ref.layerId)) map.removeLayer(ref.layerId)
       if (map.getSource(ref.sourceId)) map.removeSource(ref.sourceId)
     }
+    // 若正在该地图上播放流动动画，先停止
+    if (this.flowAnimMap === map) this.stopFlowAnimation()
     const markers = this.edgeMarkers.get(map)
     if (markers) {
       markers.forEach((m) => m.remove())
@@ -655,7 +710,7 @@ class TrackInstance {
     this.hoverCallbacks.set(map, callback)
   }
 
-  setClickCallback(map: maplibregl.Map, callback: (trackInfo: Partial<TrackInfo>) => void) {
+  setClickCallback(map: maplibregl.Map, callback: (trackInfo: Partial<TrackInfo>, e?: any) => void) {
     this.clickCallbacks.set(map, callback)
   }
 
@@ -673,9 +728,19 @@ class TrackInstance {
     const ref = this.layerByMap.get(map)
     if (ref && map.getLayer(ref.layerId)) {
       map.setPaintProperty(ref.layerId, 'line-color', this.lineColor ?? getDefaultLineColor(true))
-      map.setPaintProperty(ref.layerId, 'line-width', 6)
-      map.setPaintProperty(ref.layerId, 'line-opacity', 1)
+      map.setPaintProperty(ref.layerId, 'line-width', TRACK_LINE_HIGHLIGHT_WIDTH)
+      map.setPaintProperty(ref.layerId, 'line-opacity', TRACK_LINE_HIGHLIGHT_OPACITY)
       map.moveLayer(ref.layerId)
+    }
+    // 高亮时显示流动虚线并启动前进方向动画
+    if (ref?.flowLayerId && map.getLayer(ref.flowLayerId)) {
+      map.setPaintProperty(ref.flowLayerId, 'line-color', this.lineColor ?? getDefaultLineColor(true))
+      map.setPaintProperty(ref.flowLayerId, 'line-width', FLOW_LINE_WIDTH)
+      map.setPaintProperty(ref.flowLayerId, 'line-opacity', FLOW_LINE_OPACITY)
+      map.setLayoutProperty(ref.flowLayerId, 'visibility', 'visible')
+      // 流动层置于最上层，虚线覆盖在实线之上
+      map.moveLayer(ref.flowLayerId)
+      this.startFlowAnimation(map)
     }
   }
 
@@ -686,12 +751,51 @@ class TrackInstance {
       const ref = this.layerByMap.get(map)
       if (ref && map.getLayer(ref.layerId)) {
         map.setPaintProperty(ref.layerId, 'line-color', this.lineColor ?? getDefaultLineColor(true))
-        map.setPaintProperty(ref.layerId, 'line-width', 3)
-        map.setPaintProperty(ref.layerId, 'line-opacity', 0.8)
+        map.setPaintProperty(ref.layerId, 'line-width', TRACK_LINE_WIDTH)
+        map.setPaintProperty(ref.layerId, 'line-opacity', TRACK_LINE_OPACITY)
+      }
+      if (ref?.flowLayerId && map.getLayer(ref.flowLayerId)) {
+        map.setLayoutProperty(ref.flowLayerId, 'visibility', 'none')
       }
     })
+    this.stopFlowAnimation()
 
     this.highlightedMapId = null
+  }
+
+  // 启动流动虚线动画：定时推进 line-dasharray 相位，产生沿轨迹前进的流动效果
+  private startFlowAnimation(map: maplibregl.Map) {
+    this.stopFlowAnimation()
+    this.flowAnimMap = map
+    this.flowAnimStep = 0
+    const ref = this.layerByMap.get(map)
+    if (!ref?.flowLayerId) return
+    const flowLayerId = ref.flowLayerId
+    let frameCount = 0
+    const tick = () => {
+      if (!this.flowAnimMap || !map.getLayer(flowLayerId)) {
+        this.flowAnimFrame = null
+        return
+      }
+      // 每 FLOW_FRAME_INTERVAL 帧推进一格，控制流动速度
+      if (frameCount % FLOW_FRAME_INTERVAL === 0) {
+        const dash = FLOW_DASH_SEQUENCE[this.flowAnimStep % FLOW_DASH_SEQUENCE.length]
+        map.setPaintProperty(flowLayerId, 'line-dasharray', dash)
+        this.flowAnimStep++
+      }
+      frameCount++
+      this.flowAnimFrame = requestAnimationFrame(tick)
+    }
+    this.flowAnimFrame = requestAnimationFrame(tick)
+  }
+
+  // 停止流动虚线动画
+  private stopFlowAnimation() {
+    if (this.flowAnimFrame != null) {
+      cancelAnimationFrame(this.flowAnimFrame)
+      this.flowAnimFrame = null
+    }
+    this.flowAnimMap = null
   }
 
   onTrackInfoReady(callback: (trackInfo: any) => void) {

@@ -21,7 +21,10 @@
           <span class="track-label">GPX 主轨</span>
           <div class="header-right">
             <span class="track-range">{{ formatMs(trackDurationMs) }}</span>
-            <el-button size="small" type="primary" @click="addVideoDialogVisible = true">添加视频</el-button>
+            <el-button size="small" @click="addVideoDialogVisible = true">添加视频</el-button>
+            <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectAndAddLocalVideos">
+              添加本地视频
+            </el-button>
           </div>
         </div>
         <div class="timeline-legend">
@@ -55,7 +58,7 @@
             </el-button>
           </div>
           <div v-if="alignItems.length === 0" class="no-video-tip">
-            <el-empty description="该轨迹尚未关联视频，点击「添加视频」选择已上传的视频进行对齐" :image-size="60" />
+            <el-empty description="该轨迹尚未关联视频，点击「添加视频」选择已上传视频，或「添加本地视频」从磁盘选择" :image-size="60" />
           </div>
         </div>
       </div>
@@ -83,21 +86,31 @@
 
     <template #footer>
       <el-button @click="dialogVisible = false">取消</el-button>
-      <el-button type="primary" :disabled="alignItems.length === 0" @click="handleSave">保存</el-button>
+      <!-- 上传模式必须至少保留一个视频；普通模式允许清空（保存后即取消该轨迹的全部视频关联） -->
+      <el-button type="primary" :disabled="!!props.pendingVideo && alignItems.length === 0" @click="handleSave">保存</el-button>
     </template>
   </el-dialog>
 
   <!-- 添加视频弹窗 -->
   <el-dialog v-model="addVideoDialogVisible" title="添加视频到该轨迹" width="600px" append-to-body>
     <div class="add-video-content">
-      <div class="add-video-hint">选择要添加到该轨迹的已上传视频（可多选）</div>
+      <div class="add-video-hint">选择要添加到该轨迹的视频（已上传，或从本地磁盘选择）</div>
+      <div class="add-video-toolbar">
+        <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectLocalForDialog">
+          从本地选择视频
+        </el-button>
+        <span v-if="localSelecting" class="local-progress">
+          解析中 {{ localProgress.processed }}/{{ localProgress.total }}
+        </span>
+      </div>
       <el-select v-model="selectedVideoIds" multiple filterable placeholder="选择视频" style="width: 100%">
-        <el-option v-for="v in availableVideos" :key="v.id" :label="v.name" :value="v.id">
-          <span>{{ v.name }}</span>
+        <el-option v-for="v in selectableVideos" :key="v.id" :label="v.local ? `${v.name}（本地）` : v.name"
+          :value="v.id">
+          <span>{{ v.name }}<span v-if="v.local" class="opt-local">本地</span></span>
           <span class="opt-duration">{{ formatMs(v.durationMs) }}</span>
         </el-option>
       </el-select>
-      <el-empty v-if="availableVideos.length === 0" description="暂无可添加的视频（所有已上传视频都已关联到该轨迹）" :image-size="60" />
+      <el-empty v-if="selectableVideos.length === 0" description="暂无可添加的视频，可点击上方「从本地选择视频」" :image-size="60" />
     </div>
     <template #footer>
       <el-button @click="addVideoDialogVisible = false">取消</el-button>
@@ -107,18 +120,19 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, computed, watch, onUnmounted, nextTick } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as maplibregl from 'maplibre-gl'
 import { ElMessage } from 'element-plus'
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
-import { fetchTrackPoints } from '@/utils/videoNode'
+import { fetchTrackPoints, VIDEO_COLORS } from '@/utils/videoNode'
 import type { IGpxPoint } from '@/utils/videoNode'
-import { importVideo, pushVideoToSchema, associateVideoToTrack } from '@/utils/video'
+import { importVideo, pushVideoToSchema, associateVideoToTrack, videoSelectContext } from '@/utils/video'
 import { editSchemaAttrAndSave, saveSchema } from '@/utils/schema'
 import type { ITrackInfo, IVideoInfo, IVideoRef } from '@/type/schema'
+import type { ISelectedVideo } from '@/type/video'
 
 const dialogVisible = defineModel<boolean>('modelValue', { required: true })
 
@@ -135,6 +149,7 @@ const props = defineProps<{
     name: string
     path: string
     durationMs?: number
+    startTimeMs?: number
   } | null
 }>()
 
@@ -145,22 +160,19 @@ const appStore = useAppStore()
 const loading = ref(false)
 const gpxPoints = ref<IGpxPoint[]>([])
 
-// 每条视频的独立配色（时间线条带与地图弧段共用同一颜色）
-const VIDEO_COLORS = [
-  '#e6a23c', '#67c23a', '#409eff', '#f56c6c', '#909399',
-  '#9b59b6', '#1abc9c', '#e74c3c', '#3498db', '#f39c12',
-  '#2ecc71', '#16a085', '#8e44ad', '#d35400', '#c0392b',
-  '#27ae60', '#2980b9', '#f1c40f', '#e67e22', '#7f8c8d',
-]
-
 // 对齐项：video + 当前偏移文本
 interface AlignItem {
   video: IVideoInfo
   timeOffsetMs: number
   offsetText: string
   color: string
+  // 本地待导入视频的磁盘路径（未进 schema，保存时导入）
+  localPath?: string
 }
 const alignItems = ref<AlignItem[]>([])
+
+// 相对对齐的基准时刻（视频时钟与轨迹时钟基准不一致时使用，取本次打开后最早的视频起点，跨多次添加保持稳定）
+let relativeBaseMs = 0
 
 const activeVideoId = ref<string | null>(null)
 
@@ -173,6 +185,66 @@ const trackDurationMs = computed(() => {
   if (!first || !last) return 0
   return Math.max(0, last - first)
 })
+
+// 从文件名解析视频起始时刻（与后端 ParseStartTimeFromName 规则一致，作为兜底）
+// 支持 DJI_20251130121358_0033_D、20260820_171710、IMG_20260820_171710 等
+function parseNameTimeMs(name: string | undefined): number {
+  if (!name) return 0
+  const m = name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})[\s_\-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})/)
+  if (!m) return 0
+  const [, y, mo, d, h, mi, s] = m
+  const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s))
+  const ms = date.getTime()
+  return isNaN(ms) ? 0 : ms
+}
+
+// 视频起始绝对时刻（优先用文件解析值，缺失时用文件名解析兜底）
+function videoStartMs(video: IVideoInfo | undefined): number {
+  return video?.startTimeMs || parseNameTimeMs(video?.name) || 0
+}
+
+/**
+ * @description: 为一组新增视频自动分配偏移。
+ * 正常情况按"视频起点 - GPX 起点"绝对对齐；若所有视频都早于 GPX 起点（视频与轨迹时钟基准不一致，
+ * 常见于无人机时区/时钟未校准），则退化为以最早视频为 0 点、按视频彼此间隔排布，保证相对位置正确。
+ */
+function assignAutoOffsets(items: AlignItem[]) {
+  if (items.length === 0) return
+  const gpxStart = gpxPoints.value[0]?.timeMs || 0
+  const starts = items.map(i => videoStartMs(i.video))
+  const hasStart = starts.map(s => s > 0)
+  const absOffsets = starts.map(s => (gpxStart && s > 0) ? s - gpxStart : 0)
+
+  const allKnown = hasStart.every(Boolean)
+  const allBeforeTrack = allKnown && absOffsets.every(o => o <= 0)
+
+  let offsets: number[]
+  if (allBeforeTrack) {
+    // 时钟基准不一致：以最早视频为基准做相对对齐；基准跨多次添加保持稳定
+    const minStart = Math.min(...starts.filter(s => s > 0))
+    if (!relativeBaseMs) relativeBaseMs = minStart
+    offsets = starts.map(s => (s > 0 ? Math.max(0, s - relativeBaseMs) : 0))
+  } else {
+    offsets = absOffsets.map(o => Math.max(0, o))
+  }
+
+  const toText = (ms: number) => (ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-')
+  console.log('[TrackVideoAlign] assignAutoOffsets', {
+    mode: allBeforeTrack ? 'relative(相对最早视频)' : 'absolute(相对GPX起点)',
+    gpxStartText: toText(gpxStart),
+    items: items.map((item, i) => ({
+      id: item.video.id,
+      videoStartText: toText(starts[i]),
+      rawOffsetMin: (absOffsets[i] / 60000).toFixed(1),
+      offsetMin: (offsets[i] / 60000).toFixed(1),
+    })),
+  })
+
+  items.forEach((item, i) => {
+    item.timeOffsetMs = offsets[i]
+    item.offsetText = msToHhmmss(offsets[i])
+  })
+}
 
 function loadTrackVideos(): AlignItem[] {
   const schema = schemaStore.getSchema
@@ -200,7 +272,49 @@ function loadTrackVideos(): AlignItem[] {
 const addVideoDialogVisible = ref(false)
 const selectedVideoIds = ref<string[]>([])
 
-// 可添加的视频：所有已导入视频中尚未关联到该轨迹的
+// 本地磁盘选择解析出来的视频（尚未导入 schema）
+const localVideos = ref<ISelectedVideo[]>([])
+const localSelecting = ref(false)
+const localProgress = ref({ processed: 0, total: 0 })
+// 直接添加模式：从主弹窗「添加本地视频」入口选择后，解析完成自动加入对齐列表
+const addLocalDirectly = ref(false)
+
+// 把当前本地解析结果加入对齐列表（跳过已在列表中的）
+function addLocalVideosToAlign() {
+  const added: AlignItem[] = []
+  localVideos.value.forEach(v => {
+    if (alignItems.value.find(i => i.video.id === v.id)) return
+    console.log('[TrackVideoAlign] addLocalVideo raw', v)
+    const video = { id: v.id, name: v.name, durationMs: v.durationMs, startTimeMs: v.startTimeMs } as IVideoInfo
+    const item: AlignItem = {
+      video,
+      timeOffsetMs: 0,
+      offsetText: msToHhmmss(0),
+      color: VIDEO_COLORS[alignItems.value.length % VIDEO_COLORS.length],
+      localPath: v.path,
+    }
+    alignItems.value.push(item)
+    added.push(item)
+  })
+  assignAutoOffsets(added)
+  if (!activeVideoId.value && alignItems.value.length > 0) {
+    activeVideoId.value = alignItems.value[0].video.id
+  }
+}
+
+// 主弹窗「添加本地视频」：选择后直接加入对齐列表
+function selectAndAddLocalVideos() {
+  addLocalDirectly.value = true
+  selectLocalVideos()
+}
+
+// 添加视频弹窗内「从本地选择视频」：仅收集到列表，待用户确认后加入
+function selectLocalForDialog() {
+  addLocalDirectly.value = false
+  selectLocalVideos()
+}
+
+// 可添加的已上传视频：所有已导入视频中尚未关联到该轨迹的
 const availableVideos = computed(() => {
   const schema = schemaStore.getSchema
   const track: ITrackInfo | undefined = schema.trackInfo?.find(t => t.id === props.trackId)
@@ -208,27 +322,98 @@ const availableVideos = computed(() => {
   return (schema.videoInfo || []).filter(v => !linkedIds.has(v.id))
 })
 
+// 本地视频中尚未进 schema、且未在已上传列表出现的项
+const localOnlyVideos = computed(() => {
+  const uploadedIds = new Set((schemaStore.getSchema.videoInfo || []).map(v => v.id))
+  const availableIds = new Set(availableVideos.value.map(v => v.id))
+  return localVideos.value.filter(v => !uploadedIds.has(v.id) && !availableIds.has(v.id))
+})
+
+// 下拉可选列表：已上传视频 + 本地待导入视频（本地项标记 local）
+interface SelectableVideo {
+  id: string
+  name: string
+  durationMs?: number
+  local: boolean
+}
+const selectableVideos = computed<SelectableVideo[]>(() => [
+  ...availableVideos.value.map(v => ({ id: v.id, name: v.name || v.id, durationMs: v.durationMs, local: false })),
+  ...localOnlyVideos.value.map(v => ({ id: v.id, name: v.name, durationMs: v.durationMs, local: true })),
+])
+
+// 打开本地文件选择框（复用后端 SelectVideos + 解析事件）
+async function selectLocalVideos() {
+  localSelecting.value = true
+  localProgress.value = { processed: 0, total: 0 }
+  videoSelectContext.owner = 'alignDialog'
+  try {
+    const res = await API.video.selectVideos()
+    if (res.code !== 200) {
+      localSelecting.value = false
+      videoSelectContext.owner = ''
+      ElMessage.error(res.msg || '选择视频失败')
+      return
+    }
+    const total = res.data?.total ?? 0
+    localProgress.value = { processed: 0, total }
+    // 取消选择框时不会触发 videos-done 事件，需手动结束加载态
+    if (total === 0) {
+      localSelecting.value = false
+      videoSelectContext.owner = ''
+      addLocalDirectly.value = false
+    }
+  } catch (e) {
+    console.error('选择视频失败', e)
+    localSelecting.value = false
+    videoSelectContext.owner = ''
+    addLocalDirectly.value = false
+    ElMessage.error('选择视频失败')
+  }
+}
+
 function confirmAddVideos() {
-  const schema = schemaStore.getSchema
-  const videoMap = new Map<string, IVideoInfo>()
-  ;(schema.videoInfo || []).forEach(v => videoMap.set(v.id, v))
+  const localMap = new Map(localOnlyVideos.value.map(v => [v.id, v]))
   const toAdd = selectedVideoIds.value
-    .map(id => videoMap.get(id))
-    .filter((v): v is IVideoInfo => !!v)
+    .map(id => {
+      const uploaded = availableVideos.value.find(v => v.id === id)
+      if (uploaded) {
+        return { video: uploaded as IVideoInfo, localPath: undefined as string | undefined }
+      }
+      const local = localMap.get(id)
+      if (local) {
+        return {
+          video: { id: local.id, name: local.name, durationMs: local.durationMs, startTimeMs: local.startTimeMs } as IVideoInfo,
+          localPath: local.path as string | undefined,
+        }
+      }
+      return null
+    })
+    .filter((v): v is { video: IVideoInfo; localPath: string | undefined } => !!v)
   if (toAdd.length === 0) {
     addVideoDialogVisible.value = false
     return
   }
-  toAdd.forEach(v => {
-    if (!alignItems.value.find(i => i.video.id === v.id)) {
-      alignItems.value.push({
-        video: v,
+  console.log('[TrackVideoAlign] confirmAddVideos', toAdd.map(t => ({
+    id: t.video.id,
+    name: t.video.name,
+    startTimeMs: t.video.startTimeMs,
+    localPath: t.localPath,
+  })))
+  const added: AlignItem[] = []
+  toAdd.forEach(({ video, localPath }) => {
+    if (!alignItems.value.find(i => i.video.id === video.id)) {
+      const item: AlignItem = {
+        video,
         timeOffsetMs: 0,
         offsetText: msToHhmmss(0),
         color: VIDEO_COLORS[alignItems.value.length % VIDEO_COLORS.length],
-      })
+        localPath,
+      }
+      alignItems.value.push(item)
+      added.push(item)
     }
   })
+  assignAutoOffsets(added)
   if (!activeVideoId.value && alignItems.value.length > 0) {
     activeVideoId.value = alignItems.value[0].video.id
   }
@@ -249,18 +434,37 @@ async function loadData() {
   loading.value = true
   alignItems.value = []
   activeVideoId.value = null
+  localVideos.value = []
+  localSelecting.value = false
+  localProgress.value = { processed: 0, total: 0 }
+  addLocalDirectly.value = false
+  relativeBaseMs = 0
   try {
     const pts = await fetchTrackPoints(props.trackId)
     gpxPoints.value = pts || []
+    console.log('[TrackVideoAlign] loadData gpx', {
+      trackId: props.trackId,
+      count: gpxPoints.value.length,
+      firstTimeMs: gpxPoints.value[0]?.timeMs,
+      lastTimeMs: gpxPoints.value[gpxPoints.value.length - 1]?.timeMs,
+    })
     if (gpxPoints.value.length >= 2) {
       if (props.pendingVideo) {
         // 上传模式：以该待上传视频为唯一对齐项
-        alignItems.value = [{
-          video: { id: props.pendingVideo.id, name: props.pendingVideo.name, durationMs: props.pendingVideo.durationMs },
+        const pendingVideoInfo = {
+          id: props.pendingVideo.id,
+          name: props.pendingVideo.name,
+          durationMs: props.pendingVideo.durationMs,
+          startTimeMs: props.pendingVideo.startTimeMs,
+        } as IVideoInfo
+        const item: AlignItem = {
+          video: pendingVideoInfo,
           timeOffsetMs: 0,
           offsetText: msToHhmmss(0),
           color: VIDEO_COLORS[0],
-        }]
+        }
+        alignItems.value = [item]
+        assignAutoOffsets([item])
         activeVideoId.value = props.pendingVideo.id
       } else {
         alignItems.value = loadTrackVideos()
@@ -286,11 +490,42 @@ watch(dialogVisible, (val) => {
     loadData()
   } else {
     destroyPreviewMap()
+    // 关闭弹窗时释放本地选择上下文，避免上传面板持续忽略解析事件
+    if (videoSelectContext.owner === 'alignDialog') videoSelectContext.owner = ''
   }
+})
+
+// 监听"从本地选择视频"的后端解析事件（仅在本弹窗主动选择时消费）
+onMounted(() => {
+  API.video.onVideosParsed((payload: any) => {
+    if (!localSelecting.value) return
+    const videos: ISelectedVideo[] = payload?.videos ?? []
+    videos.forEach(v => {
+      if (!localVideos.value.find(item => item.id === v.id)) {
+        localVideos.value.push(v)
+      }
+    })
+  })
+  API.video.onVideosProgress((payload: any) => {
+    if (!localSelecting.value) return
+    localProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
+  })
+  API.video.onVideosDone(() => {
+    if (!localSelecting.value) return
+    localSelecting.value = false
+    videoSelectContext.owner = ''
+    // 主弹窗入口：解析完成后直接加入对齐列表
+    if (addLocalDirectly.value) {
+      addLocalVideosToAlign()
+      addLocalDirectly.value = false
+    }
+  })
 })
 
 onUnmounted(() => {
   destroyPreviewMap()
+  // 若正在本地选择中卸载，释放选择上下文（事件监听由 UploadPanel 统一清理）
+  if (videoSelectContext.owner === 'alignDialog') videoSelectContext.owner = ''
 })
 
 // ---- 时间线条带样式 ----
@@ -614,10 +849,23 @@ async function handleSave() {
   // 更新 trackInfo.videos（权威来源）
   const trackInfoList = [...(schema.trackInfo || [])]
   const trackIndex = trackInfoList.findIndex(t => t.id === props.trackId)
-  const refs: IVideoRef[] = alignItems.value.map(item => ({
-    videoId: item.video.id,
-    timeOffsetMs: item.timeOffsetMs,
-  }))
+  const refs: IVideoRef[] = []
+  // 本地选择的视频需先导入到用户目录并写入 schema.videoInfo
+  for (const item of alignItems.value) {
+    let videoId = item.video.id
+    if (item.localPath) {
+      const vi = await importVideo({ id: item.video.id, name: item.video.name || '', path: item.localPath })
+      if (!vi) {
+        ElMessage.error(`视频「${item.video.name || item.video.id}」导入失败`)
+        return
+      }
+      pushVideoToSchema(vi)
+      videoId = vi.id
+      item.video = vi
+      item.localPath = undefined
+    }
+    refs.push({ videoId, timeOffsetMs: item.timeOffsetMs })
+  }
   trackInfoList[trackIndex] = { ...trackInfoList[trackIndex], videos: refs }
 
   await editSchemaAttrAndSave('trackInfo', trackInfoList)
@@ -662,7 +910,7 @@ function formatMs(ms: number | undefined): string {
 .align-content {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 10px;
 }
 
 .align-loading {
@@ -716,6 +964,9 @@ function formatMs(ms: number | undefined): string {
   background: #fafafa;
   padding: 8px;
   min-height: 60px;
+  /* 轨道区最高 200px，超出滚动显示 */
+  max-height: 200px;
+  overflow-y: auto;
 }
 
 .track-scale {
@@ -839,7 +1090,7 @@ function formatMs(ms: number | undefined): string {
 
 .preview-map {
   width: 100%;
-  height: 36vh;
+  height: 26vh;
   border-radius: 6px;
   overflow: hidden;
 }
@@ -889,7 +1140,28 @@ function formatMs(ms: number | undefined): string {
 .add-video-hint {
   font-size: 12px;
   color: #909399;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
+}
+
+.add-video-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.local-progress {
+  font-size: 12px;
+  color: #909399;
+}
+
+.opt-local {
+  margin-left: 6px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.12);
+  border-radius: 3px;
 }
 
 .opt-duration {

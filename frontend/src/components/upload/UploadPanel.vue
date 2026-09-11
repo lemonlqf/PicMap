@@ -176,7 +176,7 @@ import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import { saveSchema } from '@/utils/schema'
 import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById } from '@/utils/Image'
-import { pushVideoToSchema, getVideoFramePreviewUrl, getVideoThumbnailUrl } from '@/utils/video'
+import { pushVideoToSchema, getVideoFramePreviewUrl, getVideoThumbnailUrl, videoSelectContext } from '@/utils/video'
 import LocateDialog from '@/components/imgUpload/LocateDialog.vue'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
@@ -466,17 +466,26 @@ async function previewImage(item: any) {
 
 async function selectVideos() {
   videoParsing.value = true
+  videoSelectContext.owner = 'uploadPanel'
   try {
     const res = await API.video.selectVideos()
     if (res.code !== 200) {
       videoParsing.value = false
+      videoSelectContext.owner = ''
       ElMessage.error(res.msg || '选择视频失败')
       return
     }
-    videoProgress.value = { processed: 0, total: res.data?.total ?? 0 }
+    const total = res.data?.total ?? 0
+    videoProgress.value = { processed: 0, total }
+    // 未选择任何视频（取消选择框）时不会触发 videos-done 事件，需在此手动结束加载态
+    if (total === 0) {
+      videoParsing.value = false
+      videoSelectContext.owner = ''
+    }
   } catch (e) {
     console.error('选择视频失败', e)
     videoParsing.value = false
+    videoSelectContext.owner = ''
     ElMessage.error('选择视频失败')
   }
 }
@@ -569,36 +578,12 @@ async function handleImport(video: ISelectedVideo) {
   }
   importingMap.value[video.id] = true
   try {
-    const res = await API.video.importVideo({ id: video.id, name: video.name, path: video.path })
-    if (res.code !== 200) {
-      ElMessage.error(res.msg || '导入失败')
+    const vi = await doImportVideo(video)
+    if (!vi) {
+      ElMessage.error('导入失败')
       return
     }
-    const vi: IVideoInfo = res.data
-    // 透传用户在导入前标记的全景类型
-    vi.isPanorama = video.isPanorama
-    if (manualGps) {
-      vi.GPSLatitude = manualGps.lat
-      vi.GPSLongitude = manualGps.lng
-    }
-    pushVideoToSchema(vi)
-    // 同步到内存中的已上传视频 id（与图片已上传判断逻辑一致）
-    schemaStore.pushVideoToUploadedVideoIds(vi.id)
     await saveSchema()
-
-    const tempMarker = markerService.getMarkerById(vi.id)
-    if (tempMarker && tempMarker.options.type === 'temporary-video') {
-      markerService.deleteMarkerInMap(tempMarker)
-    }
-
-    if (vi.GPSLatitude && vi.GPSLongitude) {
-      await markerService.addVideoMarkerToMap(vi)
-    }
-    // 视频参与聚合后需重建渲染以放置节点（原先直接 addTo 即可，现在由 renderClusters 决定是否聚合）
-    markerService.updateVisibleMarkers()
-    video.imported = true
-    // 导入后加载已上传封面（用户目录按 videoId 提取）
-    loadUploadedVideoCover(vi)
     ElMessage.success('导入成功')
   } catch (e) {
     console.error('导入失败', e)
@@ -606,6 +591,43 @@ async function handleImport(video: ISelectedVideo) {
   } finally {
     importingMap.value[video.id] = false
   }
+}
+
+/**
+ * @description: 视频导入核心逻辑（共享单条与批量）。
+ * 只做导入 + 内存 schema 更新 + 地图节点更新，不做 saveSchema（由调用方统一攒批保存，避免批量时重复全量写盘）
+ * @return {IVideoInfo | null} 导入成功返回 VideoInfo，否则返回 null（不弹窗）
+ */
+async function doImportVideo(video: ISelectedVideo): Promise<IVideoInfo | null> {
+  const manualGps = manualGpsMap.value[video.id]
+  if (!video.hasGpsData && !manualGps) return null
+  const res = await API.video.importVideo({ id: video.id, name: video.name, path: video.path })
+  if (res.code !== 200) return null
+  const vi: IVideoInfo = res.data
+  // 透传用户在导入前标记的全景类型
+  vi.isPanorama = video.isPanorama
+  if (manualGps) {
+    vi.GPSLatitude = manualGps.lat
+    vi.GPSLongitude = manualGps.lng
+  }
+  pushVideoToSchema(vi)
+  // 同步到内存中的已上传视频 id（与图片已上传判断逻辑一致）
+  schemaStore.pushVideoToUploadedVideoIds(vi.id)
+
+  const tempMarker = markerService.getMarkerById(vi.id)
+  if (tempMarker && tempMarker.options.type === 'temporary-video') {
+    markerService.deleteMarkerInMap(tempMarker)
+  }
+
+  if (vi.GPSLatitude && vi.GPSLongitude) {
+    await markerService.addVideoMarkerToMap(vi)
+  }
+  // 视频参与聚合后需重建渲染以放置节点（原先直接 addTo 即可，现在由 renderClusters 决定是否聚合）
+  markerService.updateVisibleMarkers()
+  video.imported = true
+  // 导入后加载已上传封面（用户目录按 videoId 提取）
+  loadUploadedVideoCover(vi)
+  return vi
 }
 
 function handleRemoveVideo(videoId: string) {
@@ -627,40 +649,14 @@ function toggleVideoPanorama(video: ISelectedVideo) {
 // ---- 批量操作（覆盖待上传的图片 + 视频） ----
 
 /**
- * @description: 单条视频导入核心逻辑（成功不弹窗，供单个与批量共用）
+ * @description: 单条视频导入（成功不弹窗，供批量使用）。内部复用 doImportVideo，不做 saveSchema（由批量统一攒批保存）
  * @return {*} 是否导入成功
  */
 async function importVideoItem(video: ISelectedVideo): Promise<boolean> {
-  const manualGps = manualGpsMap.value[video.id]
-  if (!video.hasGpsData && !manualGps) return false
   importingMap.value[video.id] = true
   try {
-    const res = await API.video.importVideo({ id: video.id, name: video.name, path: video.path })
-    if (res.code !== 200) return false
-    const vi: IVideoInfo = res.data
-    // 透传用户在导入前标记的全景类型
-    vi.isPanorama = video.isPanorama
-    if (manualGps) {
-      vi.GPSLatitude = manualGps.lat
-      vi.GPSLongitude = manualGps.lng
-    }
-    pushVideoToSchema(vi)
-    schemaStore.pushVideoToUploadedVideoIds(vi.id)
-    await saveSchema()
-
-    const tempMarker = markerService.getMarkerById(vi.id)
-    if (tempMarker && tempMarker.options.type === 'temporary-video') {
-      markerService.deleteMarkerInMap(tempMarker)
-    }
-
-    if (vi.GPSLatitude && vi.GPSLongitude) {
-      await markerService.addVideoMarkerToMap(vi)
-    }
-    // 视频参与聚合后需重建渲染以放置节点
-    markerService.updateVisibleMarkers()
-    video.imported = true
-    loadUploadedVideoCover(vi)
-    return true
+    const vi = await doImportVideo(video)
+    return vi !== null
   } catch (e) {
     console.error('导入失败', e)
     return false
@@ -693,13 +689,18 @@ async function handleBatchUploadAll() {
       await UploadImages(locateImages, onProgress)
       await saveSchema()
     }
-    // 2. 批量导入视频
+    // 2. 批量导入视频：导入文件为本地磁盘复制 + ffmpeg 探测，串行执行以规避并发复制/探测对同一磁盘与 CPU 的争抢；
+    //    内存 schema 变更逐条攒批，最后统一写一次 schema，避免批量时重复全量写盘
+    let successCount = 0
     for (const video of locateVideos) {
-      await importVideoItem(video)
+      if (await importVideoItem(video)) successCount++
     }
-    await saveSchema()
+    if (locateVideos.length > 0) await saveSchema()
     emit('uploadSuccess')
-    ElMessage.success(t('description.pictureUploadedSuccess'))
+    const allOk = successCount === locateVideos.length
+    ElMessage.success(allOk
+      ? t('description.pictureUploadedSuccess')
+      : t('description.somePictureUploadedSuccess'))
   } finally {
     imageUploading.value = false
     videoImporting.value = false
@@ -757,11 +758,19 @@ onMounted(() => {
   })
   API.image.onImagesDone(() => { imageParsing.value = false })
 
-  API.video.onVideosParsed((payload: any) => handleVideoParsedBatch(payload?.videos ?? []))
+  API.video.onVideosParsed((payload: any) => {
+    if (videoSelectContext.owner === 'alignDialog') return
+    handleVideoParsedBatch(payload?.videos ?? [])
+  })
   API.video.onVideosProgress((payload: any) => {
+    if (videoSelectContext.owner === 'alignDialog') return
     videoProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
   })
-  API.video.onVideosDone(() => { videoParsing.value = false })
+  API.video.onVideosDone(() => {
+    if (videoSelectContext.owner === 'alignDialog') return
+    videoParsing.value = false
+    videoSelectContext.owner = ''
+  })
 })
 
 onUnmounted(() => {

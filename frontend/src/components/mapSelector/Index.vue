@@ -146,6 +146,18 @@ watch([currentTileId, hasOverlay], () => {
   syncOverlayForCurrentTile()
 }, { immediate: true })
 
+// schema 异步加载/持久化后，开关状态要以持久化值为准重新同步，
+// 避免 MapSelector 在 schema 加载前先读默认值（true）导致刷新后状态未恢复
+watch(
+  () => {
+    const schemaStore = useSchemaStore()
+    return schemaStore.getSchema?.mapInfo?.overlayVisible
+  },
+  () => {
+    syncOverlayForCurrentTile()
+  }
+)
+
 function changeMapTile(item) {
   value.value = item
   currentName.value = item.name

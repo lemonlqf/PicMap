@@ -205,7 +205,12 @@ export default {
     averageTemp: 'Average Temp',
     unnamed: 'Unnamed Track',
     showOnMainMap: 'Show on main map',
-    removeFromMap: 'Remove from map'
+    removeFromMap: 'Remove from map',
+    boundVideos: 'Linked Videos',
+    videoPlay: 'Video Play',
+    trackMap: 'Track Map',
+    prevVideo: 'Previous video',
+    nextVideo: 'Next video'
   },
 
   icon: {

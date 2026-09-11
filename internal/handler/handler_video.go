@@ -258,9 +258,9 @@ func (h *Handler) GetVideoRange(userId, videoId string, start, end int64) model.
 	}
 	defer f.Close()
 
-	// 限制单次最大读取，避免内存过大
-	if end-start > 4*1024*1024 {
-		end = start + 4*1024*1024
+	// 限制单次最大读取，避免内存过大（8MB，减少分块请求次数）
+	if end-start > 8*1024*1024 {
+		end = start + 8*1024*1024
 	}
 
 	_, err = f.Seek(start, io.SeekStart)

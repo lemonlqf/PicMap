@@ -11,6 +11,10 @@ import { ElMessage } from 'element-plus'
 import type { ISelectedVideo, IImportVideoFile } from '@/type/video'
 import type { IVideoInfo } from '@/type/schema'
 
+// 共享的"选择视频"上下文：同一时刻只有一个入口消费后端解析事件。
+// 轨迹对齐弹窗内从本地选择视频时置为 'alignDialog'，避免上传面板同时把该批视频加入待上传列表。
+export const videoSelectContext = { owner: '' as '' | 'uploadPanel' | 'alignDialog' }
+
 // 视频封面缓存（videoId -> data URL），in-flight 去重
 const videoCoverMap = new Map<string, string>()
 const pendingCoverMap = new Map<string, Promise<string>>()

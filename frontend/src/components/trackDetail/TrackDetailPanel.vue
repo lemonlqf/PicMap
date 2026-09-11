@@ -13,8 +13,9 @@
         <TrackDetailHeader
           :track-list="trackList"
           :current-track-id="currentTrackId"
+          :current-videos="currentVideos"
           @close="handleClose"
-          @track-change="handleTrackChange"
+          @video-focus="handleVideoFocus"
         />
 
         <div class="panel-body">
@@ -47,8 +48,11 @@ import { useI18n } from 'vue-i18n'
 import TrackDetailHeader from './components/TrackDetailHeader.vue'
 import TrackBasicInfo from './components/TrackBasicInfo.vue'
 import TrackInfoSection from './components/TrackInfoSection.vue'
+import { useSchemaStore } from '@/store/schema'
+import { getVideoColor } from '@/utils/videoNode'
 
 const { t } = useI18n()
+const schemaStore = useSchemaStore()
 
 interface TrackInfo {
   id?: string
@@ -73,22 +77,40 @@ interface TrackInfo {
 
 const props = defineProps<{
   visible: boolean
-  trackList: TrackInfo[]
+  trackList: (TrackInfo & { instanceId: string })[]
   currentTrackId: string
   trackInfo: TrackInfo | null
 }>()
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
-  (e: 'track-change', trackId: string): void
+  (e: 'video-focus', videoId: string, instanceId: string): void
 }>()
+
+// 当前轨迹绑定的视频列表（来自 schema.trackInfo[].videos，名称取自 schema.videoInfo）
+const currentVideos = computed(() => {
+  const trackId = (props.trackInfo as any)?.id
+  if (!trackId) return []
+  const normalize = (id: string) => String(id).replace(/\.gpx$/i, '').toLowerCase()
+  const track = (schemaStore.getSchema.trackInfo || []).find(
+    (item: any) => normalize(item.id) === normalize(trackId)
+  )
+  const videoInfoList = schemaStore.getSchema.videoInfo || []
+  return (track?.videos || []).map((ref, idx) => ({
+    videoId: ref.videoId,
+    name: videoInfoList.find((v) => v.id === ref.videoId)?.name || ref.videoId,
+    instanceId: props.currentTrackId,
+    trackId: track?.id,
+    color: getVideoColor(idx),
+  }))
+})
+
+function handleVideoFocus(videoId: string, instanceId: string) {
+  emit('video-focus', videoId, instanceId)
+}
 
 function handleClose() {
   emit('update:visible', false)
-}
-
-function handleTrackChange(trackId: string) {
-  emit('track-change', trackId)
 }
 
 function formatSpeed(speed?: number): string {

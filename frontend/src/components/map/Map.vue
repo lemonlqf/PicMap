@@ -25,7 +25,8 @@
     <!-- 详情卡片（全屏时显示） -->
     <TrackDetailPanel v-if="isFullscreen" :visible="detailPanelVisible" :trackList="detailPanelTrackList"
       :currentTrackId="detailPanelTrackId" :trackInfo="detailPanelTrackInfo"
-      @update:visible="detailPanelVisible = $event" @track-change="handleTrackChange" />
+      @update:visible="detailPanelVisible = $event"
+      @video-focus="handleVideoFocus" />
   </div>
 </template>
 
@@ -45,6 +46,8 @@ import { getDefaultMapTile } from '@/components/mapSelector/defaultMap';
 import trackService from '@/services/track';
 import mapService from '@/services/map';
 import API from '@/wails/api';
+import { fetchTrackPoints, extractSegmentCoords, getVideoColor, resolveVideoSegmentAtPoint, VIDEO_SEG_LINE_WIDTH, VIDEO_SEG_LINE_OPACITY } from '@/utils/videoNode'
+import eventBus from '@/utils/eventBus'
 import TrackHoverCard from '@/components/trackHoverCard/TrackHoverCard.vue';
 import TrackDetailPanel from '@/components/trackDetail/TrackDetailPanel.vue';
 
@@ -114,7 +117,106 @@ function handleTrackChange(instanceId: string) {
     }
     detailPanelTrackId.value = instanceId
     detailPanelTrackInfo.value = track
+    const bounds = track.instance?.getBounds?.()
+    if (map && bounds) {
+      map.fitBounds(bounds as any, { padding: 60, duration: 500 })
+    }
   }
+}
+
+/**
+ * @description: 点击轨迹绑定视频 → 聚焦并高亮其所属轨迹（聚焦到视频在轨迹上对应的弧段，与"对齐视频"效果一致）
+ * @param {string} videoId - 视频ID
+ * @param {string} instanceId - 视频所属轨迹的实例ID
+ * @return {*}
+ */
+async function handleVideoFocus(videoId: string, instanceId: string) {
+  handleTrackChange(instanceId)
+  if (!map) return
+  // 优先从轨迹列表取，找不到时回退到当前详情面板的轨迹信息（异步加载的轨迹可能不在列表里）
+  const track =
+    detailPanelTrackList.value.find(t => t.instanceId === instanceId) ??
+    (detailPanelTrackInfo.value?.instanceId === instanceId ? detailPanelTrackInfo.value : undefined)
+  const trackId = track?.id
+  if (!trackId) return
+  const gpx = await fetchTrackPoints(trackId)
+  const trackSchema = (schemaStore.getSchema.trackInfo || []).find(
+    (t: any) => normalizeTrackId(t.id) === normalizeTrackId(trackId)
+  )
+  const videos = trackSchema?.videos || []
+  const refIndex = videos.findIndex((v: any) => v.videoId === videoId)
+  const ref = refIndex >= 0 ? videos[refIndex] : undefined
+  const durationMs = (schemaStore.getSchema.videoInfo || []).find((v) => v.id === videoId)?.durationMs || 0
+  const segCoords = extractSegmentCoords(gpx || [], ref?.timeOffsetMs ?? 0, durationMs)
+  if (segCoords.length >= 2) {
+    drawVideoSegmentHighlight(getVideoColor(refIndex), segCoords)
+    map.fitBounds(
+      segCoords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(segCoords[0], segCoords[0])) as any,
+      { padding: 60, duration: 500, maxZoom: 17 }
+    )
+    eventBus.emit('video-tag-scroll-to', { trackId, videoId })
+  }
+}
+
+/**
+ * @description: 根据点击位置判断命中的视频弧段，高亮并滚动对应视频标签到可视区
+ * @param {string} trackId - 轨迹 ID
+ * @param {{lng:number,lat:number}} lngLat - 点击位置（GCJ02）
+ */
+async function focusVideoSegmentAtPoint(trackId: string, lngLat: { lng: number; lat: number }) {
+  const trackSchema = (schemaStore.getSchema.trackInfo || []).find(
+    (t: any) => normalizeTrackId(t.id) === normalizeTrackId(trackId)
+  )
+  const videos = trackSchema?.videos || []
+  if (videos.length === 0) return
+  const gpx = await fetchTrackPoints(trackId)
+  const hit = resolveVideoSegmentAtPoint(
+    gpx || [],
+    videos,
+    schemaStore.getSchema.videoInfo || [],
+    lngLat
+  )
+  if (!hit) return
+  drawVideoSegmentHighlight(hit.color, hit.segCoords)
+  eventBus.emit('video-tag-scroll-to', { trackId, videoId: hit.videoId })
+}
+
+// 视频弧段高亮图层固定 id（与对齐视频界面配色一致）；加 fullscreen 前缀避免与主地图同名冲突
+const VIDEO_SEG_SOURCE = 'video-seg-highlight-source-fullscreen'
+const VIDEO_SEG_LAYER = 'video-seg-highlight-layer-fullscreen'
+
+/**
+ * @description: 在地图上用指定颜色高亮绘制视频对应的弧段（覆盖上一次的高亮）
+ * @param {string} color - 视频配色（与对齐视频界面一致）
+ * @param {[number, number][]} coords - GCJ02 弧段坐标
+ */
+function drawVideoSegmentHighlight(color: string, coords: [number, number][]) {
+  if (!map) return
+  if (map.getLayer(VIDEO_SEG_LAYER)) map.removeLayer(VIDEO_SEG_LAYER)
+  if (map.getSource(VIDEO_SEG_SOURCE)) map.removeSource(VIDEO_SEG_SOURCE)
+  map.addSource(VIDEO_SEG_SOURCE, {
+    type: 'geojson',
+    data: {
+      type: 'Feature',
+      properties: {},
+      geometry: { type: 'LineString', coordinates: coords },
+    },
+  })
+  map.addLayer({
+    id: VIDEO_SEG_LAYER,
+    type: 'line',
+    source: VIDEO_SEG_SOURCE,
+    paint: { 'line-color': color, 'line-width': VIDEO_SEG_LINE_WIDTH, 'line-opacity': VIDEO_SEG_LINE_OPACITY },
+  })
+}
+
+/**
+ * @description: 清除视频弧段高亮图层
+ */
+function clearVideoSegmentHighlight() {
+  if (!map) return
+  if (map.getLayer(VIDEO_SEG_LAYER)) map.removeLayer(VIDEO_SEG_LAYER)
+  if (map.getSource(VIDEO_SEG_SOURCE)) map.removeSource(VIDEO_SEG_SOURCE)
 }
 
 function afterResizeTransition(callback: () => void) {
@@ -464,7 +566,7 @@ async function updateTracks() {
         }
       })
 
-      instance.setClickCallback(map, (info: any) => {
+      instance.setClickCallback(map, (info: any, e?: any) => {
         if (!isFullscreen.value) {
           return
         }
@@ -476,6 +578,11 @@ async function updateTracks() {
         detailPanelTrackId.value = instanceId
         detailPanelTrackInfo.value = { instanceId, id: trackId, instance, ...info }
         detailPanelVisible.value = true
+
+        // 点击位置若落在轨迹关联视频的弧段上，高亮该弧段并滚动对应标签到可视区
+        if (e?.lngLat) {
+          focusVideoSegmentAtPoint(trackId, e.lngLat)
+        }
       })
 
       const normalizedTrackId = normalizeTrackId(trackId)
@@ -541,9 +648,12 @@ watch(() => props.trackIds, () => {
 
 // 监听详情面板关闭，取消高亮
 watch(detailPanelVisible, (newVal) => {
-  if (!newVal && currentSelectedInstance) {
-    currentSelectedInstance.unhighlight()
-    currentSelectedInstance = null
+  if (!newVal) {
+    clearVideoSegmentHighlight()
+    if (currentSelectedInstance) {
+      currentSelectedInstance.unhighlight()
+      currentSelectedInstance = null
+    }
   }
 })
 
