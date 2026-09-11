@@ -340,6 +340,32 @@ export async function getBackupSize() {
   throw new Error('Wails bindings not available')
 }
 
+// 取消正在进行的备份
+export async function cancelBackup() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.CancelBackup()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// 备份进度事件
+export function onBackupProgress(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('backup-progress', callback)
+}
+
+// 备份完成事件（成功/失败/取消）
+export function onBackupDone(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('backup-done', callback)
+}
+
+// 清理备份事件监听
+export function offBackupEvents() {
+  window.runtime?.EventsOff?.('backup-progress')
+  window.runtime?.EventsOff?.('backup-done')
+}
+
 export async function getBackupList() {
   const binding = getGoBinding()
   if (binding) {
@@ -515,10 +541,14 @@ const video = {
 
 const backup = {
   backup: createBackup,
+  cancelBackup,
   getBackupSize,
   getBackupList,
   import: importBackup,
   deleteBackup,
+  onBackupProgress,
+  onBackupDone,
+  offBackupEvents,
 }
 
 const user = {

@@ -27,6 +27,9 @@ type Handler struct {
 	// 本地视频流服务（支持 Range，供原生 <video> 边下边播）
 	streamBase   string
 	streamServer *http.Server
+	// 备份任务状态（支持进度上报与中途取消）
+	backupRunning atomic.Bool
+	backupCancel  atomic.Bool
 }
 
 func New(cfg *config.Config, ctx context.Context) *Handler {

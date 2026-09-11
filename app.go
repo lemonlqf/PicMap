@@ -134,6 +134,7 @@ func (a *App) GetVideoStreamUrl(userId, videoId string) model.Result {
 }
 
 func (a *App) CreateBackup(name string) model.Result             { return a.handler.CreateBackup(name) }
+func (a *App) CancelBackup() model.Result                        { return a.handler.CancelBackup() }
 func (a *App) GetBackupSize() model.Result                       { return a.handler.GetBackupSize() }
 func (a *App) GetBackupList() model.Result                       { return a.handler.GetBackupList() }
 func (a *App) ImportBackup(filePath, mode string) model.Result   { return a.handler.ImportBackup(filePath, mode) }

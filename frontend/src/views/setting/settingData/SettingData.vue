@@ -62,19 +62,27 @@
       </div>
     </div>
 
-    <el-dialog v-model="backupDialogVisible" :title="$t('createBackup')" width="400px">
+    <el-dialog v-model="backupDialogVisible" :title="$t('createBackup')" width="400px"
+      :close-on-click-modal="!backupLoading" :close-on-press-escape="!backupLoading" :show-close="!backupLoading">
       <div class="backup-name-input">
         <el-input
           v-model="backupName"
           :placeholder="$t('backupNamePlaceholder')"
           clearable
+          :disabled="backupLoading"
           @keyup.enter="handleBackup"
         />
       </div>
-      <LoadingTip v-if="backupLoading" :text="$t('backupLoading')" />
+      <div v-if="backupLoading" class="backup-progress">
+        <el-progress :percentage="backupPercent" :stroke-width="12" />
+        <div class="backup-progress-text">
+          {{ formatSize(backupProgress.processed) }} / {{ formatSize(backupProgress.total) }}
+        </div>
+      </div>
       <template #footer>
-        <el-button @click="backupDialogVisible = false" :disabled="backupLoading">{{ $t('cancel') }}</el-button>
-        <el-button type="primary" @click="handleBackup" :loading="backupLoading">{{ $t('confirm') }}</el-button>
+        <el-button v-if="backupLoading" type="danger" @click="handleCancelBackup">{{ $t('cancel') }}</el-button>
+        <el-button v-else @click="backupDialogVisible = false">{{ $t('cancel') }}</el-button>
+        <el-button type="primary" @click="handleBackup" :loading="backupLoading" :disabled="backupLoading">{{ $t('confirm') }}</el-button>
       </template>
     </el-dialog>
 
@@ -102,7 +110,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { ElMessage, ElMessageBox, ElIcon } from 'element-plus'
 import LoadingTip from '@/components/loadingTip/Index.vue'
 import { useI18n } from 'vue-i18n'
@@ -128,6 +136,13 @@ const selectedBackup = ref<any>(null)
 const selectedBackupPath = ref('')
 // 备份名称
 const backupName = ref('')
+// 备份进度（字节）
+const backupProgress = ref<{ processed: number; total: number }>({ processed: 0, total: 0 })
+const backupPercent = computed(() => {
+  const { processed, total } = backupProgress.value
+  if (!total) return 0
+  return Math.min(100, Math.round((processed / total) * 100))
+})
 
 // 存储目录配置
 const storageConfig = ref<{ archiveDir: string; backupDir: string }>({ archiveDir: '', backupDir: '' })
@@ -139,6 +154,32 @@ let currentStorageConfig: { archiveDir: string; backupDir: string } = { archiveD
 onMounted(() => {
   loadBackupList()
   loadStorageConfig()
+  API.backup.onBackupProgress((data: any) => {
+    backupProgress.value = {
+      processed: data?.processed ?? 0,
+      total: data?.total ?? 0,
+    }
+  })
+  API.backup.onBackupDone((data: any) => {
+    backupLoading.value = false
+    if (data?.success) {
+      ElMessage.success(t('backupSuccess'))
+      backupDialogVisible.value = false
+      backupName.value = ''
+      backupProgress.value = { processed: 0, total: 0 }
+      loadBackupList()
+    } else if (data?.cancelled) {
+      ElMessage.info(t('backupCancelled'))
+      backupProgress.value = { processed: 0, total: 0 }
+    } else {
+      ElMessage.error(data?.message || t('backupFailed'))
+      backupProgress.value = { processed: 0, total: 0 }
+    }
+  })
+})
+
+onUnmounted(() => {
+  API.backup.offBackupEvents()
 })
 
 /**
@@ -262,6 +303,7 @@ function openBackupDialog() {
  * 调用后端接口创建新的备份文件
  */
 async function handleBackup() {
+  if (backupLoading.value) return
   if (backupName.value.trim()) {
     const nameExists = backupList.value.some(item => {
       const baseName = item.fileName.replace(/\.zip$/, '')
@@ -274,25 +316,33 @@ async function handleBackup() {
   }
 
   backupLoading.value = true
+  backupProgress.value = { processed: 0, total: 0 }
   try {
     const sizeRes = await API.backup.getBackupSize()
     if (sizeRes.code === 200 && sizeRes.data.sizeWarning) {
       ElMessage.warning(t('backupLargeWarning'))
     }
 
+    // 异步启动备份，进度/结果通过事件推送
     const res = await API.backup.backup({ name: backupName.value.trim() })
-    if (res.code === 200) {
-      ElMessage.success(t('backupSuccess'))
-      backupDialogVisible.value = false
-      backupName.value = ''
-      loadBackupList()
-    } else {
-      ElMessage.error(res.message || t('backupFailed'))
+    if (res.code !== 200) {
+      ElMessage.error(res.message || res.msg || t('backupFailed'))
+      backupLoading.value = false
     }
   } catch (error) {
     ElMessage.error(t('backupFailed'))
-  } finally {
     backupLoading.value = false
+  }
+}
+
+/**
+ * 取消正在进行的备份
+ */
+async function handleCancelBackup() {
+  try {
+    await API.backup.cancelBackup()
+  } catch (error) {
+    console.error('Cancel backup error:', error)
   }
 }
 
@@ -527,6 +577,17 @@ function formatTime(date: string): string {
   margin-top: 10px;
   color: #666;
   font-size: 14px;
+}
+
+.backup-progress {
+  margin-top: 16px;
+}
+
+.backup-progress-text {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #909399;
 }
 
 .restore-file {

@@ -3,6 +3,7 @@ package handler
 import (
 	"archive/zip"
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
 	"path/filepath"
@@ -10,14 +11,28 @@ import (
 	"strings"
 	"time"
 
+	"github.com/wailsapp/wails/v2/pkg/runtime"
+
 	"picmap-go/internal/config"
 	"picmap-go/internal/model"
 	"picmap-go/internal/util"
 )
 
+// 备份事件名
+const (
+	EventBackupProgress = "backup-progress" // 备份进度
+	EventBackupDone     = "backup-done"     // 备份完成（成功/失败/取消）
+)
+
+var errBackupCancelled = errors.New("backup cancelled")
+
 // ---- Backup ----
 
+// CreateBackup 启动备份任务（异步执行，进度经 backup-progress 事件推送，完成后发 backup-done）
 func (h *Handler) CreateBackup(name string) model.Result {
+	if h.backupRunning.Load() {
+		return model.NewFailResult("正在创建备份，请稍候")
+	}
 	backupDir := h.cfg.BackupDir()
 	util.EnsureDir(backupDir)
 
@@ -39,15 +54,52 @@ func (h *Handler) CreateBackup(name string) model.Result {
 	totalSize := h.calcDataSize()
 	sizeWarning := totalSize > 500*1024*1024
 
-	if err := h.createZip(outputPath); err != nil {
-		return model.NewFailResult("创建备份失败: " + err.Error())
-	}
+	h.backupCancel.Store(false)
+	h.backupRunning.Store(true)
+	go h.runCreateBackup(outputPath, fileName, totalSize)
 
 	return model.NewSuccessResult(map[string]interface{}{
 		"filePath":    outputPath,
 		"fileName":    fileName,
 		"size":        totalSize,
 		"sizeWarning": sizeWarning,
+		"started":     true,
+	})
+}
+
+// CancelBackup 取消正在进行的备份任务
+func (h *Handler) CancelBackup() model.Result {
+	if !h.backupRunning.Load() {
+		return model.NewSuccessResult("没有正在进行的备份")
+	}
+	h.backupCancel.Store(true)
+	return model.NewSuccessResult("正在取消")
+}
+
+// runCreateBackup 执行备份并推送进度/结果事件
+func (h *Handler) runCreateBackup(outputPath, fileName string, totalSize int64) {
+	defer h.backupRunning.Store(false)
+	err := h.createZipWithProgress(outputPath, totalSize)
+	if err != nil {
+		// 失败或取消：清理半成品
+		_ = os.Remove(outputPath)
+		if errors.Is(err, errBackupCancelled) {
+			runtime.EventsEmit(h.ctx, EventBackupDone, map[string]interface{}{
+				"success":   false,
+				"cancelled": true,
+			})
+		} else {
+			runtime.EventsEmit(h.ctx, EventBackupDone, map[string]interface{}{
+				"success": false,
+				"message": err.Error(),
+			})
+		}
+		return
+	}
+	runtime.EventsEmit(h.ctx, EventBackupDone, map[string]interface{}{
+		"success":  true,
+		"fileName": fileName,
+		"filePath": outputPath,
 	})
 }
 
@@ -149,7 +201,8 @@ func (h *Handler) calcDataSize() int64 {
 	return totalSize
 }
 
-func (h *Handler) createZip(outputPath string) error {
+// createZipWithProgress 打包数据目录，按已处理字节上报进度，并在取消时返回 errBackupCancelled
+func (h *Handler) createZipWithProgress(outputPath string, totalSize int64) error {
 	file, err := os.Create(outputPath)
 	if err != nil {
 		return err
@@ -157,14 +210,59 @@ func (h *Handler) createZip(outputPath string) error {
 	defer file.Close()
 
 	w := zip.NewWriter(file)
-	defer w.Close()
 
-	// Add appSchema.json
-	if err := addFileToZip(w, h.cfg.AppSchemaPath(), config.AppSchemaFileName); err != nil {
+	var processed int64
+	// 上报进度；返回 false 表示已请求取消
+	report := func() bool {
+		percent := 0
+		if totalSize > 0 {
+			percent = int(processed * 100 / totalSize)
+			if percent > 100 {
+				percent = 100
+			}
+		}
+		runtime.EventsEmit(h.ctx, EventBackupProgress, map[string]interface{}{
+			"processed": processed,
+			"total":     totalSize,
+			"percent":   percent,
+		})
+		return !h.backupCancel.Load()
+	}
+
+	addFile := func(path, zipName string) error {
+		if !report() {
+			return errBackupCancelled
+		}
+		info, statErr := os.Stat(path)
+		var size int64
+		if statErr == nil {
+			size = info.Size()
+		}
+		data, readErr := os.ReadFile(path)
+		if readErr != nil {
+			return readErr
+		}
+		fw, createErr := w.Create(zipName)
+		if createErr != nil {
+			return createErr
+		}
+		if _, writeErr := fw.Write(data); writeErr != nil {
+			return writeErr
+		}
+		processed += size
+		if !report() {
+			return errBackupCancelled
+		}
+		return nil
+	}
+
+	// appSchema.json
+	if err := addFile(h.cfg.AppSchemaPath(), config.AppSchemaFileName); err != nil {
+		_ = w.Close()
 		return err
 	}
 
-	// Add user directories
+	// 用户目录
 	entries, _ := os.ReadDir(h.cfg.ArchiveDir())
 	for _, e := range entries {
 		if !e.IsDir() {
@@ -172,31 +270,27 @@ func (h *Handler) createZip(outputPath string) error {
 		}
 		userDir := filepath.Join(h.cfg.ArchiveDir(), e.Name())
 		prefix := e.Name() + "/"
+		var walkErr error
 		filepath.WalkDir(userDir, func(path string, d os.DirEntry, err error) error {
-			if err != nil || d.IsDir() {
+			if err != nil || d.IsDir() || walkErr != nil {
 				return nil
 			}
 			relPath, _ := filepath.Rel(userDir, path)
 			// zip 条目统一正斜杠（与 Node 版 archiver 输出一致）
 			relPath = strings.ReplaceAll(relPath, "\\", "/")
-			return addFileToZip(w, path, prefix+relPath)
+			if e := addFile(path, prefix+relPath); e != nil {
+				walkErr = e
+				return e
+			}
+			return nil
 		})
+		if walkErr != nil {
+			_ = w.Close()
+			return walkErr
+		}
 	}
 
-	return nil
-}
-
-func addFileToZip(w *zip.Writer, filePath, zipName string) error {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return err
-	}
-	fw, err := w.Create(zipName)
-	if err != nil {
-		return err
-	}
-	_, err = fw.Write(data)
-	return err
+	return w.Close()
 }
 
 func (h *Handler) importCover(filePath string) model.Result {

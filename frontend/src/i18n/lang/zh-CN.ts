@@ -173,6 +173,7 @@ export default {
   mergeModeTip: '将备份数据与现有数据合并，保留所有现有数据',
   backupSuccess: '备份成功',
   backupFailed: '备份失败',
+  backupCancelled: '已取消备份',
   backupLargeWarning: '存档较大，备份时间可能较长，请耐心等待',
   backupLoading: '正在备份，请稍候...',
   restoreSuccess: '恢复成功，请刷新页面',
