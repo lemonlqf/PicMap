@@ -12,6 +12,21 @@ const MAX_CONCURRENCY = 4
 
 export type VideoLoadProgress = (loadedBytes: number, totalBytes: number) => void
 
+/**
+ * @description: 获取视频的本地流地址（后端本地 HTTP 服务，支持 Range 边下边播）。
+ * 服务不可用时返回空串，调用方回退到分块 blob 方案。
+ */
+export async function getVideoStreamUrl(videoId: string): Promise<string> {
+  if (!videoId) return ''
+  try {
+    const res = await API.video.getVideoStreamUrl({ videoId })
+    if (res.code !== 200) return ''
+    return res.data?.url || ''
+  } catch {
+    return ''
+  }
+}
+
 // videoId -> 已生成的 objectURL（成功后缓存，多次打开同一视频不重复拉流）
 const blobUrlCache = new Map<string, string>()
 // videoId -> 正在进行中的加载 Promise（并发去重）

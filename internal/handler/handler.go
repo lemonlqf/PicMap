@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"io"
+	"net/http"
 	"os"
 	"regexp"
 	"sync"
@@ -23,10 +24,15 @@ type Handler struct {
 	mu         sync.Mutex
 	parsing    atomic.Bool
 	thumbCache sync.Map // marker 缩略图 base64 缓存，key: userId+"/"+imageId
+	// 本地视频流服务（支持 Range，供原生 <video> 边下边播）
+	streamBase   string
+	streamServer *http.Server
 }
 
 func New(cfg *config.Config, ctx context.Context) *Handler {
-	return &Handler{cfg: cfg, ctx: ctx}
+	h := &Handler{cfg: cfg, ctx: ctx}
+	h.startVideoStreamServer()
+	return h
 }
 
 // ---- Helper methods ----

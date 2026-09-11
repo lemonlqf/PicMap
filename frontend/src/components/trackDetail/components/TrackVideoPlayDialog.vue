@@ -15,6 +15,7 @@
     top="6vh"
     width="72vw"
     class="track-video-play-dialog"
+    :class="{ 'controls-hidden': isFullscreen && !controlsVisible }"
     @update:model-value="onVisibleChange"
     @closed="handleClosed"
   >
@@ -22,7 +23,8 @@
       <span class="track-video-play-title">{{ title }}</span>
     </template>
 
-    <div v-if="visible && videoId" ref="bodyRef" class="track-video-play-body">
+    <div v-if="visible && videoId" ref="bodyRef" class="track-video-play-body"
+      :class="{ 'controls-hidden': isFullscreen && !controlsVisible }" @mousemove="showControls">
       <div class="video-area">
         <VideoPlayer
           :key="videoId"
@@ -33,7 +35,7 @@
           @timeupdate="handleTimeUpdate"
           @play="isPlaying = true"
           @pause="isPlaying = false"
-          @ended="isPlaying = false"
+          @ended="handleEnded"
         />
       </div>
 
@@ -45,9 +47,9 @@
         <el-icon><ArrowRight /></el-icon>
       </button>
 
-      <!-- 画中画地图（可最小化，避免遮挡视频） -->
-      <div class="mini-map-wrap" :class="{ 'is-minimized': miniMapMinimized }">
-        <div class="mini-map-bar" @click="toggleMiniMap">
+      <!-- 画中画地图（可拖动放置、可最小化，避免遮挡视频） -->
+      <div class="mini-map-wrap" ref="miniMapWrapRef" :class="{ 'is-minimized': miniMapMinimized }" :style="miniMapStyle">
+        <div class="mini-map-bar" @mousedown="startMiniMapDrag">
           <el-icon class="mini-map-bar-icon"><MapLocation /></el-icon>
           <span class="mini-map-bar-text">{{ t('track.trackMap') }}</span>
           <el-icon class="mini-map-bar-toggle">
@@ -92,6 +94,11 @@
           @input="handleSliderInput"
         />
         <span class="progress-time">{{ formatSeconds(durationSeconds) }}</span>
+        <!-- 自动播放下一个（全屏按钮左侧） -->
+        <span class="auto-next" :title="t('track.autoNext')">
+          <el-switch v-model="autoPlayNext" size="small" />
+          <span class="auto-next-label">{{ t('track.autoNext') }}</span>
+        </span>
         <!-- 全屏（右下角） -->
         <el-icon class="fullscreen-btn" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
           <FullScreen />
@@ -168,6 +175,21 @@ function goNext() {
   switchVideo(1)
 }
 
+// 自动播放下一个（持久化到 localStorage）
+const AUTO_NEXT_KEY = 'picmap.trackVideoAutoNext'
+const autoPlayNext = ref(localStorage.getItem(AUTO_NEXT_KEY) === '1')
+watch(autoPlayNext, (val) => {
+  localStorage.setItem(AUTO_NEXT_KEY, val ? '1' : '0')
+})
+
+// 当前视频播放结束：开启自动播放且存在下一个时自动切换
+function handleEnded() {
+  isPlaying.value = false
+  if (autoPlayNext.value && hasNext.value) {
+    goNext()
+  }
+}
+
 // ---- 播放状态 ----
 const playerRef = ref<any>(null)
 const isPlaying = ref(false)
@@ -175,6 +197,52 @@ const currentSeconds = ref(0)
 const durationSeconds = ref(0)
 // 画中画地图是否最小化（折叠为小条，避免遮挡视频）
 const miniMapMinimized = ref(false)
+
+// ---- 画中画地图拖动放置 ----
+const miniMapWrapRef = ref<HTMLElement>()
+// 相对播放区左上角的位置；null 表示使用默认位置（右上角）
+const miniMapPos = ref<{ x: number; y: number } | null>(null)
+const miniMapStyle = computed(() => {
+  const pos = miniMapPos.value
+  return pos ? { left: `${pos.x}px`, top: `${pos.y}px`, right: 'auto' } : {}
+})
+const miniMapDrag = { active: false, moved: false, startX: 0, startY: 0, startLeft: 0, startTop: 0 }
+
+function startMiniMapDrag(e: MouseEvent) {
+  if (!bodyRef.value || !miniMapWrapRef.value) return
+  e.preventDefault()
+  const bodyRect = bodyRef.value.getBoundingClientRect()
+  const wrapRect = miniMapWrapRef.value.getBoundingClientRect()
+  miniMapDrag.active = true
+  miniMapDrag.moved = false
+  miniMapDrag.startX = e.clientX
+  miniMapDrag.startY = e.clientY
+  miniMapDrag.startLeft = wrapRect.left - bodyRect.left
+  miniMapDrag.startTop = wrapRect.top - bodyRect.top
+  document.addEventListener('mousemove', onMiniMapDragMove)
+  document.addEventListener('mouseup', onMiniMapDragEnd)
+}
+
+function onMiniMapDragMove(e: MouseEvent) {
+  if (!miniMapDrag.active || !bodyRef.value || !miniMapWrapRef.value) return
+  const dx = e.clientX - miniMapDrag.startX
+  const dy = e.clientY - miniMapDrag.startY
+  if (Math.abs(dx) > 3 || Math.abs(dy) > 3) miniMapDrag.moved = true
+  const bodyRect = bodyRef.value.getBoundingClientRect()
+  const w = miniMapWrapRef.value.offsetWidth
+  const h = miniMapWrapRef.value.offsetHeight
+  const left = Math.max(0, Math.min(miniMapDrag.startLeft + dx, bodyRect.width - w))
+  const top = Math.max(0, Math.min(miniMapDrag.startTop + dy, bodyRect.height - h))
+  miniMapPos.value = { x: left, y: top }
+}
+
+function onMiniMapDragEnd() {
+  document.removeEventListener('mousemove', onMiniMapDragMove)
+  document.removeEventListener('mouseup', onMiniMapDragEnd)
+  // 未发生位移视为点击 → 切换最小化
+  if (miniMapDrag.active && !miniMapDrag.moved) toggleMiniMap()
+  miniMapDrag.active = false
+}
 
 // ---- 全屏 ----
 const bodyRef = ref<HTMLElement>()
@@ -192,6 +260,34 @@ function toggleFullscreen() {
     bodyRef.value.requestFullscreen?.()
   }
 }
+
+// ---- 全屏下空闲自动隐藏控制（轨迹地图保留） ----
+const IDLE_HIDE_MS = 5000
+const controlsVisible = ref(true)
+let idleTimer: number | null = null
+function clearIdleTimer() {
+  if (idleTimer != null) {
+    clearTimeout(idleTimer)
+    idleTimer = null
+  }
+}
+// 有交互：显示控制并重置空闲计时（仅全屏时计时隐藏）
+function showControls() {
+  controlsVisible.value = true
+  if (!isFullscreen.value) return
+  clearIdleTimer()
+  idleTimer = window.setTimeout(() => {
+    controlsVisible.value = false
+  }, IDLE_HIDE_MS)
+}
+watch(isFullscreen, (val) => {
+  if (val) {
+    showControls()
+  } else {
+    clearIdleTimer()
+    controlsVisible.value = true
+  }
+})
 
 // ---- 音量 ----
 const volume = ref(1)
@@ -211,7 +307,10 @@ function onVolumeChange(val: number | number[]) {
 // 切换画中画地图的最小化状态；恢复时需 resize 地图以适配容器
 function toggleMiniMap() {
   miniMapMinimized.value = !miniMapMinimized.value
-  if (!miniMapMinimized.value) {
+  if (miniMapMinimized.value) {
+    // 最小化时收缩回右上角
+    miniMapPos.value = null
+  } else {
     nextTick(() => {
       miniMap?.resize()
       // 恢复后让位置圆点跟上当前进度
@@ -508,10 +607,13 @@ function handleClosed() {
 
 onMounted(() => {
   document.addEventListener('fullscreenchange', onFullscreenChange)
+  document.addEventListener('keydown', showControls)
 })
 
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
+  document.removeEventListener('keydown', showControls)
+  clearIdleTimer()
   destroyMap()
 })
 </script>
@@ -534,6 +636,19 @@ onUnmounted(() => {
   padding: 2px;
   border-radius: 6px;
   transition: color 0.2s, background 0.2s;
+}
+
+.auto-next {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.auto-next-label {
+  font-size: 12px;
+  color: #606266;
+  white-space: nowrap;
 }
 
 .fullscreen-btn:hover {
@@ -594,11 +709,18 @@ onUnmounted(() => {
   cursor: pointer;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease, transform 0.2s ease, opacity 0.3s ease;
 }
 
 .video-nav:hover {
   background: rgba(64, 158, 255, 0.85);
+}
+
+/* 全屏空闲时隐藏控制（轨迹地图保留） */
+.track-video-play-body.controls-hidden .video-nav,
+.track-video-play-body.controls-hidden .progress-bar {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .video-nav-prev {
@@ -637,7 +759,7 @@ onUnmounted(() => {
   padding: 0 10px;
   color: #303133;
   font-size: 12px;
-  cursor: pointer;
+  cursor: move;
   user-select: none;
   background: rgba(255, 255, 255, 0.55);
   transition: background 0.2s ease;
@@ -682,6 +804,7 @@ onUnmounted(() => {
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+  transition: opacity 0.3s ease;
 }
 
 .progress-time {
@@ -746,6 +869,13 @@ onUnmounted(() => {
   margin: 0;
   background: rgba(255, 255, 255, 0.5);
   border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  transition: opacity 0.3s ease;
+}
+
+/* 全屏空闲时隐藏标题栏 */
+.el-dialog.track-video-play-dialog.controls-hidden .el-dialog__header {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .el-dialog.track-video-play-dialog .el-dialog__header .track-video-play-title {

@@ -210,7 +210,8 @@ export default {
     videoPlay: 'Video Play',
     trackMap: 'Track Map',
     prevVideo: 'Previous video',
-    nextVideo: 'Next video'
+    nextVideo: 'Next video',
+    autoNext: 'Auto next'
   },
 
   icon: {

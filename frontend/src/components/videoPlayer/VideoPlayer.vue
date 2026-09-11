@@ -6,7 +6,8 @@
  * - 支持全局键盘控制：空格播放暂停、←→快退快进、↑↓音量、M静音、F全屏
 -->
 <template>
-  <div ref="rootRef" class="video-player">
+  <div ref="rootRef" class="video-player" :class="{ 'controls-hidden': isFullscreen && !controlsVisible }"
+    @mousemove="showControls">
     <video ref="videoEl" class="video-js vjs-big-play-centered" :poster="posterUrl || undefined"></video>
 
     <!-- 加载进度遮罩 -->
@@ -41,7 +42,7 @@ import { ElMessage } from 'element-plus'
 import { Loading, VideoPlay, VideoPause, Mute, Headset, FullScreen } from '@element-plus/icons-vue'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
-import { loadVideoAsObjectUrl } from '@/utils/videoBlob'
+import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
 
 const props = defineProps({
   videoId: { type: String, required: true },
@@ -121,6 +122,33 @@ function onFullscreenChange() {
   isFullscreen.value = !!document.fullscreenElement
 }
 
+// ---- 全屏下空闲自动隐藏控制栏 ----
+const IDLE_HIDE_MS = 5000
+const controlsVisible = ref(true)
+let idleTimer: number | null = null
+function clearIdleTimer() {
+  if (idleTimer != null) {
+    clearTimeout(idleTimer)
+    idleTimer = null
+  }
+}
+function showControls() {
+  controlsVisible.value = true
+  if (!isFullscreen.value) return
+  clearIdleTimer()
+  idleTimer = window.setTimeout(() => {
+    controlsVisible.value = false
+  }, IDLE_HIDE_MS)
+}
+watch(isFullscreen, (val) => {
+  if (val) {
+    showControls()
+  } else {
+    clearIdleTimer()
+    controlsVisible.value = true
+  }
+})
+
 /**
  * @description: 全局键盘控制（弹框打开期间任意位置按键均生效）
  */
@@ -132,6 +160,9 @@ function handleKeydown(e: KeyboardEvent) {
     target.tagName === 'INPUT' ||
     target.tagName === 'TEXTAREA' ||
     target.isContentEditable)) return
+
+  // 有按键交互则显示控制栏
+  showControls()
 
   switch (e.key) {
     case ' ':            // 空格：播放/暂停
@@ -181,24 +212,36 @@ async function initPlayer() {
   currentTime.value = 0
   duration.value = 0
 
+  let usingStream = false
   try {
     loading.value = true
     loadPercent.value = 0
-    const url = await loadVideoAsObjectUrl(props.videoId, (loaded, total) => {
-      loadPercent.value = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
-    })
-    if (!url || !videoEl.value) {
-      ElMessage.error('视频加载失败')
-      return
+    // 优先使用本地 HTTP 流（Range 边下边播，无需等待整段下载）；不可用时回退分块 blob
+    let src = ''
+    const streamUrl = await getVideoStreamUrl(props.videoId)
+    if (streamUrl) {
+      usingStream = true
+      src = streamUrl
+    } else {
+      const url = await loadVideoAsObjectUrl(props.videoId, (loaded, total) => {
+        loadPercent.value = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
+      })
+      if (!url) {
+        ElMessage.error('视频加载失败')
+        return
+      }
+      src = url
     }
+    if (!videoEl.value) return
     player = videojs(videoEl.value, {
       controls: false,
       autoplay: false,
       fill: true,
-      sources: [{ src: url, type: 'video/mp4' }],
+      sources: [{ src, type: 'video/mp4' }],
       html5: {
         vhs: {
-          overrideNative: true
+          // 本地流交给原生播放器（支持 Range）；blob 仍走 VHS
+          overrideNative: !usingStream
         }
       }
     })
@@ -234,11 +277,18 @@ async function initPlayer() {
       volume.value = player.volume() ?? 1
       muted.value = !!player.muted()
     })
+    if (usingStream) {
+      // 数据可播即隐藏遮罩；兜底超时避免遮罩常驻
+      const clearMask = () => { loading.value = false }
+      player.on('loadeddata', clearMask)
+      player.on('canplay', clearMask)
+      setTimeout(clearMask, 10000)
+    }
   } catch (e) {
     console.error('初始化播放器失败', e)
     ElMessage.error('视频加载失败')
   } finally {
-    loading.value = false
+    if (!usingStream) loading.value = false
   }
 }
 
@@ -255,7 +305,11 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
-  if (document.fullscreenElement) document.exitFullscreen?.()
+  clearIdleTimer()
+  // 仅当本播放器自身处于全屏时才退出，避免切换视频时误退出外层（如轨迹播放弹框）的全屏
+  if (document.fullscreenElement && document.fullscreenElement === rootRef.value) {
+    document.exitFullscreen?.()
+  }
   if (player) {
     player.dispose()
     player = null
@@ -346,6 +400,13 @@ defineExpose({
   padding: 8px 12px;
   background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
   color: #fff;
+  transition: opacity 0.3s ease;
+}
+
+/* 全屏空闲时隐藏控制栏 */
+.video-player.controls-hidden .vp-controls {
+  opacity: 0;
+  pointer-events: none;
 }
 
 .vp-play {

@@ -16,7 +16,7 @@ import { EquirectangularVideoAdapter } from 'photo-sphere-viewer/dist/adapters/e
 import { VideoPlugin } from 'photo-sphere-viewer/dist/plugins/video'
 import 'photo-sphere-viewer/dist/photo-sphere-viewer.css'
 import 'photo-sphere-viewer/dist/plugins/video.css'
-import { loadVideoAsObjectUrl } from '@/utils/videoBlob'
+import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
 
 const props = defineProps<{
   videoId: string
@@ -32,15 +32,19 @@ async function createViewer() {
   destroyViewer()
   loading.value = true
   loadPercent.value = 0
-  const url = await loadVideoAsObjectUrl(props.videoId, (loaded, total) => {
-    loadPercent.value = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
-  })
+  // 优先使用本地 HTTP 流（支持 Range）；不可用时回退分块 blob
+  let source = await getVideoStreamUrl(props.videoId)
+  if (!source) {
+    source = await loadVideoAsObjectUrl(props.videoId, (loaded, total) => {
+      loadPercent.value = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
+    })
+  }
   loading.value = false
-  if (!url || !container.value) return
+  if (!source || !container.value) return
 
   viewer = new Viewer({
     container: container.value,
-    panorama: { source: url },
+    panorama: { source },
     adapter: [EquirectangularVideoAdapter as any, { autoplay: false, muted: false }],
     plugins: [VideoPlugin as any],
     navbar: ['zoom', 'fullscreen'],

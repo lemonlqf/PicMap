@@ -209,7 +209,8 @@ export default {
     videoPlay: '视频播放',
     trackMap: '轨迹地图',
     prevVideo: '上一个视频',
-    nextVideo: '下一个视频'
+    nextVideo: '下一个视频',
+    autoNext: '自动播放'
   },
 
   icon: {

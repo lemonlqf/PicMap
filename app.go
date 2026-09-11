@@ -27,6 +27,9 @@ func (a *App) startup(ctx context.Context) {
 }
 
 func (a *App) shutdown(ctx context.Context) {
+	if a.handler != nil {
+		a.handler.StopVideoStreamServer()
+	}
 	log.Println("PicMap shutting down")
 }
 
@@ -123,6 +126,11 @@ func (a *App) GetVideoThumbnails(userId string, videoIds []string) model.Result 
 
 func (a *App) GetVideoFramePreview(path string) model.Result {
 	return a.handler.GetVideoFramePreview(path)
+}
+
+// GetVideoStreamUrl 返回视频的本地流地址（支持 Range，供原生 <video> 边下边播）
+func (a *App) GetVideoStreamUrl(userId, videoId string) model.Result {
+	return a.handler.VideoStreamURL(userId, videoId)
 }
 
 func (a *App) CreateBackup(name string) model.Result             { return a.handler.CreateBackup(name) }

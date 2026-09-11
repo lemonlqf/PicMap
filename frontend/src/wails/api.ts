@@ -268,6 +268,16 @@ export async function getVideoThumbnail(data: { videoId: string }) {
   throw new Error('Wails bindings not available')
 }
 
+// 视频本地流地址（支持 Range，供原生 <video> 边下边播）
+export async function getVideoStreamUrl(data: { videoId: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetVideoStreamUrl(getCurrentUserId(), data.videoId)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 // 批量获取视频封面
 export async function getVideoThumbnails(data: { videoIds: string[] }) {
   const binding = getGoBinding()
@@ -496,6 +506,7 @@ const video = {
   getVideoThumbnail,
   getVideoThumbnails,
   getVideoFramePreview,
+  getVideoStreamUrl,
   onVideosParsed,
   onVideosProgress,
   onVideosDone,

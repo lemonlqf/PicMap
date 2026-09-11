@@ -94,6 +94,10 @@ export function GetVideoRange(arg1, arg2, arg3, arg4) {
   return window['go']['main']['App']['GetVideoRange'](arg1, arg2, arg3, arg4);
 }
 
+export function GetVideoStreamUrl(arg1, arg2) {
+  return window['go']['main']['App']['GetVideoStreamUrl'](arg1, arg2);
+}
+
 export function GetVideoThumbnail(arg1, arg2) {
   return window['go']['main']['App']['GetVideoThumbnail'](arg1, arg2);
 }
