@@ -123,6 +123,7 @@
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as maplibregl from 'maplibre-gl'
 import { ElMessage } from 'element-plus'
+import i18n from '@/i18n/index'
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
@@ -351,7 +352,7 @@ async function selectLocalVideos() {
     if (res.code !== 200) {
       localSelecting.value = false
       videoSelectContext.owner = ''
-      ElMessage.error(res.msg || '选择视频失败')
+      ElMessage.error(res.msg || i18n.global.t('description.selectVideoFailed'))
       return
     }
     const total = res.data?.total ?? 0
@@ -367,7 +368,7 @@ async function selectLocalVideos() {
     localSelecting.value = false
     videoSelectContext.owner = ''
     addLocalDirectly.value = false
-    ElMessage.error('选择视频失败')
+    ElMessage.error(i18n.global.t('description.selectVideoFailed'))
   }
 }
 
@@ -818,7 +819,7 @@ async function handleSave() {
   const schema = schemaStore.getSchema
   const track = schema.trackInfo?.find(t => t.id === props.trackId)
   if (!track) {
-    ElMessage.error('轨迹不存在')
+    ElMessage.error(i18n.global.t('description.trackNotExist'))
     return
   }
 
@@ -832,7 +833,7 @@ async function handleSave() {
       path: props.pendingVideo.path,
     })
     if (res.code !== 200) {
-      ElMessage.error(res.msg || '视频导入失败')
+      ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
       return
     }
     const vi: IVideoInfo = res.data
@@ -840,7 +841,7 @@ async function handleSave() {
     pushVideoToSchema(vi)
     associateVideoToTrack(props.trackId, vi.id, item.timeOffsetMs)
     await saveSchema()
-    ElMessage.success('视频已关联轨迹并上传')
+    ElMessage.success(i18n.global.t('description.videoLinkedAndUploaded'))
     emit('aligned')
     dialogVisible.value = false
     return
@@ -856,7 +857,7 @@ async function handleSave() {
     if (item.localPath) {
       const vi = await importVideo({ id: item.video.id, name: item.video.name || '', path: item.localPath })
       if (!vi) {
-        ElMessage.error(`视频「${item.video.name || item.video.id}」导入失败`)
+        ElMessage.error(i18n.global.t('description.videoImportFailedNamed', { name: item.video.name || item.video.id }))
         return
       }
       pushVideoToSchema(vi)
@@ -870,7 +871,7 @@ async function handleSave() {
 
   await editSchemaAttrAndSave('trackInfo', trackInfoList)
   await saveSchema()
-  ElMessage.success('对齐已保存')
+  ElMessage.success(i18n.global.t('description.alignSaved'))
   dialogVisible.value = false
 }
 

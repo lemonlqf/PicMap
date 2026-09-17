@@ -53,6 +53,7 @@
 <script lang="ts" setup>
 import { onBeforeMount, onMounted, ref, watch, nextTick, reactive, computed } from 'vue'
 import { ElMessage } from 'element-plus'
+import i18n from '@/i18n/index'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import UploadPanel from '@/components/upload/UploadPanel.vue'
 import TrackUpload from '@/components/trackUpload/index.vue'
@@ -243,7 +244,7 @@ async function setMapCenter() {
   }
   const res = await saveSchema()
   if (res.code === 200) {
-    ElMessage.success('设置成功！')
+    ElMessage.success(i18n.global.t('settingSuccess'))
     // 上传完成后，点击右键可以出现操作菜单
   }
 }

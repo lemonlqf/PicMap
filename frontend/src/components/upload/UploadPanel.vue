@@ -55,7 +55,7 @@
 
       <!-- 待上传列表（混合） -->
       <div v-if="pendingImageList.length || pendingVideoList.length" class="section">
-        <h3 class="section-title">{{ $t('pictureToBeUploaded') }}</h3>
+        <h3 class="section-title">{{ $t('mediaToBeUploaded') }}</h3>
         <!-- 图片项 -->
         <div v-for="item in pendingImageList" :key="item.id" class="upload-item">
           <div class="item-info">
@@ -110,11 +110,11 @@
             </div>
           </div>
           <div class="item-actions">
-            <div :title="manualGpsMap[video.id] ? '已定位' : $t('locate')"
+            <div :title="manualGpsMap[video.id] ? $t('located') : $t('locate')"
               :class="['action-btn', 'locate', { active: manualGpsMap[video.id] }]" @click="showVideoLocate(video.id)">
               <img src="@/assets/icon/定位(白色).png" alt="">
             </div>
-            <div :title="linkedTrackMap[video.id] ? '已关联' : '关联轨迹'"
+            <div :title="linkedTrackMap[video.id] ? $t('linked') : $t('linkTrack')"
               :class="['action-btn', 'locate', { active: !!linkedTrackMap[video.id] }]" @click="openTrackAssociation(video)">
               <img :src="linkTrackIcon" alt="">
             </div>
@@ -490,7 +490,7 @@ async function selectVideos() {
     if (res.code !== 200) {
       videoParsing.value = false
       videoSelectContext.owner = ''
-      ElMessage.error(res.msg || '选择视频失败')
+      ElMessage.error(res.msg || t('description.selectVideoFailed'))
       return
     }
     const total = res.data?.total ?? 0
@@ -504,7 +504,7 @@ async function selectVideos() {
     console.error('选择视频失败', e)
     videoParsing.value = false
     videoSelectContext.owner = ''
-    ElMessage.error('选择视频失败')
+    ElMessage.error(t('description.selectVideoFailed'))
   }
 }
 
@@ -592,7 +592,7 @@ function locatePendingVideo(video: ISelectedVideo) {
     mapService.setViewByLatLng(manual.lat, manual.lng)
     return
   }
-  ElMessage.info('该视频暂无定位信息')
+  ElMessage.info(t('description.videoNoLocation'))
 }
 
 /**
@@ -609,27 +609,27 @@ function locateUploadedVideo(video: IVideoInfo) {
   }
   // 从 trackInfo.videos 反查该视频是否关联了轨迹
   const linked = (schemaStore.getSchema.trackInfo || []).some(t => (t.videos || []).some(v => v.videoId === video.id))
-  ElMessage.info(linked ? '该视频关联轨迹，无独立定位坐标' : '该视频暂无定位信息')
+  ElMessage.info(linked ? t('description.videoLinkedTrackNoLocation') : t('description.videoNoLocation'))
 }
 
 async function handleImport(video: ISelectedVideo) {
   const manualGps = manualGpsMap.value[video.id]
   if (!video.hasGpsData && !manualGps) {
-    ElMessage.warning('视频需要内嵌 GPS 或手动定位后才能导入')
+    ElMessage.warning(t('description.videoNeedGpsOrLocate'))
     return
   }
   importingMap.value[video.id] = true
   try {
     const vi = await doImportVideo(video)
     if (!vi) {
-      ElMessage.error('导入失败')
+      ElMessage.error(t('description.videoImportFailed'))
       return
     }
     await saveSchema()
-    ElMessage.success('导入成功')
+    ElMessage.success(t('description.videoImportSuccess'))
   } catch (e) {
     console.error('导入失败', e)
-    ElMessage.error('导入失败')
+    ElMessage.error(t('description.videoImportFailed'))
   } finally {
     importingMap.value[video.id] = false
   }
@@ -719,7 +719,7 @@ async function handleBatchUploadAll() {
   const locateVideos = pendingVideoList.value.filter(v => v.hasGpsData || manualGpsMap.value[v.id])
 
   if (locateImages.length < 1 && locateVideos.length < 1) {
-    ElMessage.warning(t('description.noPictureCanUpload'))
+    ElMessage.warning(t('description.noMediaCanUpload'))
     return
   }
 
@@ -743,8 +743,8 @@ async function handleBatchUploadAll() {
     emit('uploadSuccess')
     const allOk = successCount === locateVideos.length
     ElMessage.success(allOk
-      ? t('description.pictureUploadedSuccess')
-      : t('description.somePictureUploadedSuccess'))
+      ? t('description.mediaUploadedSuccess')
+      : t('description.someMediaUploadedSuccess'))
   } finally {
     imageUploading.value = false
     videoImporting.value = false

@@ -32,6 +32,7 @@ import { ElMessage } from 'element-plus'
 import { Loading } from '@element-plus/icons-vue'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
+import i18n from '@/i18n/index'
 import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
 import VideoControls from './VideoControls.vue'
 
@@ -235,7 +236,7 @@ async function initPlayer() {
         loadPercent.value = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
       })
       if (!url) {
-        ElMessage.error('视频加载失败')
+        ElMessage.error(i18n.global.t('description.videoLoadFailed'))
         return
       }
       src = url
@@ -300,7 +301,7 @@ async function initPlayer() {
     }
   } catch (e) {
     console.error('初始化播放器失败', e)
-    ElMessage.error('视频加载失败')
+    ElMessage.error(i18n.global.t('description.videoLoadFailed'))
   } finally {
     if (!usingStream) loading.value = false
   }

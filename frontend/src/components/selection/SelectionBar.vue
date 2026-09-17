@@ -31,7 +31,7 @@ const schemaStore = useSchemaStore()
 
 const count = computed(() => selectStore.getSelectedCount())
 const selectedIds = computed(() => selectStore.getSelectedIds())
-const pos = ref({ top: '12px' })
+const pos = ref({ left: '12px', top: '12px' })
 
 // 分组 marker id 集合（加入分组时过滤）
 const groupMarkerIds = computed(() => {

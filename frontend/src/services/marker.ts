@@ -1,6 +1,7 @@
 import * as maplibregl from 'maplibre-gl'
 import Supercluster from 'supercluster'
 import { ElMessage } from 'element-plus'
+import i18n from '@/i18n/index'
 
 import mapService from '@/services/map'
 import { useMapStore } from '@/store/map'
@@ -320,7 +321,7 @@ class MarkerService {
 
   getGPSInfoByMarkerInstance(marker: MapMarkerAdapter): IGPSInfo {
     if (!marker) {
-      ElMessage.error('没有传入marker实例')
+      ElMessage.error(i18n.global.t('description.noMarkerInstance'))
       return { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 }
     }
     const { lat, lng } = marker.getLatLng()
@@ -431,7 +432,7 @@ class MarkerService {
     const existing = this.getMarkerById(imageInfo.id)
     if (existing) {
       this.setViewByMarkerId(imageInfo.id)
-      ElMessage.warning('节点已存在！，请编辑已有节点')
+      ElMessage.warning(i18n.global.t('description.nodeExist'))
       return
     }
     const map = this.MAP_INSTANCE!
@@ -455,7 +456,7 @@ class MarkerService {
     const existing = this.getMarkerById(groupInfo.id)
     if (existing) {
       this.setViewByMarkerId(groupInfo.id)
-      ElMessage.warning('节点已存在！，请编辑已有节点')
+      ElMessage.warning(i18n.global.t('description.nodeExist'))
       return
     }
     const map = this.MAP_INSTANCE!
@@ -481,7 +482,7 @@ class MarkerService {
     const existing = this.getMarkerById(videoInfo.id)
     if (existing) {
       this.setViewByMarkerId(videoInfo.id)
-      ElMessage.warning('节点已存在！，请编辑已有节点')
+      ElMessage.warning(i18n.global.t('description.nodeExist'))
       return
     }
     const map = this.MAP_INSTANCE!

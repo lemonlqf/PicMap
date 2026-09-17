@@ -9,6 +9,7 @@ import { fileToBase64 } from './map'
 import { isVideoExistInOtherGroup } from './group'
 import markerService from '@/services/marker'
 import { ElMessage } from 'element-plus'
+import i18n from '@/i18n/index'
 import type { ISelectedVideo, IImportVideoFile } from '@/type/video'
 import type { IVideoInfo } from '@/type/schema'
 
@@ -135,7 +136,7 @@ export async function importVideo(file: IImportVideoFile): Promise<IVideoInfo | 
   if (res.code === 200) {
     return res.data as IVideoInfo
   }
-  ElMessage.error(res.msg || '视频导入失败')
+  ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
   return null
 }
 

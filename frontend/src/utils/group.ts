@@ -9,6 +9,7 @@
 import { useSchemaStore } from '@/store/schema'
 import { editSchemaAndSave, editSchemaAttrAndSave, saveSchema } from './schema';
 import { ElMessage } from 'element-plus';
+import i18n from '@/i18n/index'
 import eventBus from '@/utils/eventBus'
 import API from '@/wails/api'
 import { cloneDeep } from 'lodash-es';
@@ -154,7 +155,7 @@ export function getAutoGroupGPSInfo(imageId: string[]): IGPSInfo {
     GPSLongitude = GPSInfo.GPSLongitude
     GPSAltitude = GPSInfo.GPSAltitude
   } else {
-    ElMessage.error('没有传入图片id')
+    ElMessage.error(i18n.global.t('description.noImageId'))
     return { GPSLatitude: 0, GPSLongitude: 0, GPSAltitude: 0 }
   }
 
