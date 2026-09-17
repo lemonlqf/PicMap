@@ -231,19 +231,28 @@ interface GpxPoint {
 
 function parseGpxPoints(gpxText: string): GpxPoint[] {
   const parser = new DOMParser()
-  const doc = parser.parseFromString(gpxText, 'text/xml')
+  // 去除 UTF-8 BOM，避免解析器报 "XML declaration allowed only at the start"
+  const text = gpxText.replace(/^\uFEFF/, '')
+  const doc = parser.parseFromString(text, 'text/xml')
   const points: GpxPoint[] = []
-  doc.querySelectorAll('trkpt').forEach((pt) => {
+  // 命名空间无关：带默认 xmlns 的 GPX（如 iGPSPORT）用 querySelectorAll('trkpt') 可能匹配不到
+  const trkpts = doc.getElementsByTagNameNS('*', 'trkpt')
+  const trkptList = trkpts.length > 0
+    ? Array.from(trkpts)
+    : Array.from(doc.getElementsByTagName('trkpt'))
+  trkptList.forEach((pt) => {
     const lat = parseFloat(pt.getAttribute('lat') || '')
     const lon = parseFloat(pt.getAttribute('lon') || '')
     if (!isFinite(lat) || !isFinite(lon)) return
     const [gcjLng, gcjLat] = wgs84ToGcj02(lon, lat)
     if (!isFinite(gcjLng) || !isFinite(gcjLat)) return
-    const ele = pt.getElementsByTagName('ele')[0]?.textContent
-    const time = pt.getElementsByTagName('time')[0]?.textContent
-    const hr = pt.getElementsByTagName('hr')[0]?.textContent
-    const cad = pt.getElementsByTagName('cad')[0]?.textContent
-    const temp = pt.getElementsByTagName('atemp')[0]?.textContent
+    const getTag = (name: string) =>
+      pt.getElementsByTagNameNS('*', name)[0]?.textContent || pt.getElementsByTagName(name)[0]?.textContent
+    const ele = getTag('ele')
+    const time = getTag('time')
+    const hr = getTag('hr')
+    const cad = getTag('cad')
+    const temp = getTag('atemp')
     points.push({
       lat: Number(gcjLat),
       lng: Number(gcjLng),

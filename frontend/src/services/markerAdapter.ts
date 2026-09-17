@@ -367,18 +367,29 @@ export function createVideoMarkerIcon(videoInfo: IVideoInfo, coverUrl?: string):
 
 export async function createGroupMarkerIcon(groupInfo: INewGroupFormData): Promise<MarkerIcon> {
   const groupNumbers = groupInfo.groupNumbers
+  const videoNumbers = groupInfo.videoNumbers
+  // 计数需包含分组内视频
+  const totalCount = (groupNumbers?.length ?? 0) + (videoNumbers?.length ?? 0)
   let iconElement: HTMLElement
   let imageUrls: string[] | undefined
+  const coverUrls: string[] = []
   if (groupNumbers && groupNumbers.length > 0) {
     const resImageUrls = await getMarkerImageUrlByIds(
       groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER)
     )
-    if (!resImageUrls || resImageUrls.length === 0) {
-      iconElement = IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name)
-    } else {
-      imageUrls = resImageUrls.map((item) => item)
-      iconElement = IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers?.length ?? 0)
-    }
+    ;(resImageUrls ?? []).forEach((url) => url && coverUrls.push(url))
+  }
+  // 分组内只有视频时，用视频首帧作为封面（与图片封面拼接，最多 GROUP_COVER_NUMBER 张）
+  if (videoNumbers && videoNumbers.length > 0) {
+    const { getVideoThumbnailUrl } = await import('@/utils/video')
+    const resVideoUrls = await Promise.all(
+      videoNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER).map((vid) => getVideoThumbnailUrl(vid))
+    )
+    resVideoUrls.forEach((url) => url && coverUrls.push(url))
+  }
+  if (coverUrls.length > 0) {
+    imageUrls = coverUrls.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER)
+    iconElement = IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, totalCount)
   } else {
     iconElement = IconHTMLFactory.createIcon(IconType.NoImageGroup, groupInfo.name)
   }
@@ -397,11 +408,13 @@ export async function createGroupMarkerIcon(groupInfo: INewGroupFormData): Promi
 export function createGroupMarkerElement(
   groupNumbers: string[],
   imageUrls: string[],
-  name: string
+  name: string,
+  totalCount?: number
 ): MarkerIcon {
+  const count = totalCount ?? (groupNumbers?.length ?? 0)
   const iconElement =
     groupNumbers && groupNumbers.length > 0 && imageUrls && imageUrls.length > 0
-      ? IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, groupNumbers.length)
+      ? IconHTMLFactory.createIcon(IconType.MultiImage, imageUrls, count)
       : IconHTMLFactory.createIcon(IconType.NoImageGroup, name)
   const { element, inner } = wrapMarkerElement(
     iconElement,

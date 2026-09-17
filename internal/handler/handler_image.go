@@ -347,6 +347,9 @@ func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, er
 		item.AuthorInfo = map[string]interface{}{}
 	}
 
+	// 检测是否为全景图片（XMP GPano 元数据优先，宽高比兜底）
+	item.IsPanorama, item.PanoramaType = service.DetectPanorama(filePath)
+
 	// 生成预览图
 	if preview, err := service.GeneratePreviewBase64(filePath); err == nil {
 		item.Preview = preview

@@ -125,6 +125,9 @@ function handleBoxSelect(
   const markers = markerService.getAllMarkers()
 
   markers.forEach((marker: MapMarkerAdapter) => {
+    // 分组节点不参与框选（批量操作只针对图片/视频）
+    const markerType = marker.options.type
+    if (markerType === 'group' || markerType === 'temporary-group') return
     // 用节点 DOM 实际矩形做相交检测（擦边即命中），而非中心点
     const rect = getMarkerRectInContainer(marker)
     if (!rect) return

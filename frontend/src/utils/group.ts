@@ -11,15 +11,13 @@ import { editSchemaAndSave, editSchemaAttrAndSave, saveSchema } from './schema';
 import { ElMessage } from 'element-plus';
 import eventBus from '@/utils/eventBus'
 import API from '@/wails/api'
-import { getMarkerImageUrlByIds, isImageExistInImageInfo } from '@/utils/Image'
 import { cloneDeep } from 'lodash-es';
 import type { IGPSInfo, IGroupInfo } from '@/type/schema';
 import type { ICreateGroupInfoData } from '@/type/group'
 import type { INewGroupFormData } from '@/type/schema'
 import { editAppSchemaAttrAndSave } from './appSchema';
 import markerService from '@/services/marker'
-import { createGroupMarkerElement } from '@/services/markerAdapter'
-import { GROUP_CONSTANT } from "@/utils/constant";
+import { createGroupMarkerIcon } from '@/services/markerAdapter';
 
 export const defaultGroupNamePrefix = '未命名分组'
 
@@ -200,8 +198,31 @@ export async function dissolveGroupById(groupId: string) {
   groupNumbers.forEach(imageId => {
     markerService.addExistImageMarkerToMapById(imageId)
   });
+  // 将分组内的视频重新显示到地图中（与图片一致：不在其他分组中的才需要）
+  const videoNumbers = getGroupInfoByGroupId(groupId)?.videoNumbers ?? []
+  videoNumbers.forEach(videoId => {
+    if (!isVideoExistInOtherGroup(groupId, videoId)) {
+      markerService.addExistVideoMarkerToMapById(videoId)
+    }
+  });
   // 删除分组信息
   await deleteGroupById(groupId, false)
+  // 分组已从 schema 移除，强制重建聚合索引并渲染（此前节点仍被分组归属过滤）
+  markerService.refreshClusters()
+}
+
+/**
+ * @description: 判断视频是否还在其他分组中存在
+ * @param {string} currentGroupId
+ * @param {string} videoId
+ * @return {boolean}
+ */
+export function isVideoExistInOtherGroup(currentGroupId: string, videoId: string): boolean {
+  const schemaStore = useSchemaStore()
+  const otherGroupInfos = schemaStore.getGroupInfo.filter(item => item.id !== currentGroupId)
+  return otherGroupInfos.some(groupInfo => {
+    return groupInfo.videoNumbers?.includes(videoId)
+  })
 }
 
 /**
@@ -265,6 +286,8 @@ export function removeGroupImage(groupId: string, imageId: string) {
 export async function deleteGroupById(groupId: string, needDeleteImages = true) {
   const schemaStore = useSchemaStore()
   const groupInfo = getGroupInfoByGroupId(groupId)
+  // 分组内视频不做删除（视频是独立资源），仅解除分组关联并重新显示到地图
+  const videoNumbers = groupInfo.videoNumbers ?? []
   // 删除schema分组对应的图片数据
   let deleteGroupNumbers = groupInfo.groupNumbers
   if (!needDeleteImages) {
@@ -281,6 +304,12 @@ export async function deleteGroupById(groupId: string, needDeleteImages = true) 
 
   // 删除schema中的分组信息
   schemaStore.deleteGroupInGroupInfo(groupId)
+  // 视频重新显示到地图（与图片一致：不在其他分组中的才需要）
+  videoNumbers.forEach(videoId => {
+    if (!isVideoExistInOtherGroup(groupId, videoId)) {
+      markerService.addExistVideoMarkerToMapById(videoId)
+    }
+  })
   // eventBus.emit('delete-image', groupId)
   saveSchema()
   return Promise.all([API.image.deleteImages({ deleteImages: deleteGroupNumbers })]).then(res => {
@@ -303,18 +332,10 @@ export async function updateGroupMarkerImage(groupInfo: IGroupInfo) {
     return
   }
   const groupMark = markerService.getMarkerById(groupInfo.id)
-  const groupNumbers = groupInfo.groupNumbers ?? []
-  // 先只获取前4张图片（marker 小图 120px）
-  const resImageUrls = await getMarkerImageUrlByIds(groupNumbers.slice(0, GROUP_CONSTANT.GROUP_COVER_NUMBER))
-  if (!resImageUrls || resImageUrls.length === 0) {
-    ElMessage.error('获取图片失败')
-    return
-  }
-  const imageUrls = resImageUrls.map(item => {
-    return item
-  })
-  const myIcon = createGroupMarkerElement(groupNumbers, imageUrls, groupInfo.name)
-  groupMark?.setIcon?.(myIcon)
+  if (!groupMark) return
+  // 统一用 createGroupMarkerIcon：内部会取封面并计算数量（含视频），空分组也能生成占位图标
+  const myIcon = await createGroupMarkerIcon(groupInfo)
+  groupMark.setIcon(myIcon)
 }
 
 /**
@@ -367,25 +388,6 @@ export async function updateGroupInfoToSchema(groupId: string, groupInfo: IGroup
   schemaStore.setSchemaAttr('groupInfo', groupInfos)
   await saveSchema()
   return groupInfo
-}
-
-export async function batchAddImagesToGroups(imageIds: string[], groupIds: string[]) {
-  if (!imageIds || imageIds.length === 0 || !groupIds || groupIds.length === 0) {
-    ElMessage.warning('请先框选图片并选择目标分组')
-    return
-  }
-  const schemaStore = useSchemaStore()
-  imageIds.forEach((imageId) => {
-    groupIds.forEach((groupId) => {
-      schemaStore.pushImageToGroupInfo(imageId, groupId)
-    })
-  })
-  // 刷新受影响分组的封面图标
-  groupIds.forEach((groupId) => {
-    updateGroupMarkerImage(getGroupInfoByGroupId(groupId))
-  })
-  await saveSchema()
-  ElMessage.success('批量加入分组成功')
 }
 
 // 排序的时间精度

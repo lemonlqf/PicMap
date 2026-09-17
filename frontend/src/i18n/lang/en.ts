@@ -110,7 +110,7 @@ export default {
   group: 'Group',
   batchUpload: 'Batch upload',
   batchUploadToGroup: 'Batch upload to group',
-  batchDeleteImages: 'Batch delete images',
+  batchDeleteImages: 'Batch delete',
   batchAddToGroup: 'Batch add to group',
   selectedCount: 'Selected',
   nodes: 'nodes',
@@ -184,6 +184,11 @@ export default {
   deleteFailed: 'Delete failed',
   reset: 'Reset',
   timeline: 'Timeline',
+
+  // Timezone
+  timezone: {
+    saveSuccess: 'Timezone saved. Reopen related dialogs to take effect.'
+  },
 
   // Track related
   track: {

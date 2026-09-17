@@ -87,14 +87,23 @@ export function parseGpxTimeToMs(time: string): number {
 }
 
 export function parseGpxPoints(gpxText: string): IGpxPoint[] {
-  const doc = new DOMParser().parseFromString(gpxText, 'text/xml')
+  // 去除 UTF-8 BOM，避免部分解析器因 "XML declaration allowed only at the start" 报错
+  const text = gpxText.replace(/^\uFEFF/, '')
+  const doc = new DOMParser().parseFromString(text, 'text/xml')
   const points: IGpxPoint[] = []
-  doc.querySelectorAll('trkpt').forEach((pt) => {
+  // 命名空间无关：部分 GPX 带默认 xmlns（如 iGPSPORT 的 topografix GPX/1/1），
+  // querySelectorAll('trkpt') 在带命名空间的 XML 下可能匹配不到，故用 getElementsByTagNameNS('*', ...)
+  const trkpts = doc.getElementsByTagNameNS('*', 'trkpt')
+  const trkptList = trkpts.length > 0
+    ? Array.from(trkpts)
+    : Array.from(doc.getElementsByTagName('trkpt'))
+  trkptList.forEach((pt) => {
     const lat = parseFloat(pt.getAttribute('lat') || '')
     const lon = parseFloat(pt.getAttribute('lon') || '')
     if (!isFinite(lat) || !isFinite(lon)) return
     const [gcjLng, gcjLat] = wgs84ToGcj02(lon, lat)
-    const time = pt.getElementsByTagName('time')[0]?.textContent
+    const time = pt.getElementsByTagNameNS('*', 'time')[0]?.textContent
+      || pt.getElementsByTagName('time')[0]?.textContent
     points.push({
       lat: gcjLat,
       lng: gcjLng,

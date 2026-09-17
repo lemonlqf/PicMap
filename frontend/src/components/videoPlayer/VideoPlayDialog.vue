@@ -5,7 +5,7 @@
  * - 采用暗色无边框样式，右上角提供关闭按钮
  -->
 <template>
-  <el-dialog :model-value="visible" append-to-body :close-on-click-modal="true" :show-close="false"
+  <el-dialog :model-value="visible" :append-to-body="appendToBody" :close-on-click-modal="true" :show-close="false"
     :destroy-on-close="false" top="5vh" width="80vw" class="video-play-dialog"
     @update:model-value="onVisibleChange" @close="handleClose">
     <template #header>
@@ -25,17 +25,21 @@
 </template>
 
 <script lang="ts" setup>
-import { computed } from 'vue'
+import { computed, onBeforeUnmount } from 'vue'
 import { Close } from '@element-plus/icons-vue'
 import VideoPlayer from './VideoPlayer.vue'
 import PanoramaVideoViewer from './PanoramaVideoViewer.vue'
 import { getVideoInfoById } from '@/utils/schema'
 import { revokeVideoObjectUrl } from '@/utils/videoBlob'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   visible: boolean
   videoId: string
-}>()
+  // 是否挂载到 body：分组详情内需为 false（留在抽屉层叠上下文内，避免被抽屉遮挡），其余场景为 true
+  appendToBody?: boolean
+}>(), {
+  appendToBody: true
+})
 
 const emit = defineEmits<{
   (e: 'update:visible', value: boolean): void
@@ -57,6 +61,11 @@ function handleClose() {
   if (props.videoId) revokeVideoObjectUrl(props.videoId)
   emit('update:visible', false)
 }
+
+// 父组件直接卸载弹窗（未走关闭流程）时，同样回收 objectURL，避免整段视频内存泄漏
+onBeforeUnmount(() => {
+  if (props.videoId) revokeVideoObjectUrl(props.videoId)
+})
 </script>
 
 <style scoped>
@@ -116,7 +125,6 @@ function handleClose() {
   --el-dialog-bg-color: transparent;
   --el-dialog-padding-primary: 0;
 
-  z-index: 99999;
   padding: 0;
   background: rgba(255, 255, 255, 0.72);
   backdrop-filter: blur(18px) saturate(1.6);

@@ -36,9 +36,11 @@ import * as maplibregl from 'maplibre-gl';
 import { ElIcon } from 'element-plus';
 import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
+import { getVideoInfoById } from '@/utils/schema';
 import { getMarkerImageUrlById } from '@/utils/Image';
+import { getVideoThumbnailUrl } from '@/utils/video';
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, MAP_CONSTANT } from '@/utils/constant'
-import { createImageMarkerIcon, MapMarkerAdapter } from '@/services/markerAdapter';
+import { createImageMarkerIcon, createVideoMarkerIcon, MapMarkerAdapter } from '@/services/markerAdapter';
 import { toMapLibreLngLat } from '@/utils/mapLibre';
 import { useAppStore } from '@/store/appSchema';
 import { useSchemaStore } from '@/store/schema';
@@ -62,6 +64,11 @@ const props = defineProps({
   },
   // 轨迹id列表，用于在地图上显示对应的轨迹（如果需要）
   trackIds: {
+    type: Object as PropType<string[]>,
+    default: () => []
+  },
+  // 视频id列表，用于在地图上显示对应的视频节点
+  videoIds: {
     type: Object as PropType<string[]>,
     default: () => []
   },
@@ -496,6 +503,30 @@ async function updateMarkers() {
     markers.push(marker)
   }
 
+  // 视频节点：仅渲染有独立 GPS 坐标的视频
+  for (const videoId of (props.videoIds || [])) {
+    const videoInfo = getVideoInfoById(videoId) as any
+    if (!videoInfo?.GPSLatitude || !videoInfo?.GPSLongitude) continue
+    const coverUrl = await getVideoThumbnailUrl(videoId)
+    const icon = createVideoMarkerIcon(videoInfo, coverUrl || undefined)
+    const marker = new MapMarkerAdapter(
+      icon,
+      toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+      { id: videoId, type: 'video', name: videoInfo.name, iconUrl: coverUrl || '' }
+    )
+    marker.on('click', () => {
+      emit('markerClick', videoId)
+    })
+    marker.on('mouseover', () => {
+      highlightMarker(marker)
+    })
+    marker.on('mouseout', () => {
+      resetMarker(marker)
+    })
+    marker.addTo(map!)
+    markers.push(marker)
+  }
+
   setTimeout(() => {
     fitAllBounds()
   }, 100)
@@ -638,6 +669,11 @@ async function ensureTrackLoaded(trackId: string) {
 
 // 监听图片ID变化，更新标记
 watch(() => props.imageIds, () => {
+  updateMarkers()
+}, { deep: true })
+
+// 监听视频ID变化，更新标记
+watch(() => props.videoIds, () => {
   updateMarkers()
 }, { deep: true })
 

@@ -23,9 +23,19 @@ import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
 import eventBus from '@/utils/eventBus'
 import { GPSInfoLegality } from '@/utils/map'
 import { toMapLibreLngLat } from '@/utils/mapLibre'
+import { schemaCoordToMap } from '@/utils/coordinate'
 import { MARKER_CONSTANT, MARKER_OVERLAP_THRESHOLD } from '@/utils/constant'
 import { useSelectStore } from '@/store/select'
 import type { IImageInfo, INewGroupFormData, IGroupInfo, IGPSInfo, IVideoInfo } from '@/type/schema'
+
+/**
+ * @description: 把 schema 中存储的 GPS 坐标（GCJ02）转换为地图渲染坐标
+ * 当前瓦片非 WGS84 时会自动反推，保证与底图对齐
+ */
+function schemaGpsToMapLngLat(lat: number, lng: number): [number, number] {
+  const [mapLng, mapLat] = schemaCoordToMap(lng, lat)
+  return toMapLibreLngLat(mapLat, mapLng)
+}
 
 interface ImagePointFeature {
   type: 'Feature'
@@ -185,9 +195,22 @@ class MarkerService {
   }
 
   // 按时间轴筛选范围过滤图片点（无时间信息的图片始终保留）
+  // 同时过滤掉已隐藏 / 已加入分组的图片/视频点，避免其仍参与聚合计数或单独显示
   private getFilteredPoints(): ImagePointFeature[] {
-    if (!this.timeRange) return this.imagePoints
+    let points = this.imagePoints
     const schemaStore = useSchemaStore()
+    // 分组内的图片/视频不在主地图上单独显示（以分组状态为准，保证加入分组后节点一定消失）
+    const groupedIds = new Set<string>()
+    ;(schemaStore.getSchema.groupInfo || []).forEach((g: any) => {
+      ;(g.groupNumbers || []).forEach((id: string) => groupedIds.add(id))
+      ;(g.videoNumbers || []).forEach((id: string) => groupedIds.add(id))
+    })
+    if (this.hiddenMarkerIds.size > 0 || groupedIds.size > 0) {
+      points = points.filter((p) =>
+        !this.hiddenMarkerIds.has(p.properties.id) && !groupedIds.has(p.properties.id)
+      )
+    }
+    if (!this.timeRange) return points
     const imageInfo = schemaStore.getSchema.imageInfo ?? []
     const timeMap = new Map<string, number>()
     imageInfo.forEach((img) => {
@@ -196,7 +219,7 @@ class MarkerService {
         timeMap.set(img.id, t)
       }
     })
-    return this.imagePoints.filter((p) => {
+    return points.filter((p) => {
       const t = timeMap.get(p.properties.id)
       if (t === undefined) return true
       return t >= this.timeRange!.min && t <= this.timeRange!.max
@@ -309,14 +332,17 @@ class MarkerService {
     if (!imageInfo.GPSInfo.GPSLatitude || !imageInfo.GPSInfo.GPSLongitude) return
     const existing = this.markers.get(imageInfo.id)
     if (existing) {
-      existing.setIcon(createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url))
+      // 已有封面时保留，避免重新入图（如解散分组）后被重置为占位图
+      if (!existing.options.iconUrl) {
+        existing.setIcon(createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url))
+      }
       this.applySelectionState(existing)
       return
     }
     const icon = createImageMarkerIcon(imageInfo, getImageUrl(imageInfo.id) ?? imageInfo.url)
     const marker = new MapMarkerAdapter(
       icon,
-      toMapLibreLngLat(imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude),
+      schemaGpsToMapLngLat(imageInfo.GPSInfo.GPSLatitude, imageInfo.GPSInfo.GPSLongitude),
       { id: imageInfo.id, type: 'image', iconUrl: icon.iconUrl }
     )
     this.markers.set(imageInfo.id, marker)
@@ -343,7 +369,7 @@ class MarkerService {
     const icon = await createGroupMarkerIcon(groupInfo)
     const marker = new MapMarkerAdapter(
       icon,
-      toMapLibreLngLat(groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude),
+      schemaGpsToMapLngLat(groupInfo.GPSInfo.GPSLatitude, groupInfo.GPSInfo.GPSLongitude),
       { id: groupInfo.id, type: 'group' }
     )
     this.markers.set(groupInfo.id, marker)
@@ -360,6 +386,9 @@ class MarkerService {
   addExistImageMarkerToMapById(imageId: string) {
     const schemaStore = useSchemaStore()
     const mapStore = useMapStore()
+    // 重新入图前清除隐藏态：分组期间被 hiddenMarkerById 隐藏过，
+    // 否则 getFilteredPoints 会把它过滤掉，导致解散分组后节点不再出现
+    this.hiddenMarkerIds.delete(imageId)
     if (!mapStore.visibleMarkerIdList.includes(imageId)) {
       const imageInfo = schemaStore.getSchema.imageInfo?.filter((item: IImageInfo) => item.id === imageId)[0]
       if (imageInfo) {
@@ -369,6 +398,33 @@ class MarkerService {
     } else {
       this.showMarkerById(imageId)
     }
+    // 新增/恢复的节点需要重建聚合索引并重新渲染
+    this.clusterDirty = true
+    this.updateVisibleMarkers()
+  }
+
+  // 视频版：从分组中剔除后重新显示到地图（与图片 addExistImageMarkerToMapById 同一套逻辑）
+  addExistVideoMarkerToMapById(videoId: string) {
+    const mapStore = useMapStore()
+    // 与图片一致：清除隐藏态，避免恢复后仍被过滤
+    this.hiddenMarkerIds.delete(videoId)
+    const marker = this.getMarkerById(videoId)
+    // 节点不存在（如加载时已在分组内被跳过创建）则按 schema 重新创建
+    if (!marker) {
+      const videoInfo = getVideoInfoById(videoId)
+      if (videoInfo?.GPSLatitude && videoInfo?.GPSLongitude) {
+        this.addVideoMarkerToMap(videoInfo)
+        this.addVisibleMarkerById(videoId)
+      }
+      this.clusterDirty = true
+      this.updateVisibleMarkers()
+      return
+    }
+    if (!mapStore.visibleMarkerIdList.includes(videoId)) {
+      this.addVisibleMarkerById(videoId)
+    }
+    // 已存在则取消隐藏并重新渲染
+    this.showMarkerById(videoId)
   }
 
   addManualLocateImageMarkerToMap(imageInfo: IImageInfo, lat?: number, lng?: number) {
@@ -420,7 +476,8 @@ class MarkerService {
   }
 
   // 手动定位视频节点：可拖拽的临时节点，用于导入前在地图上调整位置
-  addManualLocateVideoMarkerToMap(videoInfo: IVideoInfo, lat?: number, lng?: number) {
+  // coverUrl 可选：传入选择视频时已解析的首帧封面，节点创建即显示封面
+  addManualLocateVideoMarkerToMap(videoInfo: IVideoInfo, lat?: number, lng?: number, coverUrl?: string) {
     const existing = this.getMarkerById(videoInfo.id)
     if (existing) {
       this.setViewByMarkerId(videoInfo.id)
@@ -428,7 +485,7 @@ class MarkerService {
       return
     }
     const map = this.MAP_INSTANCE!
-    const icon = createVideoMarkerIcon(videoInfo)
+    const icon = createVideoMarkerIcon(videoInfo, coverUrl)
     const center = map.getCenter()
     const markerLatLng: [number, number] = lat && lng
       ? toMapLibreLngLat(lat, lng)
@@ -437,6 +494,8 @@ class MarkerService {
       id: videoInfo.id,
       type: 'temporary-video',
       draggable: true,
+      name: videoInfo.name,
+      iconUrl: coverUrl || '',
     })
     this.markers.set(videoInfo.id, marker)
     marker.addTo(map)
@@ -455,7 +514,7 @@ class MarkerService {
     const icon = createVideoMarkerIcon(videoInfo, coverUrl)
     const marker = new MapMarkerAdapter(
       icon,
-      toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+      schemaGpsToMapLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
       { id: videoInfo.id, type: 'video', name: videoInfo.name, iconUrl: coverUrl || '' }
     )
     this.markers.set(videoInfo.id, marker)
@@ -526,36 +585,69 @@ class MarkerService {
   hiddenMarkerById(markerId: string, hiddenGroupMarker: boolean = true) {
     const marker = this.getMarkerById(markerId)
     if (!marker) {
-      console.warn('Marker not found when hiding:', markerId)
       return
     }
     const markerType = marker.options.type
-    const isImage = markerType === 'image' || markerType === 'temporary-image' || markerType === 'video'
     const isGroup = markerType === 'group' || markerType === 'temporary-group'
-    if (isImage) {
-      this.hiddenMarkerIds.add(markerId)
-      this.renderClusters()
-    } else if (isGroup && hiddenGroupMarker) {
+    if (isGroup) {
+      if (!hiddenGroupMarker) return
       marker.remove()
       this.hiddenMarkerIds.add(markerId)
+      return
     }
+    // 图片 / 视频 / 临时节点：加入隐藏集合并从地图移除
+    this.hiddenMarkerIds.add(markerId)
+    // 直接移除地图上的节点（重建聚合索引会清空 lastShownImageIds，renderClusters 不再负责移除）
+    if (this.isMarkerOnMap(marker)) marker.remove()
+    // 重建聚合索引，使其从聚合计数中移除
+    this.clusterDirty = true
+    this.renderClusters()
   }
 
   showMarkerById(markerId: string) {
     const marker = this.getMarkerById(markerId)
-    if (marker) {
-      const markerType = marker.options.type
-      const isImage = markerType === 'image' || markerType === 'temporary-image' || markerType === 'video'
-      const isGroup = markerType === 'group' || markerType === 'temporary-group'
-      if (isImage) {
-        this.hiddenMarkerIds.delete(markerId)
-        this.renderClusters()
-      } else if (isGroup) {
-        if (!this.hiddenMarkerIds.has(markerId)) {
-          marker.addTo(this.MAP_INSTANCE!)
-        }
-      }
+    if (!marker) return
+    const markerType = marker.options.type
+    const isGroup = markerType === 'group' || markerType === 'temporary-group'
+    if (isGroup) {
+      this.hiddenMarkerIds.delete(markerId)
+      if (!this.isMarkerOnMap(marker)) marker.addTo(this.MAP_INSTANCE!)
+      return
     }
+    this.hiddenMarkerIds.delete(markerId)
+    // 临时节点不在聚合索引中，直接加回地图
+    if (markerType === 'temporary-image' || markerType === 'temporary-video') {
+      if (!this.isMarkerOnMap(marker)) marker.addTo(this.MAP_INSTANCE!)
+      return
+    }
+    // 图片/视频：重建聚合索引并触发可见节点封面加载
+    this.clusterDirty = true
+    this.updateVisibleMarkers()
+  }
+
+  /**
+   * @description: 按当前 schema 重建指定节点的图标（用于全景标记等属性切换后即时刷新图标）
+   * @param {string} markerId 图片或视频 id
+   */
+  refreshMarkerIconById(markerId: string) {
+    const marker = this.getMarkerById(markerId)
+    if (!marker) return
+    const markerType = marker.options.type
+    if (markerType === 'image' || markerType === 'temporary-image') {
+      const imageInfo = getSchemaInfoById(markerId) as IImageInfo | undefined
+      if (!imageInfo) return
+      marker.setIcon(createImageMarkerIcon(imageInfo, marker.options.iconUrl || getImageUrl(markerId) || imageInfo.url))
+    } else if (markerType === 'video') {
+      const videoInfo = getVideoInfoById(markerId)
+      if (!videoInfo) return
+      marker.setIcon(createVideoMarkerIcon(videoInfo, marker.options.iconUrl))
+    }
+  }
+
+  // 强制重建聚合索引并刷新渲染（用于分组归属等外部状态变化后同步地图节点）
+  refreshClusters() {
+    this.clusterDirty = true
+    this.updateVisibleMarkers()
   }
 
   observeClisterClick() {
@@ -731,6 +823,13 @@ class MarkerService {
       m.remove()
     })
     this.lastClusterMarkers.clear()
+
+    // 兜底：已隐藏的图片/视频节点若仍在图上则移除（避免任何路径漏删导致节点残留）
+    this.markers.forEach((m) => {
+      const t = m.options.type
+      if (t !== 'image' && t !== 'temporary-image' && t !== 'video') return
+      if (this.hiddenMarkerIds.has(m.options.id) && this.isMarkerOnMap(m)) m.remove()
+    })
 
     // 单点过渡（图片/视频）：聚合时飞向 cluster 中心，离散时从中心飞散（参照 Leaflet.markercluster）
     this.markers.forEach((m) => {

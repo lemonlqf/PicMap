@@ -37,6 +37,19 @@
           @pause="isPlaying = false"
           @ended="handleEnded"
         />
+
+        <!-- 统一控制栏（与 VideoPlayer/PanoramaVideoViewer 共用）；自动播放下一个开关通过 extra 插槽注入 -->
+        <VideoControls class="track-video-controls" :is-playing="isPlaying" :current-time="currentSeconds"
+          :duration="durationSeconds" :volume="volume" :muted="muted" :is-fullscreen="isFullscreen"
+          :visible="!isFullscreen || controlsVisible" @toggle-play="togglePlay" @toggle-mute="toggleMute"
+          @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="handleSliderInput">
+          <template #extra>
+            <span class="auto-next" :title="t('track.autoNext')">
+              <el-switch v-model="autoPlayNext" size="small" />
+              <span class="auto-next-label">{{ t('track.autoNext') }}</span>
+            </span>
+          </template>
+        </VideoControls>
       </div>
 
       <!-- 上一个 / 下一个视频（仅当该轨迹有多个视频时显示） -->
@@ -59,51 +72,6 @@
         </div>
         <div v-show="!miniMapMinimized" class="mini-map" ref="miniMapRef"></div>
       </div>
-
-      <!-- 共同进度条 -->
-      <div class="progress-bar">
-        <el-button
-          class="progress-play"
-          circle
-          :icon="isPlaying ? VideoPause : VideoPlay"
-          @click="togglePlay"
-        />
-        <!-- 音量（播放按钮右侧） -->
-        <el-icon class="volume-btn" :title="muted ? '取消静音' : '静音'" @click="toggleMute">
-          <Mute v-if="muted || volume <= 0" />
-          <Headset v-else />
-        </el-icon>
-        <el-slider
-          v-model="volume"
-          class="volume-slider"
-          :min="0"
-          :max="1"
-          :step="0.01"
-          :show-tooltip="false"
-          @input="onVolumeChange"
-        />
-        <span class="progress-time">{{ formatSeconds(currentSeconds) }}</span>
-        <el-slider
-          v-model="currentSeconds"
-          class="progress-slider"
-          :min="0"
-          :max="durationSeconds || 0"
-          :step="0.1"
-          :disabled="!durationSeconds"
-          :show-tooltip="false"
-          @input="handleSliderInput"
-        />
-        <span class="progress-time">{{ formatSeconds(durationSeconds) }}</span>
-        <!-- 自动播放下一个（全屏按钮左侧） -->
-        <span class="auto-next" :title="t('track.autoNext')">
-          <el-switch v-model="autoPlayNext" size="small" />
-          <span class="auto-next-label">{{ t('track.autoNext') }}</span>
-        </span>
-        <!-- 全屏（右下角） -->
-        <el-icon class="fullscreen-btn" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
-          <FullScreen />
-        </el-icon>
-      </div>
     </div>
   </el-dialog>
 </template>
@@ -114,8 +82,9 @@ import { useI18n } from 'vue-i18n'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { ElMessage } from 'element-plus'
-import { VideoPlay, VideoPause, MapLocation, ArrowDown, ArrowUp, ArrowLeft, ArrowRight, FullScreen, Mute, Headset } from '@element-plus/icons-vue'
+import { MapLocation, ArrowDown, ArrowUp, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import VideoPlayer from '@/components/videoPlayer/VideoPlayer.vue'
+import VideoControls from '@/components/videoPlayer/VideoControls.vue'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
@@ -292,13 +261,28 @@ watch(isFullscreen, (val) => {
 // ---- 音量 ----
 const volume = ref(1)
 const muted = ref(false)
+/** 静音前音量（取消静音时恢复） */
+const lastVolume = ref(1)
 function toggleMute() {
-  muted.value = !muted.value
-  playerRef.value?.setMuted(muted.value)
+  // 静音时音量归零，取消静音恢复静音前的值
+  if (muted.value) {
+    muted.value = false
+    const v = lastVolume.value > 0 ? lastVolume.value : 1
+    volume.value = v
+    playerRef.value?.setVolume(v)
+    playerRef.value?.setMuted(false)
+  } else {
+    if (volume.value > 0) lastVolume.value = volume.value
+    muted.value = true
+    volume.value = 0
+    playerRef.value?.setVolume(0)
+    playerRef.value?.setMuted(true)
+  }
 }
 function onVolumeChange(val: number | number[]) {
   const v = Array.isArray(val) ? val[0] : val
   volume.value = v
+  if (v > 0) lastVolume.value = v
   muted.value = v <= 0
   playerRef.value?.setVolume(v)
   playerRef.value?.setMuted(v <= 0)
@@ -542,17 +526,6 @@ function togglePlay() {
   else playerRef.value?.play()
 }
 
-function formatSeconds(sec: number): string {
-  if (!sec || !isFinite(sec)) return '00:00'
-  const total = Math.floor(sec)
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const mm = String(m).padStart(2, '0')
-  const ss = String(s).padStart(2, '0')
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
-}
-
 // ---- 数据加载与生命周期 ----
 async function loadData() {
   if (!props.trackId || !props.videoId) return
@@ -613,6 +586,10 @@ onMounted(() => {
 onUnmounted(() => {
   document.removeEventListener('fullscreenchange', onFullscreenChange)
   document.removeEventListener('keydown', showControls)
+  // 拖动中途卸载时，清理挂在 document 上的拖拽监听，避免残留监听与闭包泄漏
+  document.removeEventListener('mousemove', onMiniMapDragMove)
+  document.removeEventListener('mouseup', onMiniMapDragEnd)
+  miniMapDrag.active = false
   clearIdleTimer()
   destroyMap()
 })
@@ -676,11 +653,8 @@ onUnmounted(() => {
   border-radius: 0;
 }
 
-.track-video-play-body:fullscreen .progress-bar {
-  margin: 8px 12px;
-}
-
 .video-area {
+  position: relative;
   flex: 1;
   min-height: 0;
   margin: 12px 12px 0;
@@ -716,9 +690,8 @@ onUnmounted(() => {
   background: rgba(64, 158, 255, 0.85);
 }
 
-/* 全屏空闲时隐藏控制（轨迹地图保留） */
-.track-video-play-body.controls-hidden .video-nav,
-.track-video-play-body.controls-hidden .progress-bar {
+/* 全屏空闲时隐藏控制（轨迹地图保留）；控制栏显隐由 VideoControls 的 visible 控制 */
+.track-video-play-body.controls-hidden .video-nav {
   opacity: 0;
   pointer-events: none;
 }
@@ -790,60 +763,6 @@ onUnmounted(() => {
 .mini-map {
   width: 100%;
   height: 200px;
-}
-
-.progress-bar {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin: 12px;
-  padding: 6px 14px;
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
-  transition: opacity 0.3s ease;
-}
-
-.progress-time {
-  flex-shrink: 0;
-  min-width: 48px;
-  text-align: center;
-  font-size: 12px;
-  font-variant-numeric: tabular-nums;
-  color: #606266;
-}
-
-.progress-slider {
-  flex: 1;
-}
-
-.volume-btn {
-  flex-shrink: 0;
-  font-size: 18px;
-  color: #606266;
-  cursor: pointer;
-}
-
-.volume-btn:hover {
-  color: #409eff;
-}
-
-.volume-slider {
-  flex-shrink: 0;
-  width: 90px;
-}
-
-.progress-play {
-  flex-shrink: 0;
-  --el-button-bg-color: #409eff;
-  --el-button-border-color: #409eff;
-  --el-button-hover-bg-color: #66b1ff;
-  --el-button-hover-border-color: #66b1ff;
-  --el-button-text-color: #fff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.4);
 }
 </style>
 

@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-27 21:53:12
- * @FilePath: \PicMap\picMap_fontend\src\i18n\lang\zh-CN.ts
+ * @LastEditTime: 2026-09-17 20:12:31
+ * @FilePath: \picmap-go\frontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
 export default {
@@ -37,8 +37,8 @@ export default {
   endTime: '结束时间',
   actions: '操作',
   setGroup: '设置分组',
-  setPanorama: '设为全景图',
-  cancelPanorama: '取消全景图',
+  setPanorama: '设为全景',
+  cancelPanorama: '取消全景',
   littlePlanet: '小星球',
   normalPanorama: '普通全景',
   fullscreen: '全屏',
@@ -110,7 +110,7 @@ export default {
   group: '分组',
   batchUpload: '批量上传',
   batchUploadToGroup: '批量上传到分组',
-  batchDeleteImages: '批量删除图片',
+  batchDeleteImages: '批量删除',
   batchAddToGroup: '批量添加到分组',
   selectedCount: '已选',
   nodes: '个节点',
@@ -183,6 +183,11 @@ export default {
   deleteFailed: '删除失败',
   reset: '重置',
   timeline: '时间轴',
+
+  // 时区
+  timezone: {
+    saveSuccess: '时区已保存，重新打开相关弹框后生效'
+  },
 
   // 轨迹相关
   track: {

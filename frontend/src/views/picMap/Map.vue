@@ -1,8 +1,8 @@
 <template>
   <div class="map-wrap">
     <div id="map"></div>
-    <!-- 俯仰角调节 -->
-    <div class="pitch-control">
+    <!-- 俯仰角调节（随纯净模式淡入淡出，与其他开关一致） -->
+    <div :class="['pitch-control', pitchClass]">
       <span class="pitch-label">俯仰角: {{ pitch }}°</span>
       <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
     </div>
@@ -73,6 +73,11 @@ const props = defineProps({
   mapBearing: {
     type: Number,
     default: 0
+  },
+  // 俯仰角控件的动画 class（与其他开关一致：纯净模式下淡出并禁用指针）
+  pitchClass: {
+    type: String,
+    default: ''
   }
 })
 
@@ -155,9 +160,12 @@ function initTile() {
   if (map.getLayer('tile-layer')) map.removeLayer('tile-layer')
   if (map.getSource('tile')) map.removeSource('tile')
   map.addSource('tile', { type: 'raster', tiles: [url], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
-  map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' })
+  // 底图必须始终置于最底层：插入到当前第一个已存在图层之前，
+  // 否则 addLayer 默认置顶会让底图/叠加层盖住轨迹线
+  const bottomLayerId = map.getStyle().layers?.[0]?.id
+  map.addLayer({ id: 'tile-layer', type: 'raster', source: 'tile' }, bottomLayerId)
   currentTileUrl = url
-  // 底图重新入栈后叠加层需置于其上（addLayer 默认置顶，重新加回底图会盖住叠加层）
+  // 底图重新入栈后同步叠加层层级（叠加层置于底图之上、业务图层之下）
   syncTileOverlays()
 }
 
@@ -173,19 +181,24 @@ function clearTileOverlays() {
   }
 }
 
-// 在底图之上渲染叠加层（raster 图层，置于 tile-layer 之上）
+// 在底图之上、其他业务图层（轨迹/标记等）之下渲染叠加层（raster 图层）
 function renderTileOverlays(overlays: ITileOverlay[]) {
   if (!map || !mapLoaded) return
   const mapInst = map
   clearTileOverlays()
   if (!overlays || !overlays.length) return
+  // 找到第一个既非底图也非叠加层的图层作为插入基准，保证叠加层不盖住轨迹线
+  const beforeId = mapInst.getStyle().layers?.find(
+    (layer: any) => layer.id !== 'tile-layer' &&
+      !layer.id.startsWith(OVERLAY_LAYER_PREFIX)
+  )?.id
   overlays.forEach((ov, i) => {
     if (!ov?.url) return
     const srcId = `${OVERLAY_SOURCE_PREFIX}${i}`
     const layerId = `${OVERLAY_LAYER_PREFIX}${i}`
     if (mapInst.getSource(srcId)) return
     mapInst.addSource(srcId, { type: 'raster', tiles: [ov.url], tileSize: 256, maxzoom: MAP_CONSTANT.MAX_ZOOM })
-    mapInst.addLayer({ id: layerId, type: 'raster', source: srcId })
+    mapInst.addLayer({ id: layerId, type: 'raster', source: srcId }, beforeId)
   })
 }
 
@@ -224,10 +237,15 @@ async function initMarker() {
     })
   }
   // 有坐标的视频在地图上显示为视频标记（封面为第一帧）
+  // 已加入分组的视频不在地图上单独显示（与图片一致）
   const schemaStore = useSchemaStore()
   const videoInfo = schemaStore.getSchema.videoInfo || []
+  const videoIdInGroup: string[] = []
+  ;(schemaStore.getSchema.groupInfo || []).forEach(group => {
+    group.videoNumbers && videoIdInGroup.push(...group.videoNumbers)
+  })
   for (const video of videoInfo) {
-    if (video.GPSLatitude && video.GPSLongitude) {
+    if (video.GPSLatitude && video.GPSLongitude && !videoIdInGroup.includes(video.id)) {
       await markerService.addVideoMarkerToMap(video)
     }
   }
@@ -305,6 +323,34 @@ async function focusVideoSegmentAtPoint(trackId: string, lngLat: { lng: number; 
 }
 
 /**
+ * @description: 收集"显示在主地图"的轨迹 id 集合（原始 id 与去 .gpx 后缀的规范化 id）
+ * 一次构建，供渲染与详情列表复用，避免重复遍历与 O(n²) 匹配
+ */
+function getShowOnMainMapIdSets() {
+  const schemaStore = useSchemaStore()
+  const trackInfoList = schemaStore.getSchema.trackInfo || []
+  const rawSet = new Set<string>()
+  const normalizedSet = new Set<string>()
+  trackInfoList.forEach((t: any) => {
+    if (!t.setting?.showOnMainMap) return
+    rawSet.add(t.id)
+    normalizedSet.add(String(t.id).replace(/\.gpx$/i, '').toLowerCase())
+  })
+  return { rawSet, normalizedSet }
+}
+
+/**
+ * @description: 判断轨迹实例是否属于"显示在主地图"目标集合（O(1)）
+ */
+function isShowOnMainMapTrack(
+  trackId: string,
+  sets: { rawSet: Set<string>; normalizedSet: Set<string> }
+): boolean {
+  if (sets.rawSet.has(trackId)) return true
+  return sets.normalizedSet.has(String(trackId).replace(/\.gpx$/i, '').toLowerCase())
+}
+
+/**
  * @description: 渲染主地图上开启"显示在主地图"的轨迹
  * 遍历 schema.trackInfo，对 showOnMainMap 为 true 的轨迹 addMap 显示，已关闭的 removeMap 隐藏
  * @return {*}
@@ -312,22 +358,14 @@ async function focusVideoSegmentAtPoint(trackId: string, lngLat: { lng: number; 
 function renderMainMapTracks() {
   if (!map) return
   const mainMap = map
-  const schemaStore = useSchemaStore()
-  const trackInfoList = schemaStore.getSchema.trackInfo || []
-  const targetIds = new Set(
-    trackInfoList
-      .filter((t: any) => t.setting?.showOnMainMap)
-      .map((t: any) => t.id)
-  )
+  const targetSets = getShowOnMainMapIdSets()
   trackService.getInstances().forEach((instance) => {
-    const id = instance.getTrackId()
-    const normalizedId = id.replace(/\.gpx$/i, '')
-    const isTarget = targetIds.has(id) || targetIds.has(normalizedId) || Array.from(targetIds).some((tid: string) => tid.replace(/\.gpx$/i, '') === normalizedId)
-    if (!isTarget) {
+    if (!isShowOnMainMapTrack(instance.getTrackId(), targetSets)) {
       instance.removeMap(mainMap)
     }
   })
-  targetIds.forEach((trackId) => {
+  const pending: Promise<void>[] = []
+  targetSets.rawSet.forEach((trackId) => {
     const existing = trackService.getTrackInstanceById(trackId) ||
       trackService.getTrackInstanceById(`${trackId}.gpx`)
     if (existing) {
@@ -336,7 +374,7 @@ function renderMainMapTracks() {
       return
     }
     // 实例不存在时从后端加载
-    API.track.getTrack(trackId).then((res: any) => {
+    pending.push(API.track.getTrack(trackId).then((res: any) => {
       const payload = res?.data?.code !== undefined ? res.data : res
       const fileContent = payload?.data?.fileContent || payload?.fileContent
       if (!fileContent) return
@@ -347,9 +385,12 @@ function renderMainMapTracks() {
       const instance = trackService.activeTrack(file)
       instance.addMap(mainMap)
       bindTrackInteractions(instance, mainMap)
-      updateDetailTrackList()
-    })
+    }).catch(() => { /* 单条加载失败不影响其余轨迹 */ }))
   })
+  // 所有异步加载完成后统一更新一次详情列表，避免每加载一条就全量遍历一次
+  if (pending.length) {
+    Promise.all(pending).then(() => updateDetailTrackList())
+  }
   updateDetailTrackList()
 }
 
@@ -359,19 +400,12 @@ function renderMainMapTracks() {
  */
 function updateDetailTrackList() {
   if (!map) return
-  const schemaStore = useSchemaStore()
-  const trackInfoList = schemaStore.getSchema.trackInfo || []
-  const targetIds = new Set(
-    trackInfoList
-      .filter((t: any) => t.setting?.showOnMainMap)
-      .map((t: any) => t.id)
-  )
+  const targetSets = getShowOnMainMapIdSets()
   const list: any[] = []
   trackService.getInstances().forEach((instance) => {
     const id = instance.getTrackId()
+    if (!isShowOnMainMapTrack(id, targetSets)) return
     const normalizedId = id.replace(/\.gpx$/i, '')
-    const isTarget = targetIds.has(id) || targetIds.has(normalizedId) || Array.from(targetIds).some((tid: string) => tid.replace(/\.gpx$/i, '') === normalizedId)
-    if (!isTarget) return
     const info = instance.getTrackInfo()
     list.push({ instanceId: `${normalizedId}_main`, id, instance, ...info })
   })
@@ -598,12 +632,27 @@ onUnmounted(() => {
   }
 })
 
+/**
+ * @description: 坐标系切换后全量重渲染：清空轨迹实例（坐标需按新坐标系重解析）并重建 marker 与轨迹
+ */
+async function reloadForCoordChange() {
+  if (!map) return
+  // 轨迹实例缓存了按旧坐标系解析的坐标，先彻底清空以便重新解析
+  trackService.deleteAllTracks()
+  detailPanelTrackList.value = []
+  // 重建所有 marker（图片/分组/视频坐标按新坐标系重算）
+  markerService.reset()
+  await initMarker()
+  renderMainMapTracks()
+}
+
 defineExpose({
   init,
   initTile,
   renderTileOverlays,
   clearTileOverlays,
   getMapInstance,
+  reloadForCoordChange,
 })
 </script>
 
@@ -634,5 +683,8 @@ defineExpose({
 .pitch-label {
   font-size: 12px;
   color: #333;
+}
+.no-pointer-events {
+  pointer-events: none;
 }
 </style>

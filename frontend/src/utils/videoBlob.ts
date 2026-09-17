@@ -33,6 +33,23 @@ const blobUrlCache = new Map<string, string>()
 const pendingCache = new Map<string, Promise<string>>()
 // 已调用 revokeVideoObjectUrl 的 videoId（进行中的加载完成后不应再写缓存）
 const revokedSet = new Set<string>()
+// 已通过 loadVideoAsObjectUrl 生成、但尚未被任何调用方接管释放的 objectURL 集合；
+// 用于组件未调用 revoke 时的兜底回收（避免整段视频内存长期驻留）
+const createdUrls = new Set<string>()
+
+/**
+ * @description: 将某 videoId 当前缓存的 objectURL 立即释放（若存在）。
+ * 同时清理 revokedSet，使该视频后续再次加载时能重新进入正常的缓存/释放流程，
+ * 避免"revoke 过就永久不缓存、每次加载都泄漏一份 objectURL"。
+ */
+function revokeCachedUrl(videoId: string) {
+  const url = blobUrlCache.get(videoId)
+  if (url) {
+    URL.revokeObjectURL(url)
+    blobUrlCache.delete(videoId)
+    createdUrls.delete(url)
+  }
+}
 
 function blobFromBase64(base64: string): Blob {
   const binary = atob(base64)
@@ -65,10 +82,20 @@ export async function loadVideoAsObjectUrl(videoId: string, onProgress?: VideoLo
   const pending = pendingCache.get(videoId)
   if (pending) return pending
 
+  // 本次加载开始，清除旧的 revoke 标记（表示调用方希望重新加载该视频）
+  revokedSet.delete(videoId)
+
   const p = doLoad(videoId, onProgress)
     .then((url) => {
-      // 已被调用方 revoke 的（如关闭弹窗时）不再写缓存，交由调用方处理
-      if (url && !revokedSet.has(videoId)) blobUrlCache.set(videoId, url)
+      if (!url) return url
+      createdUrls.add(url)
+      // 加载完成时若调用方已 revoke（弹窗提前关闭/取消），立即释放且不写缓存，避免泄漏
+      if (revokedSet.has(videoId)) {
+        URL.revokeObjectURL(url)
+        createdUrls.delete(url)
+        return ''
+      }
+      blobUrlCache.set(videoId, url)
       return url
     })
     .finally(() => {
@@ -121,9 +148,21 @@ async function doLoad(videoId: string, onProgress?: VideoLoadProgress): Promise<
  */
 export function revokeVideoObjectUrl(videoId: string) {
   revokedSet.add(videoId)
-  const url = blobUrlCache.get(videoId)
-  if (url) {
+  revokeCachedUrl(videoId)
+}
+
+/**
+ * @description: 释放所有已生成但未回收的视频 objectURL（切换用户 / 应用退出等全局清理场景）
+ */
+export function revokeAllVideoObjectUrls() {
+  // 标记所有已缓存 id，使 in-flight 加载完成后不写缓存
+  blobUrlCache.forEach((_url, videoId) => {
+    revokedSet.add(videoId)
+  })
+  // 回收所有已创建的 objectURL（含尚未写入缓存的）
+  createdUrls.forEach((url) => {
     URL.revokeObjectURL(url)
-    blobUrlCache.delete(videoId)
-  }
+  })
+  createdUrls.clear()
+  blobUrlCache.clear()
 }

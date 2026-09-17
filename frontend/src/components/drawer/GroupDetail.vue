@@ -13,13 +13,14 @@
   <div class="flex-box">
     <!-- 小地图：使用与主地图相同的瓦片 -->
     <div class="img-map">
-      <MapComponent :image-ids="groupNumbers" :track-ids="trackNumbers" @marker-click="handleMarkerClick" />
+      <MapComponent :image-ids="groupNumbers" :track-ids="trackNumbers" :video-ids="videoNumbers"
+        @marker-click="handleMarkerClick" />
     </div>
     <!-- 图片列表 -->
     <el-scrollbar style="width: 100%" :max-height="height">
       <div class="img-boxs">
-        <GroupLayout class="img-list" :group-id="groupId" :group-numbers="groupNumbers"
-          @show-image-info="handleShowImageInfo"></GroupLayout>
+        <GroupLayout class="img-list" :group-id="groupId" :group-numbers="groupNumbers" :video-numbers="videoNumbers"
+          @show-image-info="handleShowImageInfo" @play-video="playVideo"></GroupLayout>
       </div>
     </el-scrollbar>
     <!-- 图片信息弹框：统一在一个地方管理 -->
@@ -29,11 +30,13 @@
         <ImageInfoComponent :imageInfo="imageInfo"></ImageInfoComponent>
       </div>
     </el-dialog>
+    <!-- 视频播放弹框（分组详情内不挂到 body，保持在抽屉层叠上下文内，避免被抽屉遮挡） -->
+    <VideoPlayDialog v-model:visible="videoPlayShow" :video-id="videoPlayId" :append-to-body="false" />
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, watch, ref, onMounted } from 'vue';
+import { computed, ref } from 'vue';
 import GroupLayout from './components/GroupLayout.vue';
 import MapComponent from '@/components/map/Map.vue'
 import { getSchemaInfoById } from '@/utils/schema';
@@ -43,6 +46,7 @@ import eventBus from '@/utils/eventBus'
 import { useI18n } from 'vue-i18n'
 import Image from './components/Image.vue';
 import ImageInfoComponent from './components/ImageInfo.vue'
+import VideoPlayDialog from '@/components/videoPlayer/VideoPlayDialog.vue'
 
 const { t } = useI18n()
 
@@ -77,9 +81,24 @@ const groupNumbers = computed(() => {
 const trackNumbers = computed(() => {
   const markerId = props.groupId
   const trackNumbers = getGroupInfoByGroupId(markerId)?.trackNumbers ?? []
-  console.log('trackNumbers', trackNumbers)
   return trackNumbers
 })
+
+/**
+ * 获取分组中的视频ID列表
+ */
+const videoNumbers = computed(() => {
+  return getGroupInfoByGroupId(props.groupId)?.videoNumbers ?? []
+})
+
+// ---- 视频播放 ----
+const videoPlayShow = ref(false)
+const videoPlayId = ref('')
+
+function playVideo(videoId: string) {
+  videoPlayId.value = videoId
+  videoPlayShow.value = true
+}
 
 /**
  * 显示图片详情弹框
@@ -92,11 +111,15 @@ function showImageInfoById(id: string) {
 }
 
 /**
- * 处理小地图marker点击事件
- * @param imageId 图片ID
+ * 处理小地图marker点击事件（图片 → 详情弹框；视频 → 播放弹框）
+ * @param markerId 图片/视频ID
  */
-function handleMarkerClick(imageId: string) {
-  showImageInfoById(imageId)
+function handleMarkerClick(markerId: string) {
+  if (videoNumbers.value.includes(markerId)) {
+    playVideo(markerId)
+    return
+  }
+  showImageInfoById(markerId)
 }
 
 /**

@@ -23,6 +23,7 @@ import { ElMessage } from 'element-plus'
 import { deleteImageById } from '@/utils/Image'
 import { judgeHadUploadImage, getSchemaInfoById, editSchemaAndSave } from '@/utils/schema'
 import { canDragMenu } from './markerOperate'
+import markerService from '@/services/marker'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 const props = defineProps({
@@ -61,8 +62,11 @@ const isImageUploaded = computed(() => {
   return judgeHadUploadImage(props.imageId)
 })
 
-// 菜单列表：响应式依赖 isPanorama，设置全景后再次右键能正确显示状态
+// 菜单列表：常驻组件（仅 CSS 显隐），computed 会缓存首次结果，
+// 故用 refreshKey 在切换全景后强制刷新，保证"设为/取消全景"可反复切换
+const refreshKey = ref(0)
 const menuList = computed(() => {
+  void refreshKey.value
   if (!isImageUploaded.value) {
     return [...deleteAndDragList]
   }
@@ -74,6 +78,10 @@ const menuList = computed(() => {
       label: isPanorama ? t('cancelPanorama') : t('setPanorama'),
       clickEvent: async () => {
         await editSchemaAndSave(props.imageId, 'isPanorama', !isPanorama)
+        // 切换后即时刷新 marker 图标（显示/移除全景角标）
+        markerService.refreshMarkerIconById(props.imageId)
+        // 强制刷新菜单项，使状态可再次切换
+        refreshKey.value++
         menuHidden()
       }
     }

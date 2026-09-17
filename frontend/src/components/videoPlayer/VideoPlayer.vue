@@ -6,8 +6,7 @@
  * - 支持全局键盘控制：空格播放暂停、←→快退快进、↑↓音量、M静音、F全屏
 -->
 <template>
-  <div ref="rootRef" class="video-player" :class="{ 'controls-hidden': isFullscreen && !controlsVisible }"
-    @mousemove="showControls">
+  <div ref="rootRef" class="video-player" @mousemove="showControls">
     <video ref="videoEl" class="video-js vjs-big-play-centered" :poster="posterUrl || undefined"></video>
 
     <!-- 加载进度遮罩 -->
@@ -16,33 +15,25 @@
       <span class="video-loading-text">视频加载中 {{ loadPercent }}%</span>
     </div>
 
-    <!-- 自定义控制栏 -->
-    <div v-if="!hideControls && !loading" class="vp-controls">
-      <el-button class="vp-play" circle size="small" :icon="isPlaying ? VideoPause : VideoPlay" @click="togglePlay" />
-      <el-icon class="vp-icon" :title="muted ? '取消静音' : '静音'" @click="toggleMute">
-        <Mute v-if="muted || volume <= 0" />
-        <Headset v-else />
-      </el-icon>
-      <el-slider v-model="volume" class="vp-volume" :min="0" :max="1" :step="0.01" :show-tooltip="false"
-        @input="onVolumeChange" />
-      <span class="vp-time">{{ formatTime(currentTime) }}</span>
-      <el-slider class="vp-progress" :model-value="currentTime" :min="0" :max="duration || 0" :step="0.1"
-        :disabled="!duration" :show-tooltip="false" @input="onSeek" />
-      <span class="vp-time">{{ formatTime(duration) }}</span>
-      <el-icon class="vp-icon" :title="isFullscreen ? '退出全屏' : '全屏'" @click="toggleFullscreen">
-        <FullScreen />
-      </el-icon>
-    </div>
+    <!-- 自定义控制栏（与全景播放器共用 VideoControls） -->
+    <VideoControls v-if="!hideControls && !loading" :is-playing="isPlaying" :current-time="currentTime"
+      :duration="duration" :volume="volume" :muted="muted" :is-fullscreen="isFullscreen"
+      :visible="!isFullscreen || controlsVisible" @toggle-play="togglePlay" @toggle-mute="toggleMute"
+      @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek">
+      <template #prev><slot name="prev"></slot></template>
+      <template #next><slot name="next"></slot></template>
+    </VideoControls>
   </div>
 </template>
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Loading, VideoPlay, VideoPause, Mute, Headset, FullScreen } from '@element-plus/icons-vue'
+import { Loading } from '@element-plus/icons-vue'
 import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
+import VideoControls from './VideoControls.vue'
 
 const props = defineProps({
   videoId: { type: String, required: true },
@@ -73,23 +64,14 @@ const currentTime = ref(0)
 const duration = ref(0)
 const volume = ref(1)
 const muted = ref(false)
+/** 静音前音量（取消静音时恢复） */
+const lastVolume = ref(1)
 const isFullscreen = ref(false)
 
 /** 快进快退步长（秒） */
 const SEEK_STEP = 5
 /** 音量调节步长 */
 const VOLUME_STEP = 0.1
-
-function formatTime(sec: number): string {
-  if (!sec || !isFinite(sec)) return '00:00'
-  const total = Math.floor(sec)
-  const h = Math.floor(total / 3600)
-  const m = Math.floor((total % 3600) / 60)
-  const s = total % 60
-  const mm = String(m).padStart(2, '0')
-  const ss = String(s).padStart(2, '0')
-  return h > 0 ? `${h}:${mm}:${ss}` : `${mm}:${ss}`
-}
 
 function togglePlay() {
   if (!player || player.isDisposed()) return
@@ -103,6 +85,7 @@ function onSeek(val: number | number[]) {
 function onVolumeChange(val: number | number[]) {
   const v = Array.isArray(val) ? val[0] : val
   volume.value = v
+  if (v > 0) lastVolume.value = v
   muted.value = v <= 0
   if (player && !player.isDisposed()) {
     player.volume(v)
@@ -110,8 +93,24 @@ function onVolumeChange(val: number | number[]) {
   }
 }
 function toggleMute() {
-  muted.value = !muted.value
-  if (player && !player.isDisposed()) player.muted(muted.value)
+  // 静音时音量归零，取消静音恢复静音前的值
+  if (muted.value) {
+    muted.value = false
+    const v = lastVolume.value > 0 ? lastVolume.value : 1
+    volume.value = v
+    if (player && !player.isDisposed()) {
+      player.volume(v)
+      player.muted(false)
+    }
+  } else {
+    if (volume.value > 0) lastVolume.value = volume.value
+    muted.value = true
+    volume.value = 0
+    if (player && !player.isDisposed()) {
+      player.volume(0)
+      player.muted(true)
+    }
+  }
 }
 function toggleFullscreen() {
   if (!rootRef.value) return
@@ -126,10 +125,18 @@ function onFullscreenChange() {
 const IDLE_HIDE_MS = 5000
 const controlsVisible = ref(true)
 let idleTimer: number | null = null
+// 加载遮罩兜底超时定时器（需在卸载/重载时清理，避免回调持有组件状态导致泄漏）
+let maskTimer: number | null = null
 function clearIdleTimer() {
   if (idleTimer != null) {
     clearTimeout(idleTimer)
     idleTimer = null
+  }
+}
+function clearMaskTimer() {
+  if (maskTimer != null) {
+    clearTimeout(maskTimer)
+    maskTimer = null
   }
 }
 function showControls() {
@@ -208,6 +215,7 @@ async function initPlayer() {
     player.dispose()
     player = null
   }
+  clearMaskTimer()
   isPlaying.value = false
   currentTime.value = 0
   duration.value = 0
@@ -279,10 +287,16 @@ async function initPlayer() {
     })
     if (usingStream) {
       // 数据可播即隐藏遮罩；兜底超时避免遮罩常驻
-      const clearMask = () => { loading.value = false }
+      const clearMask = () => {
+        loading.value = false
+        if (maskTimer != null) {
+          clearTimeout(maskTimer)
+          maskTimer = null
+        }
+      }
       player.on('loadeddata', clearMask)
       player.on('canplay', clearMask)
-      setTimeout(clearMask, 10000)
+      maskTimer = window.setTimeout(clearMask, 10000)
     }
   } catch (e) {
     console.error('初始化播放器失败', e)
@@ -306,6 +320,7 @@ onUnmounted(() => {
   document.removeEventListener('keydown', handleKeydown)
   document.removeEventListener('fullscreenchange', onFullscreenChange)
   clearIdleTimer()
+  clearMaskTimer()
   // 仅当本播放器自身处于全屏时才退出，避免切换视频时误退出外层（如轨迹播放弹框）的全屏
   if (document.fullscreenElement && document.fullscreenElement === rootRef.value) {
     document.exitFullscreen?.()
@@ -388,27 +403,6 @@ defineExpose({
 }
 
 /* 自定义控制栏 */
-.vp-controls {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: linear-gradient(to top, rgba(0, 0, 0, 0.75), rgba(0, 0, 0, 0));
-  color: #fff;
-  transition: opacity 0.3s ease;
-}
-
-/* 全屏空闲时隐藏控制栏 */
-.video-player.controls-hidden .vp-controls {
-  opacity: 0;
-  pointer-events: none;
-}
-
 .vp-play {
   flex-shrink: 0;
   --el-button-bg-color: #409eff;

@@ -1,5 +1,5 @@
 <!--
- * @Description: 全景 360 图片查看器（基于 Photo Sphere Viewer），使用插件自带工具栏
+ * @Description: 全景 360 图片查看器（基于 Photo Sphere Viewer 5.x），使用插件自带工具栏
 -->
 <template>
   <div ref="container" class="panorama-viewer" :class="{ 'is-fullscreen': isFullscreen }"></div>
@@ -7,9 +7,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
-import { Viewer, EquirectangularAdapter, type PanoData } from 'photo-sphere-viewer'
-import { LittlePlanetAdapter } from 'photo-sphere-viewer/dist/adapters/little-planet'
-import 'photo-sphere-viewer/dist/photo-sphere-viewer.css'
+import { Viewer, EquirectangularAdapter, type PanoData } from '@photo-sphere-viewer/core'
+import '@photo-sphere-viewer/core/index.css'
 
 const props = defineProps<{
   // 全景图片 URL（equirectangular，data URL 或 http）
@@ -19,7 +18,6 @@ const props = defineProps<{
 }>()
 
 const container = ref<HTMLElement>()
-const isLittlePlanet = ref(false)
 // 全屏状态（CSS class 实现，避免浏览器全屏在重建 viewer 时丢失）
 const isFullscreen = ref(false)
 let viewer: Viewer | null = null
@@ -54,7 +52,7 @@ function createViewer() {
   viewer = new Viewer({
     container: container.value,
     panorama: props.src,
-    adapter: isLittlePlanet.value ? LittlePlanetAdapter : EquirectangularAdapter,
+    adapter: EquirectangularAdapter,
     navbar: [
       'zoom',
       {
@@ -69,28 +67,13 @@ function createViewer() {
           }, 50)
         },
       },
-      {
-        id: 'projection',
-        title: isLittlePlanet.value ? '普通全景' : '小星球',
-        content: '360',
-        className: 'psv-projection-btn',
-        onClick: () => {
-          isLittlePlanet.value = !isLittlePlanet.value
-          destroyViewer()
-          createViewer()
-          // 重建后保持 CSS class 全屏
-          setTimeout(() => {
-            viewer?.autoSize()
-          }, 50)
-        },
-      },
     ],
     loadingTxt: '',
     mousewheel: true,
     mousemove: true,
   })
   // 柱形全景：限制垂直视野（水平 360°，垂直按图片高度映射）
-  if (!isLittlePlanet.value && props.panoramaType === 'cylindrical') {
+  if (props.panoramaType === 'cylindrical') {
     viewer.setPanorama(props.src, {
       panoData: (image: HTMLImageElement): PanoData => {
         const fullWidth = image.naturalWidth
@@ -134,7 +117,6 @@ function destroyViewer() {
 </style>
 
 <style>
-.psv-projection-btn,
 .psv-fullscreen-btn {
   font-size: 14px;
   font-weight: bold;

@@ -152,7 +152,7 @@
   <TrackUploadDialog v-model="trackDialogVisible" :pending-video="pendingAssociateVideo"
     @track-linked="handleTrackLinked" />
   <!-- 图片分组设置弹框 -->
-  <GroupInfoDialog v-model="imageGroupShow" :imageIds="editImageIds"
+  <GroupInfoDialog v-model="imageGroupShow" :imageIds="editImageIds" :videoIds="editVideoIds"
     @group-setup-complete="handleImageGroupSetupComplete" />
   <!-- 图片预览 -->
   <ImagePreview v-model:visible="imagePreviewShow" :src="imagePreviewSrc" />
@@ -172,11 +172,13 @@ import { Loading, VideoCamera } from '@element-plus/icons-vue'
 import { useI18n } from 'vue-i18n'
 import { cloneDeep } from 'lodash-es'
 import API from '@/wails/api'
+import eventBus from '@/utils/eventBus'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
-import { saveSchema } from '@/utils/schema'
+import { saveSchema, getVideoInfoById } from '@/utils/schema'
 import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById } from '@/utils/Image'
 import { pushVideoToSchema, getVideoFramePreviewUrl, getVideoThumbnailUrl, videoSelectContext } from '@/utils/video'
+import { mapCoordToSchema } from '@/utils/coordinate'
 import LocateDialog from '@/components/imgUpload/LocateDialog.vue'
 import GroupInfoDialog from '@/components/groupInfo/groupEdit/GroupInfoDialog.vue'
 import ImagePreview from '@/components/imagePreview/ImagePreview.vue'
@@ -212,6 +214,7 @@ const imageLocateShow = ref(false)
 const imageLocateId = ref<string | null>(null)
 const imageGroupShow = ref(false)
 const editImageIds = ref<string[]>([])
+const editVideoIds = ref<string[]>([])
 const imagePreviewShow = ref(false)
 const imagePreviewSrc = ref('')
 const panoramaShow = ref(false)
@@ -430,11 +433,26 @@ function handleImageLocateManual(data: { id: string | null; lat: number; lng: nu
 
 function updateFromLocateInfo(marker: any, fileInfo: any) {
   const { lat, lng } = marker.getLatLng()
-  if (lat && lng) fileInfo.GPSInfo = { ...fileInfo.GPSInfo, GPSLatitude: lat, GPSLongitude: lng }
+  if (lat && lng) {
+    // marker 坐标为当前瓦片坐标系，写入 schema 前统一转 GCJ02
+    const [schemaLng, schemaLat] = mapCoordToSchema(lng, lat)
+    fileInfo.GPSInfo = { ...fileInfo.GPSInfo, GPSLatitude: schemaLat, GPSLongitude: schemaLng }
+  }
 }
 
 function showImageGroupDialog(imageId: string) {
   editImageIds.value = [imageId]
+  editVideoIds.value = []
+  imageGroupShow.value = true
+}
+
+/**
+ * @description: 视频节点右键「设置分组」→ 打开分组弹框
+ * @param {string} videoId
+ */
+function showVideoGroupDialog(videoId: string) {
+  editImageIds.value = []
+  editVideoIds.value = [videoId]
   imageGroupShow.value = true
 }
 
@@ -517,18 +535,28 @@ function handleVideoLocateConfirm(data: { id: string | null; GPSLatitude: number
   }
 }
 
-function handleVideoLocateManual(data: { id: string | null; lat: number; lng: number }) {
+async function handleVideoLocateManual(data: { id: string | null; lat: number; lng: number }) {
   if (!data.id) return
   const video = videoList.value.find(v => v.id === data.id)
   if (video) {
-    const marker = markerService.addManualLocateVideoMarkerToMap({ id: video.id, name: video.name } as IVideoInfo, data.lat, data.lng)
+    // 手动定位到地图时即使用已解析的首帧封面（原路径预览，带缓存）作为节点封面
+    const coverUrl = await getVideoFramePreviewUrl(video.path)
+    const marker = markerService.addManualLocateVideoMarkerToMap(
+      { id: video.id, name: video.name } as IVideoInfo,
+      data.lat,
+      data.lng,
+      coverUrl || undefined
+    )
     if (marker) {
       marker.on('moveend', () => {
         const { lat, lng } = marker.getLatLng()
-        manualGpsMap.value[video.id] = { lat, lng }
+        // marker 坐标为当前瓦片坐标系，写入 schema 前统一转 GCJ02
+        const [schemaLng, schemaLat] = mapCoordToSchema(lng, lat)
+        manualGpsMap.value[video.id] = { lat: schemaLat, lng: schemaLng }
       })
     }
-    manualGpsMap.value[data.id] = { lat: data.lat, lng: data.lng }
+    const [schemaLng, schemaLat] = mapCoordToSchema(data.lng, data.lat)
+    manualGpsMap.value[data.id] = { lat: schemaLat, lng: schemaLng }
   }
 }
 
@@ -551,18 +579,32 @@ function handleTrackLinked(videoId: string, trackId: string) {
 }
 
 /**
- * @description: 点击待上传视频缩略图：有 GPS 则定位到地图（marker 在加入列表时已预建）
+ * @description: 点击待上传视频缩略图：有节点（含手动定位的临时节点）则定位；否则用已手动定位的坐标
  */
 function locatePendingVideo(video: ISelectedVideo) {
-  markerService.setViewByMarkerId(video.id)
+  const marker = markerService.getMarkerById(video.id)
+  if (marker) {
+    markerService.setViewByMarkerId(video.id)
+    return
+  }
+  const manual = manualGpsMap.value[video.id]
+  if (manual) {
+    mapService.setViewByLatLng(manual.lat, manual.lng)
+    return
+  }
+  ElMessage.info('该视频暂无定位信息')
 }
 
 /**
- * @description: 点击已上传视频：有独立 GPS 定位到该坐标，否则提示
+ * @description: 点击已上传视频：有独立 GPS（或手动定位）则定位到该坐标，否则提示
  */
 function locateUploadedVideo(video: IVideoInfo) {
-  if (video.GPSLatitude && video.GPSLongitude) {
-    mapService.setViewByLatLng(video.GPSLatitude, video.GPSLongitude)
+  // 已上传视频的坐标以 schema 为准（手动定位会在导入时写入）
+  const info = getVideoInfoById(video.id)
+  const lat = info?.GPSLatitude ?? manualGpsMap.value[video.id]?.lat
+  const lng = info?.GPSLongitude ?? manualGpsMap.value[video.id]?.lng
+  if (lat && lng) {
+    mapService.setViewByLatLng(lat, lng)
     return
   }
   // 从 trackInfo.videos 反查该视频是否关联了轨迹
@@ -620,7 +662,9 @@ async function doImportVideo(video: ISelectedVideo): Promise<IVideoInfo | null> 
   }
 
   if (vi.GPSLatitude && vi.GPSLongitude) {
-    await markerService.addVideoMarkerToMap(vi)
+    // 复用选择视频时已解析的首帧封面（原路径预览，带缓存），直接作为节点封面
+    const coverUrl = await getVideoFramePreviewUrl(video.path)
+    await markerService.addVideoMarkerToMap(vi, coverUrl || undefined)
   }
   // 视频参与聚合后需重建渲染以放置节点（原先直接 addTo 即可，现在由 renderClusters 决定是否聚合）
   markerService.updateVisibleMarkers()
@@ -752,6 +796,11 @@ function formatDuration(ms: number | undefined): string {
 
 // ---- 事件监听 ----
 onMounted(() => {
+  // 图片节点右键「设置分组」→ 打开分组弹框
+  eventBus.on('edit-group', showImageGroupDialog)
+  // 视频节点右键「设置分组」→ 打开分组弹框
+  eventBus.on('edit-group-video', showVideoGroupDialog)
+
   API.image.onImagesParsed((payload: any) => handleImageParsedBatch(payload?.images ?? []))
   API.image.onImagesProgress((payload: any) => {
     imageProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
@@ -774,6 +823,8 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  eventBus.off('edit-group', showImageGroupDialog)
+  eventBus.off('edit-group-video', showVideoGroupDialog)
   API.image.offImagesEvents()
   API.video.offVideosEvents()
   displayTimers.forEach(timer => clearTimeout(timer))

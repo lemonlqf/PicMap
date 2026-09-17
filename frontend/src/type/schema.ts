@@ -129,4 +129,5 @@ export type INewGroupFormData = {
   id: string,
   GPSInfo?: IGPSInfo,
   groupNumbers?: string[]
+  videoNumbers?: string[]
 }

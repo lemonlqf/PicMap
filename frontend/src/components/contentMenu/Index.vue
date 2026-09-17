@@ -120,11 +120,14 @@ onUnmounted(() => {
   opacity: 0;
   // z-index: -1;
   z-index: 999999;
+  // 隐藏时不拦截点击（否则会挡住其上方弹框内的控件）
+  pointer-events: none;
 }
 
 .is-show {
   opacity: 1;
   transform: translate(15px, 15px) scale(1);
+  pointer-events: auto;
 }
 
 // 分别设置进入和离开动画时长

@@ -17,6 +17,7 @@ export type EventMap = {
   'drawer-show': any
   'delete-image': string
   'edit-group': string
+  'edit-group-video': string
   'batch-delete': string[]
   'batch-add-group': string[]
   'box-select-change': string[]
