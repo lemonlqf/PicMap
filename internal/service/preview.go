@@ -30,6 +30,11 @@ func GeneratePreviewBase64(inputPath string) (string, error) {
 	return resizeToBase64(inputPath)
 }
 
+// ConvertToTempJPEG 将 HEIC/RAW 转换为临时 JPEG 文件，返回临时文件路径（调用方负责删除）
+func ConvertToTempJPEG(inputPath string) (string, error) {
+	return convertToTempJPEG(inputPath)
+}
+
 func convertToTempJPEG(inputPath string) (string, error) {
 	tmpDir, err := os.MkdirTemp("", "picmap-preview-")
 	if err != nil {

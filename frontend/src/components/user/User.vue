@@ -79,6 +79,20 @@ const dataList = ref([
       return schemaStore?.getSchema?.groupInfo?.length ?? 0
     }
   },
+  {
+    key: t('videoLabel'),
+    value: () => {
+      const schemaStore = useSchemaStore()
+      return schemaStore?.getSchema?.videoInfo?.length ?? 0
+    }
+  },
+  {
+    key: t('trackLabel'),
+    value: () => {
+      const schemaStore = useSchemaStore()
+      return schemaStore?.getSchema?.trackInfo?.length ?? 0
+    }
+  },
 ])
 
 const currentUserInfo = ref<IUserInfo>({} as IUserInfo)

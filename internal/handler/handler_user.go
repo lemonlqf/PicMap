@@ -58,6 +58,31 @@ func (h *Handler) DeleteUser(userId string) model.Result {
 	if err := os.RemoveAll(userDir); err != nil {
 		return model.NewFailResult("删除用户目录失败: " + err.Error())
 	}
+
+	// 清理该用户的缩略图缓存，避免长期运行内存只增不减
+	prefix := userId + "/"
+	h.thumbCache.DeleteByPrefix(prefix)
+	h.largeThumbCache.DeleteByPrefix(prefix)
+
+	// 同步从 appSchema 中移除该用户，否则重启时 initUsers 会依据残留记录重新建目录（幽灵用户）
+	appData, err := os.ReadFile(h.cfg.AppSchemaPath())
+	if err == nil {
+		var app model.AppSchema
+		if json.Unmarshal(appData, &app) == nil {
+			filtered := app.UserInfos[:0]
+			for _, u := range app.UserInfos {
+				if u.UserID != userId {
+					filtered = append(filtered, u)
+				}
+			}
+			app.UserInfos = filtered
+			newData, mErr := json.MarshalIndent(app, "", "  ")
+			if mErr == nil {
+				_ = h.atomicWrite(h.cfg.AppSchemaPath(), newData)
+			}
+		}
+	}
+
 	return model.NewSuccessResult("删除成功")
 }
 

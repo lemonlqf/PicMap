@@ -18,6 +18,11 @@ import (
 // ---- Image ----
 
 func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
+	cacheKey := userId + "/" + imageId
+	if v, ok := h.largeThumbCache.Get(cacheKey); ok {
+		return model.NewSuccessResult(map[string]string{"file": v})
+	}
+
 	imageDir := h.cfg.ImageDirPath(userId)
 	baseName := util.BaseWithoutExt(imageId)
 	// First try thumbnail（Node 版命名：_THUMBNAIL_PM<baseName>.jpg）
@@ -28,7 +33,9 @@ func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 		if err != nil {
 			return model.NewFailResult("读取缩略图失败")
 		}
-		return model.NewSuccessResult(map[string]string{"file": base64.StdEncoding.EncodeToString(data)})
+		b64 := base64.StdEncoding.EncodeToString(data)
+		h.largeThumbCache.Put(cacheKey, b64)
+		return model.NewSuccessResult(map[string]string{"file": b64})
 	}
 	// Fallback to original image（Node 版命名：PM<baseName>.<ext>）
 	pattern = filepath.Join(imageDir, "PM"+baseName+".*")
@@ -44,7 +51,9 @@ func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
 			return model.NewFailResult("读取图片失败")
 		}
 	}
-	return model.NewSuccessResult(map[string]string{"file": base64.StdEncoding.EncodeToString(data)})
+	b64 := base64.StdEncoding.EncodeToString(data)
+	h.largeThumbCache.Put(cacheKey, b64)
+	return model.NewSuccessResult(map[string]string{"file": b64})
 }
 
 // markerThumbnailWidth marker 专用缩略图宽度（40px 图标 × 3 DPR 留余量）
@@ -53,8 +62,8 @@ const markerThumbnailWidth = 120
 // GetMarkerThumbnail 返回 marker 专用小尺寸缩略图（120px），避免缩放加载时解码 1000px 大图导致卡顿
 func (h *Handler) GetMarkerThumbnail(userId, imageId string) model.Result {
 	cacheKey := userId + "/" + imageId
-	if v, ok := h.thumbCache.Load(cacheKey); ok {
-		return model.NewSuccessResult(map[string]string{"file": v.(string)})
+	if v, ok := h.thumbCache.Get(cacheKey); ok {
+		return model.NewSuccessResult(map[string]string{"file": v})
 	}
 
 	imageDir := h.cfg.ImageDirPath(userId)
@@ -76,7 +85,7 @@ func (h *Handler) GetMarkerThumbnail(userId, imageId string) model.Result {
 		return model.NewSuccessResult(map[string]string{"file": ""})
 	}
 	b64 := base64.StdEncoding.EncodeToString(data)
-	h.thumbCache.Store(cacheKey, b64)
+	h.thumbCache.Put(cacheKey, b64)
 	return model.NewSuccessResult(map[string]string{"file": b64})
 }
 
@@ -129,6 +138,10 @@ func (h *Handler) DeleteImages(userId string, imageIds []string) model.Result {
 			defer wg.Done()
 			sem <- struct{}{}
 			defer func() { <-sem }()
+
+			// 清理缩略图缓存，避免删除后仍返回旧图
+			h.thumbCache.Delete(userId + "/" + id)
+			h.largeThumbCache.Delete(userId + "/" + id)
 
 			baseName := util.BaseWithoutExt(id)
 			// Delete original（PM<baseName>.*）

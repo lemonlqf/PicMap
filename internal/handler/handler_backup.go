@@ -20,11 +20,83 @@ import (
 
 // 备份事件名
 const (
-	EventBackupProgress = "backup-progress" // 备份进度
-	EventBackupDone     = "backup-done"     // 备份完成（成功/失败/取消）
+	EventBackupProgress  = "backup-progress"  // 备份进度
+	EventBackupDone      = "backup-done"      // 备份完成（成功/失败/取消）
+	EventRestoreProgress = "restore-progress" // 恢复进度
 )
 
 var errBackupCancelled = errors.New("backup cancelled")
+
+// restoreProgress 统计恢复（解压/合并）进度，并按整数百分比节流上报，
+// 避免大备份逐块回调时事件过多。
+type restoreProgress struct {
+	h         *Handler
+	total     int64
+	processed int64
+	lastPct   int
+}
+
+func newRestoreProgress(h *Handler) *restoreProgress {
+	return &restoreProgress{h: h, lastPct: -1}
+}
+
+func (p *restoreProgress) percent() int {
+	if p.total <= 0 {
+		return 0
+	}
+	pct := int(p.processed * 100 / p.total)
+	if pct > 100 {
+		pct = 100
+	}
+	return pct
+}
+
+func (p *restoreProgress) emit() {
+	runtime.EventsEmit(p.h.ctx, EventRestoreProgress, map[string]interface{}{
+		"processed": p.processed,
+		"total":     p.total,
+		"percent":   p.percent(),
+	})
+}
+
+// setTotal 设置总字节数并立即上报一次（0%）
+func (p *restoreProgress) setTotal(total int64) {
+	p.total = total
+	p.lastPct = -1
+	p.emit()
+	p.lastPct = p.percent()
+}
+
+// add 累加已处理字节，百分比变化时才上报
+func (p *restoreProgress) add(n int64) {
+	p.processed += n
+	if pct := p.percent(); pct != p.lastPct {
+		p.lastPct = pct
+		p.emit()
+	}
+}
+
+// finish 结束时确保上报到 100%
+func (p *restoreProgress) finish() {
+	if p.processed < p.total {
+		p.processed = p.total
+	}
+	p.emit()
+}
+
+// progressReader 在读取时回调已读字节数，用于统计解压进度
+type progressReader struct {
+	r      io.Reader
+	onRead func(int64)
+}
+
+func (p *progressReader) Read(b []byte) (int, error) {
+	n, err := p.r.Read(b)
+	if n > 0 && p.onRead != nil {
+		p.onRead(int64(n))
+	}
+	return n, err
+}
 
 // ---- Backup ----
 
@@ -174,30 +246,34 @@ func (h *Handler) DeleteBackup(filePath string) model.Result {
 
 // ---- Backup helpers ----
 
+// calcDataSize 单次遍历数据目录统计总字节数。
+// 使用 WalkDir 的 DirEntry.Info()（Windows 下直接携带大小）避免每个文件额外 Stat，
+// 并跳过备份目录自身，防止把历史备份算入体积。
 func (h *Handler) calcDataSize() int64 {
+	archiveDir := h.cfg.ArchiveDir()
+	backupDir := filepath.Clean(h.cfg.BackupDir())
+
 	var totalSize int64
-	entries, err := os.ReadDir(h.cfg.ArchiveDir())
-	if err != nil {
-		return 0
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			filepath.WalkDir(filepath.Join(h.cfg.ArchiveDir(), e.Name()), func(path string, d os.DirEntry, err error) error {
-				if err != nil {
-					return nil
-				}
-				if !d.IsDir() {
-					info, _ := d.Info()
-					totalSize += info.Size()
-				}
-				return nil
-			})
+	_ = filepath.WalkDir(archiveDir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			// 单个条目不可访问时跳过，不中断整体统计
+			if d != nil && d.IsDir() {
+				return filepath.SkipDir
+			}
+			return nil
 		}
-	}
-	// Add appSchema size
-	if info, err := os.Stat(h.cfg.AppSchemaPath()); err == nil {
-		totalSize += info.Size()
-	}
+		// 备份目录若位于数据目录内，需跳过（不属于用户数据）
+		if d.IsDir() {
+			if filepath.Clean(path) == backupDir {
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if info, infoErr := d.Info(); infoErr == nil {
+			totalSize += info.Size()
+		}
+		return nil
+	})
 	return totalSize
 }
 
@@ -229,29 +305,52 @@ func (h *Handler) createZipWithProgress(outputPath string, totalSize int64) erro
 		return !h.backupCancel.Load()
 	}
 
+	// 流式写入：按 1MB 分块 io.Copy，避免大视频/大图整文件读入内存导致 OOM。
+	// 使用 Store（不压缩）：媒体文件（JPEG/MP4 等）本身已压缩，再 Deflate 徒增 CPU 且几乎无收益。
 	addFile := func(path, zipName string) error {
 		if !report() {
 			return errBackupCancelled
 		}
-		info, statErr := os.Stat(path)
-		var size int64
-		if statErr == nil {
-			size = info.Size()
+		src, openErr := os.Open(path)
+		if openErr != nil {
+			return openErr
 		}
-		data, readErr := os.ReadFile(path)
-		if readErr != nil {
-			return readErr
+		defer src.Close()
+
+		info, statErr := src.Stat()
+		if statErr != nil {
+			return statErr
 		}
-		fw, createErr := w.Create(zipName)
+
+		fw, createErr := w.CreateHeader(&zip.FileHeader{
+			Name:   zipName,
+			Method: zip.Store,
+			// 保留源文件修改时间（与归档时间一致，便于恢复后比对）
+			Modified: info.ModTime(),
+		})
 		if createErr != nil {
 			return createErr
 		}
-		if _, writeErr := fw.Write(data); writeErr != nil {
-			return writeErr
-		}
-		processed += size
-		if !report() {
-			return errBackupCancelled
+
+		// 分块拷贝，边写边按已处理字节上报进度并在取消时中断
+		buf := make([]byte, 1<<20) // 1MB
+		for {
+			if !report() {
+				return errBackupCancelled
+			}
+			n, readErr := src.Read(buf)
+			if n > 0 {
+				if _, writeErr := fw.Write(buf[:n]); writeErr != nil {
+					return writeErr
+				}
+				processed += int64(n)
+			}
+			if readErr == io.EOF {
+				break
+			}
+			if readErr != nil {
+				return readErr
+			}
 		}
 		return nil
 	}
@@ -294,43 +393,123 @@ func (h *Handler) createZipWithProgress(outputPath string, totalSize int64) erro
 }
 
 func (h *Handler) importCover(filePath string) model.Result {
-	// Remove existing data
-	entries, _ := os.ReadDir(h.cfg.ArchiveDir())
-	for _, e := range entries {
-		if e.IsDir() {
-			os.RemoveAll(filepath.Join(h.cfg.ArchiveDir(), e.Name()))
-		} else if e.Name() == config.AppSchemaFileName {
-			os.Remove(filepath.Join(h.cfg.ArchiveDir(), e.Name()))
-		}
-	}
-
-	// Extract ZIP
-	reader, err := zip.OpenReader(filePath)
+	// 先解压到临时目录，全部成功后再原子替换，避免 zip 损坏导致现有数据丢失
+	tmpRoot, err := os.MkdirTemp(filepath.Dir(h.cfg.ArchiveDir()), "picmap-restore-")
 	if err != nil {
-		return model.NewFailResult("读取备份文件失败: " + err.Error())
+		return model.NewFailResult("创建临时目录失败: " + err.Error())
 	}
-	defer reader.Close()
+	// 失败时清理临时目录；成功替换后 tmpRoot 已被移走，RemoveAll 无害
+	defer os.RemoveAll(tmpRoot)
 
-	os.MkdirAll(h.cfg.ArchiveDir(), 0755)
-	for _, f := range reader.File {
-		// zip 条目可能含正斜杠，filepath.Join 在 Windows 会归一化处理
-		relName := strings.ReplaceAll(f.Name, "\\", "/")
-		targetPath := filepath.Join(h.cfg.ArchiveDir(), filepath.FromSlash(relName))
-		if f.FileInfo().IsDir() {
-			os.MkdirAll(targetPath, 0755)
-			continue
+	rp := newRestoreProgress(h)
+	if err := extractZipTo(filePath, tmpRoot, rp); err != nil {
+		return model.NewFailResult("解压备份失败，已保留原有数据: " + err.Error())
+	}
+	rp.finish()
+
+	// 备份数据至少应包含 appSchema.json 或任一用户目录，防止空 zip 覆盖有效数据
+	if !util.FileExists(filepath.Join(tmpRoot, config.AppSchemaFileName)) && !hasSubDir(tmpRoot) {
+		return model.NewFailResult("备份文件内容为空或格式不正确，已保留原有数据")
+	}
+
+	// 原子替换：先把现有数据目录改名为 .bak，再将临时目录改名为正式目录，
+	// 任一步失败则回滚，确保任一时刻都有可用的数据目录
+	archiveDir := h.cfg.ArchiveDir()
+	bakDir := archiveDir + ".bak_" + time.Now().Format("20060102150405")
+	os.RemoveAll(bakDir)
+
+	renamedOld := false
+	if util.FileExists(archiveDir) {
+		if err := os.Rename(archiveDir, bakDir); err != nil {
+			return model.NewFailResult("替换数据目录失败: " + err.Error())
 		}
-		os.MkdirAll(filepath.Dir(targetPath), 0755)
-		rc, _ := f.Open()
-		outFile, _ := os.Create(targetPath)
-		io.Copy(outFile, rc)
-		rc.Close()
-		outFile.Close()
+		renamedOld = true
+	}
+	if err := os.Rename(tmpRoot, archiveDir); err != nil {
+		// 回滚：恢复原数据目录
+		if renamedOld {
+			_ = os.Rename(bakDir, archiveDir)
+		}
+		return model.NewFailResult("替换数据目录失败: " + err.Error())
+	}
+	// 替换成功，删除旧数据备份
+	if renamedOld {
+		_ = os.RemoveAll(bakDir)
 	}
 
 	// Re-initialize
 	h.cfg.Init()
 	return model.NewSuccessResult("导入成功")
+}
+
+// extractZipTo 将 zip 内容安全解压到目标目录（校验路径，防止 zip slip 穿越），
+// 并通过 rp 上报解压进度（rp 可为 nil）
+func extractZipTo(filePath, destDir string, rp *restoreProgress) error {
+	reader, err := zip.OpenReader(filePath)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+
+	if rp != nil {
+		var total int64
+		for _, f := range reader.File {
+			if !f.FileInfo().IsDir() {
+				total += int64(f.UncompressedSize64)
+			}
+		}
+		rp.setTotal(total)
+	}
+
+	os.MkdirAll(destDir, 0755)
+	for _, f := range reader.File {
+		// zip 条目可能含正斜杠，filepath.Join 在 Windows 会归一化处理
+		relName := strings.ReplaceAll(f.Name, "\\", "/")
+		targetPath := filepath.Join(destDir, filepath.FromSlash(relName))
+		// 防止 ../../ 路径穿越到目标目录之外
+		if rel, err := filepath.Rel(destDir, targetPath); err != nil || strings.HasPrefix(rel, "..") {
+			return errors.New("备份文件包含非法路径: " + f.Name)
+		}
+		if f.FileInfo().IsDir() {
+			os.MkdirAll(targetPath, 0755)
+			continue
+		}
+		os.MkdirAll(filepath.Dir(targetPath), 0755)
+		rc, err := f.Open()
+		if err != nil {
+			return err
+		}
+		outFile, err := os.Create(targetPath)
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		var src io.Reader = rc
+		if rp != nil {
+			src = &progressReader{r: rc, onRead: rp.add}
+		}
+		_, copyErr := io.Copy(outFile, src)
+		rc.Close()
+		outFile.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+	}
+	return nil
+}
+
+// hasSubDir 判断目录下是否存在子目录
+func hasSubDir(dir string) bool {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return false
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			return true
+		}
+	}
+	return false
 }
 
 func (h *Handler) importMerge(filePath string) model.Result {
@@ -339,6 +518,21 @@ func (h *Handler) importMerge(filePath string) model.Result {
 		return model.NewFailResult("读取备份文件失败: " + err.Error())
 	}
 	defer reader.Close()
+
+	// 统计需要复制的文件总字节数，用于上报进度
+	rp := newRestoreProgress(h)
+	var total int64
+	for _, f := range reader.File {
+		if f.FileInfo().IsDir() || f.Name == config.AppSchemaFileName {
+			continue
+		}
+		relName := strings.ReplaceAll(f.Name, "\\", "/")
+		if util.FileExists(filepath.Join(h.cfg.ArchiveDir(), filepath.FromSlash(relName))) {
+			continue
+		}
+		total += int64(f.UncompressedSize64)
+	}
+	rp.setTotal(total)
 
 	// Copy new image/track files
 	for _, f := range reader.File {
@@ -353,10 +547,11 @@ func (h *Handler) importMerge(filePath string) model.Result {
 		os.MkdirAll(filepath.Dir(targetPath), 0755)
 		rc, _ := f.Open()
 		outFile, _ := os.Create(targetPath)
-		io.Copy(outFile, rc)
+		io.Copy(outFile, &progressReader{r: rc, onRead: rp.add})
 		rc.Close()
 		outFile.Close()
 	}
+	rp.finish()
 
 	// Merge schema.json for each user
 	for _, f := range reader.File {

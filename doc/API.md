@@ -1,854 +1,575 @@
-﻿# PicMap API 鎺ュ彛鏂囨。
+﻿# PicMap 接口文档（Wails 绑定）
 
-## 姒傝堪
+## 概述
 
-PicMap 鏄竴涓浘鐗囨爣娉ㄤ笌绠＄悊骞冲彴鐨勫悗绔?API 鏈嶅姟锛屾彁渚涚敤鎴风鐞嗐€佸浘鐗囦笂浼犱笅杞姐€佽建杩圭鐞嗐€佹暟鎹浠界瓑鍔熻兘銆?
+PicMap 前端与后端通过 **Wails v2 绑定**通信，**不提供 HTTP 服务**。
+前端通过 `window.go.main.App.<Method>(...)` 调用 Go 侧方法，调用集中在
+`frontend/src/wails/api.ts`，并自动注入当前用户 `userId`。
 
-**Base URL**: `http://localhost:3000`
+> 另有一个仅监听 `127.0.0.1` 的**本地媒体流服务**用于视频/图片的流式访问
+> （支持 HTTP Range），详见文末「媒体流服务」。
 
 ---
 
-## 閫氱敤璇存槑
+## 通用说明
 
-### 鍝嶅簲鏍煎紡
+### 响应格式
 
-鎵€鏈夋帴鍙ｅ搷搴斿潎閲囩敤缁熶竴 JSON 鏍煎紡锛?
+所有绑定方法返回统一的 `model.Result`：
 
 ```json
 {
   "code": 200,
-  "msg": "鎴愬姛",
+  "msg": "成功",
   "data": {},
   "time": 1704067200000
 }
 ```
 
-### 鐘舵€佺爜璇存槑
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `code` | `number` | `200` 成功 / `500` 失败 |
+| `msg` | `string` | 状态信息 |
+| `data` | `any` | 返回数据，因接口而异 |
+| `time` | `number` | 毫秒时间戳 |
 
-| code  | 璇存槑           |
-|-------|----------------|
-| 200   | 鎴愬姛           |
-| 400   | 鍙傛暟鏍￠獙澶辫触   |
-| 404   | 鎺ュ彛涓嶅瓨鍦?    |
-| 429   | 鎿嶄綔杩囦簬棰戠箒   |
-| 500   | 鏈嶅姟鍣ㄥ唴閮ㄩ敊璇?|
+### 约定
 
----
-
-## 鐩綍
-
-- [鐢ㄦ埛绠＄悊鎺ュ彛](#鐢ㄦ埛绠＄悊鎺ュ彛)
-- [鍥剧墖鎺ュ彛](#鍥剧墖鎺ュ彛)
-- [Schema 鎺ュ彛](#schema-鎺ュ彛)
-- [搴旂敤閰嶇疆鎺ュ彛](#搴旂敤閰嶇疆鎺ュ彛)
-- [杞ㄨ抗鎺ュ彛](#杞ㄨ抗鎺ュ彛)
-- [澶囦唤鎺ュ彛](#澶囦唤鎺ュ彛)
+- `userId` 由前端 `api.ts` 从当前用户自动注入，本文档参数表中不再重复说明。
+- 图片、视频的 `id` 通常为原始文件名；后端以 `PM<baseName>.<ext>` 命名存储。
+- 资源文件的展示优先走媒体流 URL，不可用时前端回退 base64 桥接。
 
 ---
 
-## 鐢ㄦ埛绠＄悊鎺ュ彛
+## 目录
 
-### 鍒涘缓鐢ㄦ埛鐩綍
-
-鍒涘缓鐢ㄦ埛鐨勭洰褰曞拰鏁版嵁缁撴瀯銆?
-
-**璇锋眰鍦板潃**: `POST /user/createUser`
-
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?  | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|----------|--------|------|----------|
-| userId   | string | 鏄?  | 鐢ㄦ埛ID   |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "userId": "user123"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "鍒涘缓鎴愬姛",
-  "time": 1704067200000
-}
-```
+- [用户与配置](#用户与配置)
+- [图片](#图片)
+- [轨迹](#轨迹)
+- [视频](#视频)
+- [图标库](#图标库)
+- [备份](#备份)
+- [存储目录](#存储目录)
+- [事件（后端 → 前端）](#事件后端--前端)
+- [媒体流服务](#媒体流服务)
 
 ---
 
-### 鍒犻櫎鐢ㄦ埛鐩綍
+## 用户与配置
 
-鍒犻櫎鎸囧畾鐢ㄦ埛鐨勭洰褰曞強鎵€鏈夋暟鎹€?
+### CreateUser
 
-**璇锋眰鍦板潃**: `POST /user/deleteUser`
+创建用户及其目录结构与默认 schema。
 
-**璇锋眰鍙傛暟**:
+**签名**: `CreateUser(userId: string)`
 
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| userId        | string | 鍚?  | 鐢ㄦ埛ID   |
-| currentUserId | string | 鍚?  | 褰撳墠鐢ㄦ埛ID |
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `userId` | `string` | 是 | 用户ID |
 
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "userId": "user123",
-  "currentUserId": "admin"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "鍒犻櫎鎴愬姛",
-  "time": 1704067200000
-}
-```
+**返回数据**: `"创建成功"` 或 `"用户已存在"`
 
 ---
 
-### 鑾峰彇鐢ㄦ埛鍒楄〃
+### DeleteUser
 
-鑾峰彇鎵€鏈夌敤鎴风殑鍩烘湰淇℃伅銆?
+删除用户目录、清理该用户缩略图缓存，并从 `appSchema.json` 移除该用户。
 
-**璇锋眰鍦板潃**: `GET /user/`
+**签名**: `DeleteUser(userId: string)`
 
-**璇锋眰绀轰緥**:
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `userId` | `string` | 是 | 用户ID |
 
-```
-GET /user/
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "respond with a resource",
-  "time": 1704067200000
-}
-```
+**返回数据**: `"删除成功"`
 
 ---
 
-## 鍥剧墖鎺ュ彛
+### GetAppSchema
 
-### 鍥剧墖鏍煎紡杞崲
+获取应用级配置（用户列表、地图瓦片、叠加层、图标库）。
 
-灏?HEIC/HEIF/RAW 绛夋牸寮忚浆鎹负 JPEG銆?
+**签名**: `GetAppSchema()`
 
-**璇锋眰鍦板潃**: `POST /image/getJPGImage`
-
-**璇锋眰鍙傛暟**: FormData
-
-| 鍙傛暟鍚?| 绫诲瀷 | 蹇呭～ | 璇存槑   |
-|--------|------|------|--------|
-| file   | file | 鏄?  | 鍥剧墖鏂囦欢 |
-
-**鍝嶅簲**: JPEG 鏍煎紡鐨勫浘鐗囦簩杩涘埗鏁版嵁
+**返回数据**: `AppSchema` 对象（见 [DATA_SCHEMA.md](DATA_SCHEMA.md)）
 
 ---
 
-### 涓婁紶鍥剧墖
+### SetAppSchema
 
-鎵归噺涓婁紶鍥剧墖鍒版湇鍔″櫒銆?
+保存应用级配置。
 
-**璇锋眰鍦板潃**: `POST /image/uploadImages`
+**签名**: `SetAppSchema(schemaJSON: string)`
 
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑         |
-|---------------|--------|------|--------------|
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID   |
-| images        | array  | 鏄?  | 鍥剧墖鏁扮粍     |
-
-**images 鏁扮粍椤圭粨鏋?*:
-
-| 鍙傛暟鍚?        | 绫诲瀷   | 璇存槑           |
-|----------------|--------|----------------|
-| id             | string | 鍥剧墖鍞竴鏍囪瘑   |
-| name           | string | 鍥剧墖鍚嶇О       |
-| url            | string | Base64 鍥剧墖鏁版嵁|
-| thumbnailUrl   | string | 缂╃暐鍥?Base64)|
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "currentUserId": "user123",
-  "images": [
-    {
-      "id": "img_001",
-      "name": "photo1.jpg",
-      "url": "data:image/jpeg;base64,...",
-      "thumbnailUrl": "data:image/jpeg;base64,..."
-    }
-  ]
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "涓婁紶鎴愬姛",
-  "time": 1704067200000
-}
-```
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `schemaJSON` | `string` | 是 | AppSchema 的 JSON 字符串 |
 
 ---
 
-### 鑾峰彇缂╃暐鍥?
+### GetUserInfos
 
-鏍规嵁鍥剧墖ID鑾峰彇鎸囧畾鍥剧墖鐨勭缉鐣ュ浘銆?
+获取所有用户的基本信息。
 
-**璇锋眰鍦板潃**: `POST /image/getSmallImage`
+**签名**: `GetUserInfos()`
 
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| imageId       | string | 鏄?  | 鍥剧墖ID   |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "imageId": "img_001",
-  "currentUserId": "user123"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "file": "data:image/jpeg;base64,..."
-  },
-  "time": 1704067200000
-}
-```
+**返回数据**: `UserInfo[]`
 
 ---
 
-### 鎵归噺鑾峰彇缂╃暐鍥?
+### GetSchema
 
-鎵归噺鑾峰彇澶氬紶鍥剧墖鐨勭缉鐣ュ浘銆?
+获取指定用户的 schema（图片/分组/轨迹/视频/地图数据）。文件不存在时自动创建默认 schema。
 
-**璇锋眰鍦板潃**: `POST /image/getSmallImages`
+**签名**: `GetSchema(userId: string)`
 
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑       |
-|---------------|--------|------|------------|
-| imageIds      | array  | 鏄?  | 鍥剧墖ID鏁扮粍 |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "imageIds": ["img_001", "img_002", "img_003"],
-  "currentUserId": "user123"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "files": [
-      "data:image/jpeg;base64,...",
-      "data:image/jpeg;base64,...",
-      "data:image/jpeg;base64,..."
-    ]
-  },
-  "time": 1704067200000
-}
-```
+**返回数据**: schema 的 **JSON 字符串**（需前端 `JSON.parse`）
 
 ---
 
-### 鑾峰彇鍘熷浘
+### SetSchema
 
-鏍规嵁鍥剧墖ID鑾峰彇鍘熷鍥剧墖銆?
+保存指定用户的 schema（原子写入）。
 
-**璇锋眰鍦板潃**: `POST /image/getFullImage`
+**签名**: `SetSchema(userId: string, schemaJSON: string)`
 
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| imageId       | string | 鏄?  | 鍥剧墖ID   |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "imageId": "img_001",
-  "currentUserId": "user123"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "file": "data:image/jpeg;base64,..."
-  },
-  "time": 1704067200000
-}
-```
+| 参数 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `schemaJSON` | `string` | 是 | Schema 的 JSON 字符串 |
 
 ---
 
-### 鍒犻櫎鍥剧墖
+## 图片
 
-鎵归噺鍒犻櫎鎸囧畾鍥剧墖鍙婂叾缂╃暐鍥俱€?
+### SelectImages
 
-**璇锋眰鍦板潃**: `POST /image/deleteImages`
+打开原生多选文件对话框，立即返回路径列表，后台分批解析 EXIF 并推送事件。
 
-**璇锋眰鍙傛暟**:
+**签名**: `SelectImages()`
 
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑         |
-|---------------|--------|------|--------------|
-| deleteImages  | array  | 鏄?  | 瑕佸垹闄ょ殑鍥剧墖ID鏁扮粍 |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID   |
-
-**璇锋眰绀轰緥**:
+**返回数据**:
 
 ```json
-{
-  "deleteImages": ["img_001", "img_002"],
-  "currentUserId": "user123"
-}
+{ "filePaths": ["C:\\a.jpg"], "total": 1 }
 ```
 
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "鍥剧墖鍒犻櫎鎴愬姛锛?,
-  "time": 1704067200000
-}
-```
+解析结果通过 `images-parsed` / `images-progress` / `images-done` 事件推送。
 
 ---
 
-### 鏇存柊鍥剧墖淇℃伅
+### ImportImages
 
-鏇存柊鍥剧墖鐨勫厓鏁版嵁淇℃伅銆?
+将选中的图片从原路径复制到用户图片目录；HEIC/RAW 额外生成缩略图。
 
-**璇锋眰鍦板潃**: `POST /image/updateImages`
+**签名**: `ImportImages(files: ImportFile[])`
 
-> 鎺ュ彛寮€鍙戜腑锛屾殏涓嶅彲鐢?
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 图片ID |
+| `name` | `string` | 文件名 |
+| `path` | `string` | 源文件路径 |
 
----
-
-### 涓嬭浇鍥剧墖
-
-涓嬭浇鎸囧畾鍥剧墖銆?
-
-**璇锋眰鍦板潃**: `POST /image/downloadImage`
-
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| imageId       | string | 鏄?  | 鍥剧墖ID   |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "imageId": "img_001",
-  "currentUserId": "user123"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "file": "data:image/jpeg;base64,..."
-  },
-  "time": 1704067200000
-}
-```
+**返回数据**: `{ images: UploadResult[], errors?: string[] }`
 
 ---
 
-## Schema 鎺ュ彛
+### GetThumbnail
 
-### 鑾峰彇 Schema
+获取 1000px 缩略图（base64，带 LRU 缓存）。
 
-鑾峰彇鐢ㄦ埛鐨勬墍鏈夊浘鐗囨爣娉ㄦ暟鎹紙Marker銆佸垎缁勩€佽建杩圭瓑淇℃伅锛夈€?
+**签名**: `GetThumbnail(imageId: string)`
 
-**璇锋眰鍦板潃**: `GET /schema/getSchema`
-
-**Query 鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```
-GET /schema/getSchema?currentUserId=user123
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "{\"version\":\"1.0.0\",\"mapInfo\":{...},\"groupInfo\":[],\"imageInfo\":[],\"trackInfo\":[]}",
-  "time": 1704067200000
-}
-```
-
-> 娉ㄦ剰: 杩斿洖鐨?data 瀛楁涓?JSON 瀛楃涓诧紝闇€瑕?JSON.parse() 瑙ｆ瀽
+**返回数据**: `{ file: string }`（base64）
 
 ---
 
-### 淇濆瓨 Schema
+### GetMarkerThumbnail
 
-淇濆瓨鐢ㄦ埛鐨勫浘鐗囨爣娉ㄦ暟鎹€?
+获取 120px marker 专用小图（base64，带 LRU 缓存）。
 
-**璇锋眰鍦板潃**: `POST /schema/setSchema`
+**签名**: `GetMarkerThumbnail(imageId: string)`
 
-**璇锋眰鍙傛暟**:
+**返回数据**: `{ file: string }`
 
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-| schema        | string | 鏄?  | Schema 鏁版嵁 (JSON瀛楃涓? |
+---
 
-**璇锋眰绀轰緥**:
+### GetThumbnails
+
+批量获取 1000px 缩略图（最多 4 并发）。
+
+**签名**: `GetThumbnails(imageIds: string[])`
+
+**返回数据**: `{ files: string[] }`（与入参顺序对应）
+
+---
+
+### GetFullImage
+
+获取原图（完整分辨率 base64，用于全景预览等）。
+
+**签名**: `GetFullImage(imageId: string)`
+
+**返回数据**: `{ file: string }`
+
+---
+
+### GetImageStreamUrl
+
+获取图片的本地流地址（支持 Range，供 `<img>` 直接加载，替代 base64）。
+
+**签名**: `GetImageStreamUrl(imageId: string, kind: string)`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `kind` | `string` | `thumb`（默认，1000px）\| `marker`（120px）\| `full`（原图） |
+
+**返回数据**: `{ url: string }`
+
+---
+
+### DeleteImages
+
+批量删除图片及其缩略图，并清理对应缓存。
+
+**签名**: `DeleteImages(imageIds: string[])`
+
+---
+
+### DownloadImage
+
+下载图片（返回原图 base64）。
+
+**签名**: `DownloadImage(imageId: string)`
+
+---
+
+### UpdateImages
+
+> ⚠️ 接口开发中，当前固定返回失败。
+
+**签名**: `UpdateImages()`
+
+---
+
+## 轨迹
+
+### UploadTrack
+
+上传 GPX 轨迹文件（base64 传输，限制 50MB，仅 `.gpx`）。
+
+**签名**: `UploadTrack(fileData: string, fileName: string)`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `fileData` | `string` | GPX 文件 base64 |
+| `fileName` | `string` | 原始文件名 |
+
+**返回数据**: `{ filePath: string, fileName: string }`
+
+---
+
+### DeleteTrack
+
+删除指定轨迹文件。
+
+**签名**: `DeleteTrack(fileName: string)`
+
+**返回数据**: `{ message: "删除成功" }`
+
+---
+
+### GetTrack
+
+获取轨迹文件内容。
+
+**签名**: `GetTrack(fileName: string)`
+
+**返回数据**: `{ fileContent: string }`（GPX XML 文本）
+
+---
+
+## 视频
+
+### SelectVideos
+
+打开原生多选视频对话框，立即返回路径列表，后台分批解析并推送事件。
+
+**签名**: `SelectVideos()`
+
+**返回数据**: `{ filePaths: string[], total: number }`
+
+解析结果通过 `videos-parsed` / `videos-progress` / `videos-done` 事件推送。
+
+---
+
+### ImportVideo
+
+将视频复制到用户视频目录，探测时长、起始时间与内嵌 GPS。
+
+**签名**: `ImportVideo(file: ImportVideoFile)`
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `id` | `string` | 视频ID |
+| `name` | `string` | 文件名 |
+| `path` | `string` | 源文件路径 |
+
+**返回数据**: `VideoInfo` 对象
+
+---
+
+### DeleteVideos
+
+删除视频文件。
+
+**签名**: `DeleteVideos(videoIds: string[])`
+
+---
+
+### GetVideoRange
+
+按字节范围读取视频片段（base64），用于分块播放回退方案。单次上限 8MB。
+
+**签名**: `GetVideoRange(videoId: string, start: number, end: number)`
+
+**返回数据**: `{ data: string, start: number, end: number, length: number }`
+
+---
+
+### GetVideoThumbnail
+
+获取视频第一帧封面（base64 JPEG）。
+
+**签名**: `GetVideoThumbnail(videoId: string)`
+
+---
+
+### GetVideoThumbnails
+
+批量获取视频封面。
+
+**签名**: `GetVideoThumbnails(videoIds: string[])`
+
+**返回数据**: `{ files: Record<string, string> }`（videoId → base64）
+
+---
+
+### GetVideoFramePreview
+
+从任意路径提取视频第一帧（用于待上传视频预览）。
+
+**签名**: `GetVideoFramePreview(path: string)`
+
+---
+
+### GetVideoStreamUrl
+
+获取视频的本地流地址（支持 Range，供 `<video>` 边下边播）。
+
+**签名**: `GetVideoStreamUrl(videoId: string)`
+
+**返回数据**: `{ url: string }`
+
+---
+
+## 图标库
+
+### UploadIcon
+
+上传自定义图标到全局图标库（限制 5MB，仅图片格式）。
+
+**签名**: `UploadIcon(fileName: string, fileData: string, category: string)`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `fileName` | `string` | 文件名 |
+| `fileData` | `string` | 文件 base64 |
+| `category` | `string` | `avatar` \| `track` |
+
+**返回数据**: `{ filePath, fileName, relPath }`
+
+---
+
+### GetIcon
+
+读取图标文件（base64）。
+
+**签名**: `GetIcon(category: string, fileName: string)`
+
+**返回数据**: `{ file: string }`
+
+---
+
+### DeleteIcon
+
+删除自定义图标。
+
+**签名**: `DeleteIcon(category: string, fileName: string)`
+
+---
+
+### ListIcons
+
+列出指定分类下的图标文件。
+
+**签名**: `ListIcons(category: string)`
+
+**返回数据**: `string[]`（文件名数组）
+
+---
+
+## 备份
+
+### CreateBackup
+
+启动备份任务（异步，进度经 `backup-progress` 事件推送，完成后发 `backup-done`）。
+
+**签名**: `CreateBackup(name: string)`
+
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `name` | `string` | 自定义备份名（留空按时间命名） |
+
+**返回数据**:
 
 ```json
 {
-  "currentUserId": "user123",
-  "schema": "{\"version\":\"1.0.0\",\"mapInfo\":{...},\"groupInfo\":[],\"imageInfo\":[]}"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "schema鏁版嵁鏇存柊鎴愬姛锛?,
-  "time": 1704067200000
+  "filePath": "D:\\PicMap_Backup\\PicMap_Backup_xxx.zip",
+  "fileName": "PicMap_Backup_xxx.zip",
+  "size": 10485760,
+  "sizeWarning": false,
+  "started": true
 }
 ```
 
 ---
 
-## 搴旂敤閰嶇疆鎺ュ彛
+### CancelBackup
 
-### 鑾峰彇鐢ㄦ埛鍒楄〃
+取消正在进行的备份。
 
-鑾峰彇鎵€鏈夌敤鎴风殑鍩烘湰淇℃伅銆?
-
-**璇锋眰鍦板潃**: `GET /appSchema/getUserInfos`
-
-**璇锋眰绀轰緥**:
-
-```
-GET /appSchema/getUserInfos
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": [
-    {
-      "userId": "user123",
-      "userName": "寮犱笁",
-      "createTime": "2025-01-01T00:00:00.000Z"
-    }
-  ],
-  "time": 1704067200000
-}
-```
+**签名**: `CancelBackup()`
 
 ---
 
-### 鑾峰彇搴旂敤閰嶇疆
+### GetBackupSize
 
-鑾峰彇搴旂敤鐨勫叏灞€閰嶇疆淇℃伅銆?
+获取当前数据体积。
 
-**璇锋眰鍦板潃**: `GET /appSchema/getSchema`
+**签名**: `GetBackupSize()`
 
-**璇锋眰绀轰緥**:
-
-```
-GET /appSchema/getSchema
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "version": "1.0.0",
-    "userInfos": [...],
-    "mapInfo": {
-      "mapTiles": [...],
-      "defaultTileId": "tile_default1"
-    }
-  },
-  "time": 1704067200000
-}
-```
+**返回数据**: `{ size: number, sizeWarning: boolean }`
 
 ---
 
-### 淇濆瓨搴旂敤閰嶇疆
+### GetBackupList
 
-淇濆瓨搴旂敤鐨勫叏灞€閰嶇疆淇℃伅銆?
+获取备份文件列表（按创建时间倒序）。
 
-**璇锋眰鍦板潃**: `POST /appSchema/setSchema`
+**签名**: `GetBackupList()`
 
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?| 绫诲瀷   | 蹇呭～ | 璇存槑           |
-|--------|--------|------|----------------|
-| schema | object | 鏄?  | 搴旂敤閰嶇疆鏁版嵁   |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "schema": {
-    "version": "1.0.0",
-    "userInfos": [...],
-    "mapInfo": {
-      "mapTiles": [...],
-      "defaultTileId": "tile_default1"
-    }
-  }
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "appSchema鏁版嵁鏇存柊鎴愬姛锛?,
-  "time": 1704067200000
-}
-```
+**返回数据**: `{ fileName, filePath, size, createTime }[]`
 
 ---
 
-## 杞ㄨ抗鎺ュ彛
+### ImportBackup
 
-### 涓婁紶杞ㄨ抗
+从备份导入数据。
 
-涓婁紶 GPX 杞ㄨ抗鏂囦欢銆?
+**签名**: `ImportBackup(filePath: string, mode: string)`
 
-**璇锋眰鍦板潃**: `POST /track/uploadTrack`
-
-**璇锋眰鍙傛暟**: FormData
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| file          | file   | 鏄?  | GPX 杞ㄨ抗鏂囦欢 |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "filePath": "D:/PicMap/user123/tracks/track_123456.gpx",
-    "fileName": "track_123456.gpx"
-  },
-  "time": 1704067200000
-}
-```
+| 参数 | 类型 | 说明 |
+|------|------|------|
+| `mode` | `string` | `cover`（覆盖，先解压校验再原子替换）\| `merge`（合并，按 ID 去重追加） |
 
 ---
 
-### 鍒犻櫎杞ㄨ抗
+### DeleteBackup
 
-鍒犻櫎鎸囧畾鐨勮建杩规枃浠躲€?
+删除指定备份文件。
 
-**璇锋眰鍦板潃**: `DELETE /track/deleteTrack`
-
-**Query 鍙傛暟**:
-
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| fileName      | string | 鏄?  | 杞ㄨ抗鏂囦欢鍚?(鍘熷鍚嶏紝涓嶅甫鍓嶇紑) |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```
-DELETE /track/deleteTrack?fileName=璺戞.gpx&currentUserId=user123
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "message": "鍒犻櫎鎴愬姛"
-  },
-  "time": 1704067200000
-}
-```
+**签名**: `DeleteBackup(filePath: string)`
 
 ---
 
-### 鑾峰彇杞ㄨ抗
+## 存储目录
 
-鑾峰彇鎸囧畾杞ㄨ抗鏂囦欢鐨勫唴瀹广€?
+### GetStorageConfig
 
-**璇锋眰鍦板潃**: `GET /track/getTrack`
+获取当前数据目录与备份目录。
 
-**Query 鍙傛暟**:
+**签名**: `GetStorageConfig()`
 
-| 鍙傛暟鍚?       | 绫诲瀷   | 蹇呭～ | 璇存槑     |
-|---------------|--------|------|----------|
-| fileName      | string | 鏄?  | 杞ㄨ抗鏂囦欢鍚?(鍘熷鍚嶏紝涓嶅甫鍓嶇紑) |
-| currentUserId | string | 鏄?  | 褰撳墠鐢ㄦ埛ID |
-
-**璇锋眰绀轰緥**:
-
-```
-GET /track/getTrack?fileName=璺戞.gpx&currentUserId=user123
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "fileContent": "<?xml version=\"1.0\" encoding=\"UTF-8\"?><gpx>...</gpx>"
-  },
-  "time": 1704067200000
-}
-```
+**返回数据**: `{ archiveDir: string, backupDir: string }`
 
 ---
 
-## 澶囦唤鎺ュ彛
+### SelectDirectory
 
-### 鍒涘缓澶囦唤
+打开目录选择框。
 
-灏嗘墍鏈夌敤鎴锋暟鎹墦鍖呮垚 ZIP 澶囦唤鏂囦欢銆?
+**签名**: `SelectDirectory()`
 
-**璇锋眰鍦板潃**: `POST /backup/backup`
-
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?| 绫诲瀷   | 蹇呭～ | 璇存槑           |
-|--------|--------|------|----------------|
-| name   | string | 鍚?  | 澶囦唤鏂囦欢鍚嶇О   |
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": {
-    "filePath": "D:/PicMap_Backup/PicMap_Backup_2025-01-15T10-30-00.000Z.zip",
-    "fileName": "PicMap_Backup_2025-01-15T10-30-00.000Z.zip",
-    "size": 10485760
-  },
-  "time": 1704067200000
-}
-```
-
-**杩斿洖瀛楁璇存槑**:
-
-| 瀛楁鍚?  | 绫诲瀷   | 璇存槑             |
-|----------|--------|------------------|
-| filePath | string | 澶囦唤鏂囦欢瀹屾暣璺緞 |
-| fileName | string | 澶囦唤鏂囦欢鍚?      |
-| size     | number | 鏂囦欢澶у皬(瀛楄妭)   |
+**返回数据**: `{ path: string }`
 
 ---
 
-### 鑾峰彇澶囦唤鍒楄〃
+### SelectBackupFile
 
-鑾峰彇鎵€鏈夊凡鍒涘缓鐨勫浠芥枃浠跺垪琛ㄣ€?
+打开备份文件选择框（`.zip`）。
 
-**璇锋眰鍦板潃**: `GET /backup/backupList`
+**签名**: `SelectBackupFile()`
 
-**璇锋眰绀轰緥**:
-
-```
-GET /backup/backupList
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": [
-    {
-      "fileName": "PicMap_Backup_2025-01-15T10-30-00.000Z.zip",
-      "filePath": "D:/PicMap_Backup/PicMap_Backup_2025-01-15T10-30-00.000Z.zip",
-      "size": 10485760,
-      "createTime": "2025-01-15T10:30:00.000Z"
-    }
-  ],
-  "time": 1704067200000
-}
-```
-
-**杩斿洖瀛楁璇存槑**:
-
-| 瀛楁鍚?    | 绫诲瀷   | 璇存槑           |
-|------------|--------|----------------|
-| fileName   | string | 澶囦唤鏂囦欢鍚?    |
-| filePath   | string | 澶囦唤鏂囦欢璺緞   |
-| size       | number | 鏂囦欢澶у皬(瀛楄妭) |
-| createTime | string | 鍒涘缓鏃堕棿       |
+**返回数据**: `{ path: string, filePath: string }`
 
 ---
 
-### 瀵煎叆澶囦唤
+### SetStorageConfig
 
-浠庡浠芥枃浠舵仮澶嶆暟鎹€?
+保存存储目录配置（需重启应用生效）。
 
-**璇锋眰鍦板潃**: `POST /backup/import`
-
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?  | 绫诲瀷   | 蹇呭～ | 璇存槑                          |
-|----------|--------|------|-------------------------------|
-| filePath | string | 鏄?  | 澶囦唤鏂囦欢璺緞                  |
-| mode     | string | 鏄?  | 瀵煎叆妯″紡: `cover`(瑕嗙洊) 鎴?`merge`(鍚堝苟) |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "filePath": "D:/PicMap_Backup/PicMap_Backup_2025-01-15T10-30-00.000Z.zip",
-  "mode": "merge"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "瀵煎叆鎴愬姛",
-  "time": 1704067200000
-}
-```
-
-**瀵煎叆妯″紡璇存槑**:
-
-- `cover`: 瑕嗙洊妯″紡锛屽厛鍒犻櫎鐜版湁鎵€鏈夋暟鎹紝鍐嶅鍏ュ浠芥暟鎹?
-- `merge`: 鍚堝苟妯″紡锛屼繚鐣欑幇鏈夋暟鎹紝灏嗗浠戒腑鐨勬柊鏁版嵁娣诲姞鍒扮幇鏈夋暟鎹腑
+**签名**: `SetStorageConfig(archiveDir: string, backupDir: string)`
 
 ---
 
-### 鍒犻櫎澶囦唤
+## 事件（后端 → 前端）
 
-鍒犻櫎鎸囧畾鐨勫浠芥枃浠躲€?
+通过 `window.runtime.EventsOn` 监听。
 
-**璇锋眰鍦板潃**: `POST /backup/deleteBackup`
-
-**璇锋眰鍙傛暟**:
-
-| 鍙傛暟鍚?  | 绫诲瀷   | 蹇呭～ | 璇存槑         |
-|----------|--------|------|--------------|
-| filePath | string | 鏄?  | 澶囦唤鏂囦欢璺緞 |
-
-**璇锋眰绀轰緥**:
-
-```json
-{
-  "filePath": "D:/PicMap_Backup/PicMap_Backup_2025-01-15T10-30-00.000Z.zip"
-}
-```
-
-**鍝嶅簲绀轰緥**:
-
-```json
-{
-  "code": 200,
-  "msg": "鎴愬姛",
-  "data": "鍒犻櫎鎴愬姛",
-  "time": 1704067200000
-}
-```
+| 事件名 | 触发时机 | 载荷 |
+|--------|----------|------|
+| `images-parsed` | 一批图片解析完成 | `{ images: SelectedImage[], errors: string[] }` |
+| `images-progress` | 图片解析进度 | `{ processed: number, total: number }` |
+| `images-done` | 全部图片解析完成 | `{ total: number }` |
+| `videos-parsed` | 一批视频解析完成 | `{ videos: SelectedVideo[], errors: string[] }` |
+| `videos-progress` | 视频解析进度 | `{ processed: number, total: number }` |
+| `videos-done` | 全部视频解析完成 | `{ total: number }` |
+| `backup-progress` | 备份进度 | `{ processed: number, total: number, percent: number }` |
+| `backup-done` | 备份结束 | `{ success: boolean, cancelled?: boolean, fileName?: string, filePath?: string, message?: string }` |
 
 ---
 
-## 閿欒鐮佽缁嗚鏄?
+## 媒体流服务
 
-| 閿欒鐮?| 鎻忚堪                     | 鍙兘鍘熷洜                           |
-|--------|--------------------------|------------------------------------|
-| 200    | 鎴愬姛                     | -                                  |
-| 400    | 鍙傛暟鏍￠獙澶辫触             | 缂哄皯蹇呭～鍙傛暟鎴栧弬鏁版牸寮忎笉姝ｇ‘       |
-| 404    | 鎺ュ彛涓嶅瓨鍦?              | 璇锋眰璺緞閿欒                       |
-| 429    | 鎿嶄綔杩囦簬棰戠箒             | 璇锋眰棰戠巼瓒呰繃闄愬埗                   |
-| 500    | 澶辫触                     | 鏈嶅姟鍣ㄥ唴閮ㄩ敊璇紝鏌ョ湅 msg 鑾峰彇璇︽儏   |
+后端启动一个仅监听 `127.0.0.1` 随机端口的 HTTP 服务，用于媒体文件的流式访问
+（支持 HTTP Range / 断点续传）。地址通过 `GetVideoStreamUrl` / `GetImageStreamUrl` 获取。
+
+| 路径 | 查询参数 | 说明 |
+|------|----------|------|
+| `GET /video` | `userId`, `videoId` | 视频字节流（`http.ServeContent` 处理 Range） |
+| `GET /image` | `userId`, `imageId`, `kind` | 图片字节流；`kind`: `thumb` \| `marker` \| `full` |
+
+> 说明：
+> - 服务仅监听本机回环地址，应用退出（`OnShutdown`）时关闭。
+> - 响应带 `Access-Control-Allow-Origin: *`，供 Wails 页面跨源加载。
+> - 图片端点对 HEIC/RAW 会先转码再返回 JPEG。
 
 ---
 
-## 鐗堟湰鍘嗗彶
+## 版本历史
 
-| 鐗堟湰   | 鏃ユ湡       | 璇存槑           |
-|--------|------------|----------------|
-| 1.0.0  | 2025-01-15 | 鍒濆鐗堟湰       |
-| 1.1.0  | 2026-03-26 | 鏂板杞ㄨ抗鍔熻兘   |
+| 版本 | 日期 | 说明 |
+|------|------|------|
+| 1.0.0 | 2025-01-15 | 初版（Express HTTP 接口） |
+| 1.1.0 | 2026-03-26 | 新增轨迹功能 |
+| 2.0.0 | 2026-07-30 | 迁移至 Go + Wails 绑定；新增视频、图标库、存储目录、媒体流 |

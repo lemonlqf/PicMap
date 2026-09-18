@@ -62,6 +62,10 @@ export function GetIcon(arg1, arg2) {
   return window['go']['main']['App']['GetIcon'](arg1, arg2);
 }
 
+export function GetImageStreamUrl(arg1, arg2, arg3) {
+  return window['go']['main']['App']['GetImageStreamUrl'](arg1, arg2, arg3);
+}
+
 export function GetMarkerThumbnail(arg1, arg2) {
   return window['go']['main']['App']['GetMarkerThumbnail'](arg1, arg2);
 }

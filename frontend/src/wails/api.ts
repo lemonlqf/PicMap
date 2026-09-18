@@ -127,6 +127,17 @@ export async function getFullImage(data: { imageId: string }) {
   throw new Error('Wails bindings not available')
 }
 
+// 图片本地流地址（支持 Range，供 <img> 直接加载，替代 base64）
+// kind: thumb（1000px 缩略图，默认）| marker（120px 小图）| full（原图）
+export async function getImageStreamUrl(data: { imageId: string; kind?: 'thumb' | 'marker' | 'full' }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetImageStreamUrl(getCurrentUserId(), data.imageId, data.kind || 'thumb')
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 // ---- Schema ----
 
 export async function getSchema(params?: { currentUserId?: string }) {
@@ -366,6 +377,16 @@ export function offBackupEvents() {
   window.runtime?.EventsOff?.('backup-done')
 }
 
+// 恢复进度事件
+export function onRestoreProgress(callback: (data: any) => void) {
+  window.runtime?.EventsOn?.('restore-progress', callback)
+}
+
+// 清理恢复事件监听
+export function offRestoreEvents() {
+  window.runtime?.EventsOff?.('restore-progress')
+}
+
 export async function getBackupList() {
   const binding = getGoBinding()
   if (binding) {
@@ -501,6 +522,7 @@ const image = {
   updateImages,
   downloadImage,
   getFullImage,
+  getImageStreamUrl,
   onImagesParsed,
   onImagesProgress,
   onImagesDone,
@@ -549,6 +571,8 @@ const backup = {
   onBackupProgress,
   onBackupDone,
   offBackupEvents,
+  onRestoreProgress,
+  offRestoreEvents,
 }
 
 const user = {

@@ -32,6 +32,8 @@ export function GetFullImage(arg1:string,arg2:string):Promise<model.Result>;
 
 export function GetIcon(arg1:string,arg2:string):Promise<model.Result>;
 
+export function GetImageStreamUrl(arg1:string,arg2:string,arg3:string):Promise<model.Result>;
+
 export function GetMarkerThumbnail(arg1:string,arg2:string):Promise<model.Result>;
 
 export function GetSchema(arg1:string):Promise<model.Result>;

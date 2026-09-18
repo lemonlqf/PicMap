@@ -186,6 +186,13 @@ export async function getImageUrlById(imageId: string) {
   }
   // in-flight 去重：并发调用同一图片时共享同一个请求
   return cache.fetchDedup(`large:${imageId}`, async () => {
+    // 优先使用本地 HTTP 流地址（支持 Range、浏览器原生缓存），避免 base64 撑大桥接内存
+    const streamUrl = await getImageStreamUrlSafe(imageId, 'thumb')
+    if (streamUrl) {
+      cache.addImageUrl(imageId, streamUrl)
+      return streamUrl
+    }
+    // 回退：base64 桥接
     const res = await API.image.getImage({ imageId }) as any
     if (res.code !== 200 || !res.data?.file) {
       // 无缩略图不缓存，避免缓存坏 data URL
@@ -195,6 +202,19 @@ export async function getImageUrlById(imageId: string) {
     cache.addImageUrl(imageId, imageUrl)
     return imageUrl
   })
+}
+
+/**
+ * @description: 获取图片本地流地址（失败返回空串，调用方回退 base64）
+ */
+async function getImageStreamUrlSafe(imageId: string, kind: 'thumb' | 'marker' | 'full'): Promise<string> {
+  try {
+    const res = await API.image.getImageStreamUrl({ imageId, kind }) as any
+    if (res?.code !== 200) return ''
+    return res.data?.url || ''
+  } catch {
+    return ''
+  }
 }
 
 /**
@@ -218,6 +238,11 @@ export async function getMarkerImageUrlById(imageId: string) {
     return cached
   }
   return cache.fetchDedup(`marker:${imageId}`, async () => {
+    const streamUrl = await getImageStreamUrlSafe(imageId, 'marker')
+    if (streamUrl) {
+      cache.addMarkerImageUrl(imageId, streamUrl)
+      return streamUrl
+    }
     const res = await API.image.getMarkerImage({ imageId }) as any
     if (res.code !== 200 || !res.data?.file) {
       return ''
@@ -249,6 +274,8 @@ export async function getFullImageUrlById(imageId: string) {
     return cached
   }
   return cache.fetchDedup(`full:${imageId}`, async () => {
+    // 全景预览由 photo-sphere-viewer 以 WebGL 纹理加载，跨源纹理易受 canvas 污染限制，
+    // 故保留 base64；流地址仅用于 thumb/marker 这类高频、数量大的场景
     const res = await API.image.getFullImage({ imageId }) as any
     if (res.code !== 200 || !res.data?.file) {
       return ''

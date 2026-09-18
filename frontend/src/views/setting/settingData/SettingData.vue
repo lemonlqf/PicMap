@@ -101,6 +101,12 @@
         </div>
         <div class="mode-tip restore-warning">{{ $t('restoreWarning') }}</div>
       </div>
+      <div v-if="restoreLoading" class="restore-progress">
+        <el-progress :percentage="restorePercent" :stroke-width="12" />
+        <div class="restore-progress-text">
+          {{ formatSize(restoreProgress.processed) }} / {{ formatSize(restoreProgress.total) }}
+        </div>
+      </div>
       <template #footer>
         <el-button @click="restoreDialogVisible = false" :disabled="restoreLoading">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="confirmRestore" :loading="restoreLoading">{{ $t('confirm') }}</el-button>
@@ -144,6 +150,14 @@ const backupPercent = computed(() => {
   return Math.min(100, Math.round((processed / total) * 100))
 })
 
+// 恢复进度（字节）
+const restoreProgress = ref<{ processed: number; total: number }>({ processed: 0, total: 0 })
+const restorePercent = computed(() => {
+  const { processed, total } = restoreProgress.value
+  if (!total) return 0
+  return Math.min(100, Math.round((processed / total) * 100))
+})
+
 // 存储目录配置
 const storageConfig = ref<{ archiveDir: string; backupDir: string }>({ archiveDir: '', backupDir: '' })
 const savingStorage = ref(false)
@@ -176,10 +190,17 @@ onMounted(() => {
       backupProgress.value = { processed: 0, total: 0 }
     }
   })
+  API.backup.onRestoreProgress((data: any) => {
+    restoreProgress.value = {
+      processed: data?.processed ?? 0,
+      total: data?.total ?? 0,
+    }
+  })
 })
 
 onUnmounted(() => {
   API.backup.offBackupEvents()
+  API.backup.offRestoreEvents()
 })
 
 /**
@@ -400,6 +421,7 @@ async function confirmRestore() {
   }
 
   restoreLoading.value = true
+  restoreProgress.value = { processed: 0, total: 0 }
   try {
     const res = await API.backup.import({
       filePath: selectedBackupPath.value,
@@ -409,13 +431,16 @@ async function confirmRestore() {
       ElMessage.success(t('restoreSuccess'))
       restoreDialogVisible.value = false
       loadBackupList()
+      // 恢复后磁盘数据已变更，重新加载应用以刷新地图节点与轨迹
+      setTimeout(() => window.location.reload(), 800)
     } else {
-      ElMessage.error(res.message || t('restoreFailed'))
+      ElMessage.error(res.msg || res.message || t('restoreFailed'))
     }
   } catch (error) {
     ElMessage.error(t('restoreFailed'))
   } finally {
     restoreLoading.value = false
+    restoreProgress.value = { processed: 0, total: 0 }
   }
 }
 
@@ -584,6 +609,17 @@ function formatTime(date: string): string {
 }
 
 .backup-progress-text {
+  margin-top: 6px;
+  text-align: center;
+  font-size: 12px;
+  color: #909399;
+}
+
+.restore-progress {
+  margin-top: 16px;
+}
+
+.restore-progress-text {
   margin-top: 6px;
   text-align: center;
   font-size: 12px;

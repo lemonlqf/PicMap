@@ -80,6 +80,30 @@
               </div>
             </div>
           </div>
+          <div class="info-card">
+            <div class="info-title">
+              <MediaInfoIcon style="width: 25px; height: 25px"></MediaInfoIcon>
+              <div class="title">{{ $t('mediaInfo') }}</div>
+            </div>
+            <!-- 视频数量 -->
+            <div class="info-item">
+              <span class="label">{{ $t('videoNumber') }}</span>
+              <div class="value-box">
+                <CountUp class="value" :duration="0.4" :end-val="videoNums" :start-val="videoStartValue"
+                  @finished="setVideoStartValue">
+                </CountUp>
+              </div>
+            </div>
+            <!-- 轨迹数量 -->
+            <div class="info-item">
+              <span class="label">{{ $t('trackNumber') }}</span>
+              <div class="value-box">
+                <CountUp class="value" :duration="0.4" :end-val="trackNums" :start-val="trackStartValue"
+                  @finished="setTrackStartValue">
+                </CountUp>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="info-footer">
           <template v-if="!isEdit">
@@ -122,6 +146,7 @@ import { ElMessage } from 'element-plus';
 import { editUserInfoAndSave } from '@/utils/appSchema';
 import UserInfoIcon from '@/assets/icon/用户信息.svg?component'
 import ImgInfoIcon from '@/assets/icon/图片信息.svg?component'
+import MediaInfoIcon from '@/assets/icon/数据.svg?component'
 import { useSchemaStore } from '@/store/schema';
 import CountUp from 'vue-countup-v3'
 import { useI18n } from 'vue-i18n'
@@ -134,6 +159,14 @@ const imgNums = computed(() => {
 
 const groupNums = computed(() => {
   return schemaStore?.getSchema?.groupInfo?.length ?? 0
+})
+
+const videoNums = computed(() => {
+  return schemaStore?.getSchema?.videoInfo?.length ?? 0
+})
+
+const trackNums = computed(() => {
+  return schemaStore?.getSchema?.trackInfo?.length ?? 0
 })
 
 const userInfos = computed<IUserInfo[]>(() => {
@@ -194,6 +227,18 @@ const groupStartValue = ref(0)
 
 function setGroupStartValue() {
   groupStartValue.value = groupNums.value
+}
+
+const videoStartValue = ref(0)
+
+function setVideoStartValue() {
+  videoStartValue.value = videoNums.value
+}
+
+const trackStartValue = ref(0)
+
+function setTrackStartValue() {
+  trackStartValue.value = trackNums.value
 }
 
 function showAddDialog() {

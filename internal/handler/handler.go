@@ -19,11 +19,12 @@ import (
 // 按业务域拆分在 handler_user.go / handler_image.go / handler_track.go /
 // handler_backup.go / handler_video.go 中。
 type Handler struct {
-	cfg        *config.Config
-	ctx        context.Context
-	mu         sync.Mutex
-	parsing    atomic.Bool
-	thumbCache sync.Map // marker 缩略图 base64 缓存，key: userId+"/"+imageId
+	cfg             *config.Config
+	ctx             context.Context
+	mu              sync.Mutex
+	parsing         atomic.Bool
+	thumbCache      *thumbCacheLRU // marker 缩略图(base64) 缓存，key: userId+"/"+imageId（120px）
+	largeThumbCache *thumbCacheLRU // 普通缩略图(base64) 缓存，key: userId+"/"+imageId（1000px）
 	// 本地视频流服务（支持 Range，供原生 <video> 边下边播）
 	streamBase   string
 	streamServer *http.Server
@@ -32,9 +33,20 @@ type Handler struct {
 	backupCancel  atomic.Bool
 }
 
+// 缩略图缓存容量上限（条目数）。marker 图小(120px)可多存，大图(1000px)按估算显存/内存控制。
+const (
+	markerThumbCacheCapacity = 2000
+	largeThumbCacheCapacity  = 300
+)
+
 func New(cfg *config.Config, ctx context.Context) *Handler {
-	h := &Handler{cfg: cfg, ctx: ctx}
-	h.startVideoStreamServer()
+	h := &Handler{
+		cfg:             cfg,
+		ctx:             ctx,
+		thumbCache:      newThumbCacheLRU(markerThumbCacheCapacity),
+		largeThumbCache: newThumbCacheLRU(largeThumbCacheCapacity),
+	}
+	h.startMediaStreamServer()
 	return h
 }
 
