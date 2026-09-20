@@ -33,8 +33,10 @@ func (h *Handler) UploadTrack(userId, fileData, fileName string) model.Result {
 	util.EnsureDir(trackDir)
 
 	// Generate track ID prefix like Node.js version
+	// 文件名清洗：去除路径分隔符，避免落到目标目录之外
 	trackID := generateID()
-	outputName := "_TRACK_PM_" + trackID + "_" + fileName
+	safeName := sanitizeFilename(filepath.Base(fileName))
+	outputName := "_TRACK_PM_" + trackID + "_" + safeName
 	outputPath := filepath.Join(trackDir, outputName)
 
 	if err := os.WriteFile(outputPath, data, 0644); err != nil {
@@ -48,6 +50,9 @@ func (h *Handler) UploadTrack(userId, fileData, fileName string) model.Result {
 }
 
 func (h *Handler) DeleteTrack(userId, fileName string) model.Result {
+	if !isSafeGlobName(fileName) {
+		return model.NewFailResult("非法的文件名")
+	}
 	trackDir := h.cfg.TrackDirPath(userId)
 	pattern := filepath.Join(trackDir, "*"+fileName+"*")
 	matches, _ := filepath.Glob(pattern)
@@ -58,6 +63,9 @@ func (h *Handler) DeleteTrack(userId, fileName string) model.Result {
 }
 
 func (h *Handler) GetTrack(userId, fileName string) model.Result {
+	if !isSafeGlobName(fileName) {
+		return model.NewFailResult("非法的文件名")
+	}
 	trackDir := h.cfg.TrackDirPath(userId)
 	pattern := filepath.Join(trackDir, "*"+fileName+"*")
 	matches, _ := filepath.Glob(pattern)

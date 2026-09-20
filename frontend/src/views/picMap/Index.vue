@@ -47,6 +47,11 @@
     <div :class="['time-line', getAnimateClass('timeline')]">
       <TimeLine ref="timeLineRef" @change="timeChange" :mode="TimeType.DAY" :data="timeLineData"></TimeLine>
     </div>
+    <!-- 俯仰角调节（与时间轴同级展示，随纯净模式淡入淡出） -->
+    <div :class="['pitch-control', getAnimateClass('pitch')]">
+      <span class="pitch-label">{{ $t('pitchAngle') }}: {{ pitch }}°</span>
+      <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
+    </div>
   </div>
 </template>
 
@@ -68,6 +73,7 @@ import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema, getAllVideoIdInSchema } from '@/utils/schema'
+import { getVideoStartMs } from '@/utils/video'
 import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
 import Map from './Map.vue'
 import TimeLine from '@/components/timeLine/TimeLine.vue'
@@ -81,6 +87,10 @@ let currentMapTile = ref()
 const mapCenter = ref(DEFAULT_CENTER)
 const mapZoom = ref(DEFAULT_ZOOM)
 const mapPitch = ref(0)
+// 俯仰角滑块（与地图实时同步）
+const pitch = ref(0)
+// pitch 事件只需绑定一次（切换用户会重复调用 initMapInstance）
+let pitchListenerBound = false
 const mapBearing = ref(0)
 const mapRef = ref()
 const timeRanges = ref({
@@ -136,11 +146,12 @@ const animateState = reactive<Record<string, string>>({
   user: 'animate__fadeIn',
   upload: 'animate__fadeIn',
   group: 'animate__fadeIn',
-  timeline: 'animate__fadeIn'
+  timeline: 'animate__fadeIn',
+  pitch: 'animate__fadeIn'
 })
 
 watch(pureMode, (newVal) => {
-  const animates = ['switch', 'location', 'zoom', 'user', 'upload', 'group', 'timeline']
+  const animates = ['switch', 'location', 'zoom', 'user', 'upload', 'group', 'timeline', 'pitch']
   if (newVal) {
     animates.forEach(key => {
       animateState[key] = 'animate__animated  animate__fadeIn'
@@ -170,14 +181,24 @@ function getAllImageTimeTimeLineData(): TimeLineDataPoint[] {
   const imageList = getGroupAndImageList()
   if (!imageList) return []
   // 提取所有图片的时间戳，并过滤掉没有时间戳的图片
-  const times = imageList.map((item: any) => {
-    return item?.authorInfo?.DateTime
-  }).filter((time: any) => time)
+  const times: number[] = imageList.map((item: any) => {
+    const t = item?.authorInfo?.DateTime
+    return t ? new Date(t).getTime() : 0
+  }).filter((time: number) => !!time && !isNaN(time))
+  // 视频：把起始与结束时刻一并纳入时间轴，保证滑块范围能覆盖视频时间；
+  // 否则视频时间落在图片时间范围之外时，一旦被时间轴筛掉就再也无法通过调整范围选回来
+  const videoInfo = schemaStore.getSchema.videoInfo ?? []
+  videoInfo.forEach((v: any) => {
+    const start = getVideoStartMs(v)
+    if (start > 0) {
+      times.push(start)
+      if (v.durationMs && v.durationMs > 0) times.push(start + v.durationMs)
+    }
+  })
   if (times.length === 0) return []
   const timeValueMap: Record<number, number> = {}
   // 如果有一样的时间戳，就把value加1，表示在这个时间点有多张图片
-  times.forEach((time: string) => {
-    const timestamp = new Date(time).getTime()
+  times.forEach((timestamp: number) => {
     if (timeValueMap[timestamp]) {
       timeValueMap[timestamp] += 1
     } else {
@@ -229,6 +250,19 @@ const map = ref()
  */
 function initMapInstance() {
   map.value = mapRef.value.getMapInstance()
+  // 同步俯仰角滑块，并监听地图 pitch 变化（鼠标旋转/手势）
+  if (map.value && !pitchListenerBound) {
+    pitchListenerBound = true
+    pitch.value = Math.round(map.value.getPitch())
+    map.value.on('pitch', () => {
+      pitch.value = Math.round(map.value.getPitch())
+    })
+  }
+}
+
+// 拖动滑块调整俯仰角
+function setPitch() {
+  map.value?.setPitch(pitch.value)
 }
 
 async function setMapCenter() {
@@ -346,6 +380,26 @@ onMounted(() => {
   right: 50vw;
   box-sizing: border-box;
   z-index: 1000;
+}
+
+.pitch-control {
+  position: absolute;
+  left: 20px;
+  bottom: 70px;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  background: rgba(255, 255, 255, 0.9);
+  border-radius: 8px;
+  padding: 8px 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+.pitch-label {
+  font-size: 12px;
+  color: #333;
 }
 
 .no-pointer-events {

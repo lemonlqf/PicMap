@@ -219,7 +219,7 @@ D:\PicMap\
 - **goexif**：EXIF 解析
 - **archive/zip**：备份打包与恢复
 - **本地 HTTP 媒体流服务**：仅监听 127.0.0.1，为视频/图片提供支持 Range 的流式访问
-- **外部工具**：ImageMagick、dcraw/ffmpeg（HEIC/RAW 转码与视频探测/取帧）
+- **外部工具**：ImageMagick（HEIC 转码）、libraw（RAW 解码）、ffmpeg（视频探测/取帧），随程序分发（`dist/tools/`）
 
 ---
 

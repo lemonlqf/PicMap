@@ -145,13 +145,33 @@ cd frontend && npm install
 cd .. && wails dev
 ```
 
-### 构建
+### 构建（Windows 交付）
+
+一键构建脚本会自动完成：生成图标 → Wails 构建 → 组装自包含产物到 `dist/`：
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+构建完成后，交付目录为 `dist/`（可直接分发，包含主程序与所需外部工具）：
+
+```
+dist/
+├── picmap.exe
+└── tools/            # 随程序分发的外部工具（自包含）
+    ├── ffmpeg/       # 视频探测 / 取帧
+    ├── imagemagick/  # HEIC 转码
+    └── libraw/       # RAW 解码
+```
+
+> 说明：`build/` 仅存放 Wails 构建配置（图标 `appicon.png`、`windows/*`）与中间产物，不作为交付内容。
+> 更换应用图标：替换 `build/appicon.png` 后重新构建即可。
+
+也可以只执行底层构建（产物在 `build/bin/`，需自行复制 `tools/`）：
 
 ```bash
 wails build -platform windows/amd64
 ```
-
-打包成功后会在 `build/bin/` 目录下生成可执行文件。
 
 ### 质量检查
 

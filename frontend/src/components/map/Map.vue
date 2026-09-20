@@ -36,7 +36,7 @@ import * as maplibregl from 'maplibre-gl';
 import { ElIcon } from 'element-plus';
 import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
-import { getVideoInfoById } from '@/utils/schema';
+import { getVideoInfoById, getVideoGPSInfo } from '@/utils/schema';
 import { getMarkerImageUrlById } from '@/utils/Image';
 import { getVideoThumbnailUrl } from '@/utils/video';
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, MAP_CONSTANT } from '@/utils/constant'
@@ -506,12 +506,13 @@ async function updateMarkers() {
   // 视频节点：仅渲染有独立 GPS 坐标的视频
   for (const videoId of (props.videoIds || [])) {
     const videoInfo = getVideoInfoById(videoId) as any
-    if (!videoInfo?.GPSLatitude || !videoInfo?.GPSLongitude) continue
+    const videoGps = getVideoGPSInfo(videoInfo)
+    if (!videoGps) continue
     const coverUrl = await getVideoThumbnailUrl(videoId)
     const icon = createVideoMarkerIcon(videoInfo, coverUrl || undefined)
     const marker = new MapMarkerAdapter(
       icon,
-      toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+      toMapLibreLngLat(videoGps.GPSLatitude, videoGps.GPSLongitude),
       { id: videoId, type: 'video', name: videoInfo.name, iconUrl: coverUrl || '' }
     )
     marker.on('click', () => {

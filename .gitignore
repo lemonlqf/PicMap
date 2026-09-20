@@ -14,6 +14,15 @@ dist
 dist-ssr
 *.local
 
+# 依赖锁与缓存文件不入库（package.json 依赖声明仍入库）
+package-lock.json
+pnpm-lock.yaml
+package.json.md5
+
+# 构建产物（构建配置如 build/appicon.png、build/windows/* 仍入库）
+/build/bin/
+/dist/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

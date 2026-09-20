@@ -1,11 +1,6 @@
 <template>
   <div class="map-wrap">
     <div id="map"></div>
-    <!-- 俯仰角调节（随纯净模式淡入淡出，与其他开关一致） -->
-    <div :class="['pitch-control', pitchClass]">
-      <span class="pitch-label">俯仰角: {{ pitch }}°</span>
-      <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
-    </div>
     <!-- 轨迹详情面板（复用现有详情面板） -->
     <TrackDetailPanel :visible="detailPanelVisible" :trackList="detailPanelTrackList"
       :currentTrackId="detailPanelTrackId" :trackInfo="detailPanelTrackInfo"
@@ -25,7 +20,7 @@ import mapService from '@/services/map'
 import { useMapStore } from '../../store/map'
 import markerService from '@/services/marker'
 import { initBoxSelect } from '@/services/boxSelect'
-import { getGroupAndImageList } from '@/utils/schema'
+import { getGroupAndImageList, videoHasGPS } from '@/utils/schema'
 import { useSchemaStore } from '@/store/schema'
 import { hiddenImageInfoDrawerMapClick } from '@/utils/map'
 import { DEFAULT_CENTER, DEFAULT_ZOOM, MAP_CONSTANT, OVERLAY_LAYER_PREFIX, OVERLAY_SOURCE_PREFIX } from '@/utils/constant'
@@ -73,16 +68,10 @@ const props = defineProps({
   mapBearing: {
     type: Number,
     default: 0
-  },
-  // 俯仰角控件的动画 class（与其他开关一致：纯净模式下淡出并禁用指针）
-  pitchClass: {
-    type: String,
-    default: ''
   }
 })
 
 let map: maplibregl.Map | null = null
-const pitch = ref(props.mapPitch)
 
 // 轨迹详情面板状态
 const detailPanelVisible = ref(false)
@@ -103,8 +92,6 @@ let trackPanelCloseBound = false
  */
 function initMap() {
   if (!map) {
-    // 同步滑块显示为恢复的俯仰角
-    pitch.value = props.mapPitch
     map = new maplibregl.Map({
       container: 'map',
       style: { version: 8, sources: {}, layers: [] },
@@ -127,20 +114,12 @@ function initMap() {
       renderMainMapTracks()
       syncTileOverlays()
     })
-    // 监听地图 pitch 变化（鼠标旋转/手势），同步滑块显示
-    map.on('pitch', () => {
-      pitch.value = Math.round(map!.getPitch())
-    })
   } else {
     map.jumpTo({
       center: toMapLibreLngLat(props.mapCenter[0], props.mapCenter[1]),
       zoom: props.mapZoom,
     })
   }
-}
-
-function setPitch() {
-  map?.setPitch(pitch.value)
 }
 
 // 保存当前瓦片 url，避免重复添加
@@ -245,7 +224,7 @@ async function initMarker() {
     group.videoNumbers && videoIdInGroup.push(...group.videoNumbers)
   })
   for (const video of videoInfo) {
-    if (video.GPSLatitude && video.GPSLongitude && !videoIdInGroup.includes(video.id)) {
+    if (videoHasGPS(video) && !videoIdInGroup.includes(video.id)) {
       await markerService.addVideoMarkerToMap(video)
     }
   }
@@ -665,24 +644,6 @@ defineExpose({
 #map {
   height: 100vh;
   width: 100vw;
-}
-.pitch-control {
-  position: absolute;
-  left: 25px;
-  bottom: 90px;
-  z-index: 1000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-  background: rgba(255, 255, 255, 0.9);
-  border-radius: 8px;
-  padding: 8px 10px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-.pitch-label {
-  font-size: 12px;
-  color: #333;
 }
 .no-pointer-events {
   pointer-events: none;

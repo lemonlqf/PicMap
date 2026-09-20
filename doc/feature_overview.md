@@ -220,7 +220,7 @@ The chosen storage directory is recorded in `.picmap-config.json` in your home d
 - **goexif**: EXIF parsing
 - **archive/zip**: Backup packing and restore
 - **Local HTTP media stream server**: Listens on 127.0.0.1 only, provides Range-enabled streaming for video/image access
-- **External tools**: ImageMagick, dcraw/ffmpeg (HEIC/RAW transcoding, video probing/frame extraction)
+- **External tools**: ImageMagick (HEIC transcoding), libraw (RAW decoding), ffmpeg (video probing/frame extraction), shipped with the app (`dist/tools/`)
 
 ---
 

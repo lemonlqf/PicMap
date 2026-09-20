@@ -5,10 +5,26 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sync"
+)
+
+// toolsDirOnce/toolsDirCached：tools 目录在进程生命周期内不变，查找一次即可，
+// 避免每处理一张 HEIC/RAW/视频都全盘回溯 os.Stat。
+var (
+	toolsDirOnce   sync.Once
+	toolsDirCached string
 )
 
 func getToolsDir() string {
-	// 依次从 可执行文件目录 与 当前工作目录 向上回溯，收集所有含 tools 的候选目录
+	toolsDirOnce.Do(func() {
+		toolsDirCached = resolveToolsDir()
+	})
+	return toolsDirCached
+}
+
+// resolveToolsDir 依次从 可执行文件目录 与 当前工作目录 向上回溯，查找 tools 目录
+func resolveToolsDir() string {
+	// 收集所有含 tools 的候选目录
 	found := []string{}
 	seen := map[string]bool{}
 	addCandidates := func(dir string) {

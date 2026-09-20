@@ -194,6 +194,7 @@ export default {
   deleteFailed: 'Delete failed',
   reset: 'Reset',
   timeline: 'Timeline',
+  pitchAngle: 'Pitch',
 
   // Timezone
   timezone: {

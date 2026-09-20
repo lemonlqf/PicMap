@@ -150,13 +150,35 @@ cd frontend && npm install
 cd .. && wails dev
 ```
 
-### Build
+### Build (Windows release)
+
+The one-click build script generates icons, runs the Wails build, and assembles a
+self-contained release into `dist/`:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+```
+
+The release directory is `dist/` (ready to distribute, including the app and required tools):
+
+```
+dist/
+├── picmap.exe
+└── tools/            # External tools shipped with the app (self-contained)
+    ├── ffmpeg/       # Video probing / frame extraction
+    ├── imagemagick/  # HEIC transcoding
+    └── libraw/       # RAW decoding
+```
+
+> Note: `build/` only holds Wails build config (`appicon.png`, `windows/*`) and intermediate
+> artifacts; it is not part of the release. To change the app icon, replace
+> `build/appicon.png` and rebuild.
+
+You can also run the underlying build only (output in `build/bin/`, copy `tools/` yourself):
 
 ```bash
 wails build -platform windows/amd64
 ```
-
-Build artifacts will be generated in `build/bin/`.
 
 ### Quality checks
 

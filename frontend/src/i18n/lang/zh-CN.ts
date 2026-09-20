@@ -193,6 +193,7 @@ export default {
   deleteFailed: '删除失败',
   reset: '重置',
   timeline: '时间轴',
+  pitchAngle: '俯仰角',
 
   // 时区
   timezone: {

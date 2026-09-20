@@ -9,7 +9,7 @@
 import { useSchemaStore } from '@/store/schema'
 import { cloneDeep, set } from 'lodash-es'
 import API from '@/wails/api'
-import type { IGroupInfo, IImageInfo, ISchema, IVideoInfo } from '@/type/schema'
+import type { IGroupInfo, IGPSInfo, IImageInfo, ISchema, IVideoInfo } from '@/type/schema'
 
 type IGroupList = IGroupInfo & {
   showType: 'group'
@@ -182,6 +182,31 @@ export async function editSchemaAndSave(id: string, attr: string, value: any) {
   })
   set(groupOrImageInfo, attr, value)
   await saveSchema()
+}
+
+/**
+ * @description: 统一获取视频 GPS（存储为平铺字段，这里归一化为与图片一致的 IGPSInfo 结构）。
+ * 优先读取平铺的 GPSLatitude/GPSLongitude，兼容未来可能迁移的嵌套 GPSInfo。
+ * @param {IVideoInfo} [video]
+ * @return {IGPSInfo | null} 无有效坐标返回 null
+ */
+export function getVideoGPSInfo(video: IVideoInfo | undefined): IGPSInfo | null {
+  if (!video) return null
+  const nested = (video as any).GPSInfo
+  const lat = video.GPSLatitude ?? nested?.GPSLatitude
+  const lng = video.GPSLongitude ?? nested?.GPSLongitude
+  const alt = nested?.GPSAltitude
+  if (!lat || !lng) return null
+  return { GPSLatitude: lat, GPSLongitude: lng, GPSAltitude: alt }
+}
+
+/**
+ * @description: 判断视频是否已有有效定位坐标（类型守卫，可窄化参数为非空 IVideoInfo）
+ * @param {IVideoInfo} [video]
+ * @return {video is IVideoInfo}
+ */
+export function videoHasGPS(video: IVideoInfo | undefined): video is IVideoInfo {
+  return getVideoGPSInfo(video) !== null
 }
 
 /**

@@ -62,7 +62,7 @@ import Switch from '@/components/switch/Index.vue'
 import { cloneDeep } from 'lodash-es'
 import { createGroupId } from '@/utils/group'
 import { saveSchema } from '@/utils/schema'
-import { getVideoInfoById } from '@/utils/schema'
+import { getVideoInfoById, getVideoGPSInfo } from '@/utils/schema'
 import { ElMessage } from 'element-plus'
 import { getAutoGroupGPSInfo, updateGroupMarkerImage } from '@/utils/group'
 import type { IGroupInfo, ISchema } from '@/type/schema'
@@ -229,10 +229,10 @@ async function handleNewGroupInfo(formData: ISingleImageGroupInfoFormData, dragg
 function getAutoGroupGPSInfoByVideos(videoIds: string[]): { GPSLatitude: number; GPSLongitude: number; GPSAltitude: number } | null {
   let lat = 0, lng = 0, count = 0
   videoIds.forEach(videoId => {
-    const video = getVideoInfoById(videoId)
-    if (video?.GPSLatitude && video?.GPSLongitude) {
-      lat += video.GPSLatitude
-      lng += video.GPSLongitude
+    const gps = getVideoGPSInfo(getVideoInfoById(videoId))
+    if (gps) {
+      lat += gps.GPSLatitude
+      lng += gps.GPSLongitude
       count++
     }
   })

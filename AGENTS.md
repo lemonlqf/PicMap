@@ -20,7 +20,11 @@ picmap-go/
 │   ├── model/                # Data models (schema.go, app_schema.go, result.go)
 │   ├── config/               # Path config + initialization
 │   └── util/                 # Utilities (coordinate, fileutil)
-├── tools/                    # External tools (ImageMagick, dcraw)
+├── tools/                    # External tools source (ImageMagick, libraw, ffmpeg)
+├── build/                    # Wails build config (appicon.png, windows/*) — not delivered
+│   └── bin/                  # Intermediate build output (gitignored)
+├── dist/                     # Final self-contained release (gitignored)
+├── build.ps1                 # One-click build: icon → wails build → assemble dist/
 ├── frontend/                 # Vue 3 frontend (Wails convention)
 ├── picMap_fontend/           # Original Vue frontend (legacy)
 ├── picMap_backend/           # Original Express backend (legacy)
@@ -31,7 +35,7 @@ picmap-go/
 
 ## Features Overview
 
-PicMap 是一款基于 Electron 的本地图片地图应用，将带有 GPS 坐标的照片展示在交互式地图上。
+PicMap 是一款基于 Wails（Go + Vue3）的本地图片地图应用，将带有 GPS 坐标的照片展示在交互式地图上。
 
 ### 1. 图片管理 (Image Management)
 - **上传**: 批量上传图片，自动解析 EXIF GPS 信息
@@ -148,10 +152,15 @@ D:\PicMap\
 └── [用户ID]\
     ├── images\
     │   ├── schema\
-    │   │   └── schema.json   # 用户的图片/分组/轨迹元数据
-    │   └── *.jpg              # 用户的图片文件
-    └── tracks\               # 用户的 GPX 轨迹文件
+    │   │   └── schema.json   # 用户的图片/分组/轨迹/视频元数据
+    │   ├── _THUMBNAIL_PM*.jpg # 自动生成的缩略图
+    │   └── PM*.jpg            # 用户的图片文件
+    ├── tracks\               # 用户的 GPX 轨迹文件
+    ├── videos\               # 用户的轨迹视频文件
+    └── icons\                # 用户自定义图标
 ```
+
+> 存储目录位置记录在用户主目录的 `.picmap-config.json`。
 
 ---
 
@@ -166,21 +175,28 @@ go mod tidy                       # Clean up go.mod
 
 ### Wails
 ```bash
-wails dev                         # Dev server with hot reload
-wails build -platform windows/amd64  # Production build
+wails dev                            # Dev server with hot reload
+wails build -platform windows/amd64  # Raw build (output in build/bin/)
 ```
 
-### Frontend (picMap_fontend/)
+### Release (Windows, recommended)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+# 生成图标 → wails build → 组装自包含产物到 dist/（picmap.exe + tools/）
+# build/ 仅存 Wails 配置与中间产物；交付只发 dist/
+# 换图标：替换 build/appicon.png 后重新构建
+```
+
+### Frontend
 ```bash
-npm run dev              # Vite dev server (port 5173)
-npm run build            # Production build with Vite
-npm run preview          # Preview production build
+cd frontend && npm run dev        # Vite dev server
+cd frontend && npm run build      # Production build with Vite
+cd frontend && npm run typecheck  # vue-tsc type check
 ```
 
 ### Frontend Type Check
 ```bash
-cd picMap_fontend && npx vue-tsc --noEmit
-cd picMap_fontend && npx vue-tsc --noEmit --skipLibCheck
+cd frontend && npx vue-tsc --noEmit --skipLibCheck
 ```
 
 ---
@@ -324,10 +340,10 @@ Files use comment headers for authorship tracking:
 
 ```bash
 # Frontend type check (vue-tsc)
-cd picMap_fontend && npx vue-tsc --noEmit
+cd frontend && npx vue-tsc --noEmit
 
 # Full type check with vue-tsc
-cd picMap_fontend && npx vue-tsc --noEmit --skipLibCheck
+cd frontend && npx vue-tsc --noEmit --skipLibCheck
 ```
 
 ---
@@ -355,11 +371,22 @@ Backend uses Wails Go bindings (no HTTP layer). All API responses follow:
 
 User context passed via `userId` parameter in binding calls.
 
+### 本地媒体流服务
+
+除绑定外，后端另起一个**本地 HTTP 服务**用于媒体流式访问（`internal/handler/media_stream.go`）：
+
+- 仅监听 `127.0.0.1`，端口用 `:0` 由系统随机分配（不占用固定端口，不影响其他程序）
+- 支持 HTTP Range：`GET /video?userId=&videoId=`、`GET /image?userId=&imageId=&kind=thumb|marker|full`
+- 前端通过 `GetVideoStreamUrl` / `GetImageStreamUrl` 获取地址，供 `<video>` / `<img>` 直接加载
+- 应用退出（`OnShutdown`）时关闭服务
+
 ---
 
 ## Notes for Agents
 
-- Do NOT modify the `dist/` directory directly (it's build output)
+- Do NOT modify the `dist/` or `build/bin/` directories directly (they are build output)
+- 交付产物通过 `build.ps1` 生成到 `dist/`（自包含 `picmap.exe` + `tools/`）；`build/` 仅存 Wails 配置与中间产物
+- 更换应用图标：替换 `build/appicon.png`，构建脚本会自动生成 `build/windows/icon.ico`
 - All data is stored locally - no cloud/backend persistence
 - GPX tracks auto-convert from WGS84 to GCJ02 for Chinese map providers
 - Images require EXIF GPS data for auto-location

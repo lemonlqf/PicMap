@@ -72,6 +72,9 @@ func (h *Handler) GetIcon(category, fileName string) model.Result {
 	if !validIconCategory(category) {
 		return model.NewFailResult("无效的图标分类")
 	}
+	if !isSafeGlobName(fileName) {
+		return model.NewFailResult("非法的文件名")
+	}
 	dir := h.cfg.IconDirPath(category)
 	pattern := filepath.Join(dir, "*"+sanitizeFilename(fileName)+"*")
 	matches, _ := filepath.Glob(pattern)
@@ -91,6 +94,9 @@ func (h *Handler) GetIcon(category, fileName string) model.Result {
 func (h *Handler) DeleteIcon(category, fileName string) model.Result {
 	if !validIconCategory(category) {
 		return model.NewFailResult("无效的图标分类")
+	}
+	if !isSafeGlobName(fileName) {
+		return model.NewFailResult("非法的文件名")
 	}
 	dir := h.cfg.IconDirPath(category)
 	pattern := filepath.Join(dir, "*"+sanitizeFilename(fileName)+"*")

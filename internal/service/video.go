@@ -42,10 +42,12 @@ type GpxPoint struct {
 //   - IMG_20260820_171710.mp4
 //
 // 返回 epoch 毫秒，无法解析返回 0。
+// 文件名中的日期时间：20260820_171710 / 2026-08-20_17-17-10 等
+var startTimeFromNameRe = regexp.MustCompile(`(\d{4})[-_]?(\d{2})[-_]?(\d{2})[\s_\-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})`)
+
 func ParseStartTimeFromName(name string) int64 {
 	base := strings.TrimSuffix(name, filepathExt(name))
-	re := regexp.MustCompile(`(\d{4})[-_]?(\d{2})[-_]?(\d{2})[\s_\-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})`)
-	m := re.FindStringSubmatch(base)
+	m := startTimeFromNameRe.FindStringSubmatch(base)
 	if m == nil {
 		return 0
 	}
@@ -137,15 +139,16 @@ type ffprobeJSON struct {
 	} `json:"format"`
 }
 
+// ffprobe location：{+/-}lat{+/-}lng（有时带海拔，忽略）
+var gpsLocationRe = regexp.MustCompile(`([+-]\d+(?:\.\d+)?)\s*([+-]\d+(?:\.\d+)?)`)
+
 // parseGPSLocation 解析 ffprobe 的 location 字符串（如 "+30.1864+120.1689/"）
 // 返回纬度、经度（WGS84）。解析失败返回 0,0。
 func parseGPSLocation(loc string) (float64, float64) {
 	if loc == "" {
 		return 0, 0
 	}
-	// 格式：{+/-}lat{+/-}lng/  （有时带海拔，忽略）
-	re := regexp.MustCompile(`([+-]\d+(?:\.\d+)?)\s*([+-]\d+(?:\.\d+)?)`)
-	m := re.FindStringSubmatch(loc)
+	m := gpsLocationRe.FindStringSubmatch(loc)
 	if len(m) < 3 {
 		return 0, 0
 	}

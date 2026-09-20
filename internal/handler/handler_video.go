@@ -191,7 +191,9 @@ func (h *Handler) ImportVideo(userId string, file model.ImportVideoFile) model.R
 	if ext == "" {
 		ext = ".mp4"
 	}
-	targetPath := filepath.Join(videoDir, "PM"+util.BaseWithoutExt(file.ID)+ext)
+	// ID 清洗：去除路径分隔符，避免复制到视频目录之外
+	safeID := sanitizeFilename(util.BaseWithoutExt(file.ID))
+	targetPath := filepath.Join(videoDir, "PM"+safeID+ext)
 	if err := copyFile(file.Path, targetPath); err != nil {
 		return model.NewFailResult("复制视频失败: " + err.Error())
 	}
@@ -228,14 +230,13 @@ func (h *Handler) ImportVideo(userId string, file model.ImportVideoFile) model.R
 
 // GetVideoRange 按字节范围流式返回视频片段（base64），供前端 MediaSource 播放
 func (h *Handler) GetVideoRange(userId, videoId string, start, end int64) model.Result {
-	videoDir := h.cfg.VideoDirPath(userId)
-	baseName := util.BaseWithoutExt(videoId)
-	pattern := filepath.Join(videoDir, "PM"+baseName+".*")
-	matches, _ := filepath.Glob(pattern)
-	if len(matches) == 0 {
+	if !isSafeGlobName(util.BaseWithoutExt(videoId)) {
+		return model.NewFailResult("非法的视频ID")
+	}
+	filePath, err := h.getVideoFilePath(userId, videoId)
+	if err != nil {
 		return model.NewFailResult("视频不存在")
 	}
-	filePath := matches[0]
 
 	info, err := os.Stat(filePath)
 	if err != nil {
@@ -285,19 +286,28 @@ func (h *Handler) DeleteVideos(userId string, videoIds []string) model.Result {
 	videoDir := h.cfg.VideoDirPath(userId)
 	for _, id := range videoIds {
 		baseName := util.BaseWithoutExt(id)
+		if !isSafeGlobName(baseName) {
+			continue
+		}
 		pattern := filepath.Join(videoDir, "PM"+baseName+".*")
 		matches, _ := filepath.Glob(pattern)
 		for _, m := range matches {
 			os.Remove(m)
 		}
+		// 清理封面缓存与落盘文件，避免删除后仍能取到旧封面
+		h.videoCoverCache.Delete(userId + "/" + id)
+		os.Remove(h.videoCoverDiskPath(userId, id))
 	}
 	return model.NewSuccessResult("视频删除成功！")
 }
 
 // getVideoFilePath 根据 videoId 定位用户视频目录下的视频文件（匹配 PM{id}.{ext}）
 func (h *Handler) getVideoFilePath(userId, videoId string) (string, error) {
-	videoDir := h.cfg.VideoDirPath(userId)
 	baseName := util.BaseWithoutExt(videoId)
+	if !isSafeGlobName(baseName) {
+		return "", fmt.Errorf("非法的视频ID")
+	}
+	videoDir := h.cfg.VideoDirPath(userId)
 	pattern := filepath.Join(videoDir, "PM"+baseName+".*")
 	matches, _ := filepath.Glob(pattern)
 	if len(matches) == 0 {
@@ -306,35 +316,81 @@ func (h *Handler) getVideoFilePath(userId, videoId string) (string, error) {
 	return matches[0], nil
 }
 
-// GetVideoThumbnail 返回视频第一帧封面（base64 JPEG）。提取失败返回 500。
-func (h *Handler) GetVideoThumbnail(userId, videoId string) model.Result {
+// 视频封面落盘文件名前缀（与视频同目录，形如 _COVER_PM<id>.jpg）
+const videoCoverFilePrefix = "_COVER_PM"
+
+// videoCoverDiskPath 返回视频封面落盘路径。封面为第一帧，固定为 JPEG。
+func (h *Handler) videoCoverDiskPath(userId, videoId string) string {
+	base := util.BaseWithoutExt(videoId)
+	return filepath.Join(h.cfg.VideoDirPath(userId), videoCoverFilePrefix+base+".jpg")
+}
+
+// getVideoCoverBase64 获取视频第一帧封面（base64 JPEG），依次走：内存 LRU → 落盘文件 → ffmpeg 提取。
+// 命中落盘或 ffmpeg 提取成功后写回内存缓存；ffmpeg 提取成功后同时落盘，避免下次重复 fork。
+func (h *Handler) getVideoCoverBase64(userId, videoId string) (string, error) {
+	cacheKey := userId + "/" + videoId
+	if v, ok := h.videoCoverCache.Get(cacheKey); ok {
+		return v, nil
+	}
+
+	// 落盘缓存命中：直接读取
+	diskPath := h.videoCoverDiskPath(userId, videoId)
+	if data, err := os.ReadFile(diskPath); err == nil && len(data) > 0 {
+		b64 := base64.StdEncoding.EncodeToString(data)
+		h.videoCoverCache.Put(cacheKey, b64)
+		return b64, nil
+	}
+
 	filePath, err := h.getVideoFilePath(userId, videoId)
 	if err != nil {
-		return model.NewFailResult(err.Error())
+		return "", err
 	}
 	frame, err := service.ExtractVideoFrame(filePath, 0, 0)
+	if err != nil {
+		return "", err
+	}
+	// 落盘（失败不影响返回，仅下一次会再走 ffmpeg）
+	_ = os.WriteFile(diskPath, frame, 0644)
+
+	b64 := base64.StdEncoding.EncodeToString(frame)
+	h.videoCoverCache.Put(cacheKey, b64)
+	return b64, nil
+}
+
+// GetVideoThumbnail 返回视频第一帧封面（base64 JPEG）。提取失败返回 500。
+func (h *Handler) GetVideoThumbnail(userId, videoId string) model.Result {
+	b64, err := h.getVideoCoverBase64(userId, videoId)
 	if err != nil {
 		return model.NewFailResult("封面提取失败: " + err.Error())
 	}
 	return model.NewSuccessResult(map[string]interface{}{
-		"file": base64.StdEncoding.EncodeToString(frame),
+		"file": b64,
 	})
 }
 
 // GetVideoThumbnails 批量返回视频第一帧封面（base64 JPEG），按 videoId 映射返回。
+// 提取较重（ffmpeg），限制 3 并发，避免一次性 fork 过多子进程。
 func (h *Handler) GetVideoThumbnails(userId string, videoIds []string) model.Result {
 	res := make(map[string]string, len(videoIds))
+	var mu sync.Mutex
+	var wg sync.WaitGroup
+	sem := make(chan struct{}, 3)
 	for _, id := range videoIds {
-		filePath, err := h.getVideoFilePath(userId, id)
-		if err != nil {
-			continue
-		}
-		frame, err := service.ExtractVideoFrame(filePath, 0, 0)
-		if err != nil {
-			continue
-		}
-		res[id] = base64.StdEncoding.EncodeToString(frame)
+		wg.Add(1)
+		go func(videoId string) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+			b64, err := h.getVideoCoverBase64(userId, videoId)
+			if err != nil {
+				return
+			}
+			mu.Lock()
+			res[videoId] = b64
+			mu.Unlock()
+		}(id)
 	}
+	wg.Wait()
 	return model.NewSuccessResult(map[string]interface{}{
 		"files": res,
 	})

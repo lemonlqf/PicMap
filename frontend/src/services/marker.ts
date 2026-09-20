@@ -18,8 +18,8 @@ import {
 } from '@/services/markerAdapter'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
 import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
-import { getVideoThumbnailUrl } from '@/utils/video'
-import { judgeHadUploadImage, getSchemaInfoById, getVideoInfoById } from '@/utils/schema'
+import { getVideoThumbnailUrl, getVideoStartMs } from '@/utils/video'
+import { judgeHadUploadImage, getSchemaInfoById, getVideoInfoById, getVideoGPSInfo, videoHasGPS } from '@/utils/schema'
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
 import eventBus from '@/utils/eventBus'
 import { GPSInfoLegality } from '@/utils/map'
@@ -212,18 +212,38 @@ class MarkerService {
       )
     }
     if (!this.timeRange) return points
+    const range = this.timeRange
     const imageInfo = schemaStore.getSchema.imageInfo ?? []
-    const timeMap = new Map<string, number>()
+    // 图片：按 EXIF 拍摄时间戳筛（无时间的图片始终保留）
+    const imageTimeMap = new Map<string, number>()
     imageInfo.forEach((img) => {
       const t = img.authorInfo?.DateTime
       if (t && typeof t === 'number' && !isNaN(t)) {
-        timeMap.set(img.id, t)
+        imageTimeMap.set(img.id, t)
+      }
+    })
+    // 视频：按起始时刻 + 时长构成的区间与时间轴区间求重叠（无时间的视频始终保留）
+    const videoInfo = schemaStore.getSchema.videoInfo ?? []
+    const videoRangeMap = new Map<string, { start: number; end: number }>()
+    videoInfo.forEach((v) => {
+      const start = getVideoStartMs(v)
+      if (start > 0) {
+        videoRangeMap.set(v.id, { start, end: start + (v.durationMs || 0) })
       }
     })
     return points.filter((p) => {
-      const t = timeMap.get(p.properties.id)
-      if (t === undefined) return true
-      return t >= this.timeRange!.min && t <= this.timeRange!.max
+      const id = p.properties.id
+      const imageT = imageTimeMap.get(id)
+      if (imageT !== undefined) {
+        return imageT >= range.min && imageT <= range.max
+      }
+      const videoRange = videoRangeMap.get(id)
+      if (videoRange) {
+        // 区间重叠：[start, end] 与 [range.min, range.max] 有交集即保留
+        return videoRange.start <= range.max && videoRange.end >= range.min
+      }
+      // 既非图片也非已知时间的视频（分组/临时节点等）：始终保留
+      return true
     })
   }
 
@@ -413,7 +433,7 @@ class MarkerService {
     // 节点不存在（如加载时已在分组内被跳过创建）则按 schema 重新创建
     if (!marker) {
       const videoInfo = getVideoInfoById(videoId)
-      if (videoInfo?.GPSLatitude && videoInfo?.GPSLongitude) {
+      if (videoHasGPS(videoInfo)) {
         this.addVideoMarkerToMap(videoInfo)
         this.addVisibleMarkerById(videoId)
       }
@@ -508,14 +528,15 @@ class MarkerService {
   // coverUrl 可选：待上传场景传入原路径封面，导入后省略则从用户目录拉取
   // 视频标记与图片一样参与聚合：进入 imagePoints 由 renderClusters 统一管理（聚合/离散/懒加载封面）
   async addVideoMarkerToMap(videoInfo: IVideoInfo, coverUrl?: string) {
-    if (!videoInfo.GPSLatitude || !videoInfo.GPSLongitude) return
+    const gps = getVideoGPSInfo(videoInfo)
+    if (!gps) return
     if (this.markers.has(videoInfo.id)) return
     if (!this.MAP_INSTANCE) return
     const mapStore = useMapStore()
     const icon = createVideoMarkerIcon(videoInfo, coverUrl)
     const marker = new MapMarkerAdapter(
       icon,
-      schemaGpsToMapLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+      schemaGpsToMapLngLat(gps.GPSLatitude, gps.GPSLongitude),
       { id: videoInfo.id, type: 'video', name: videoInfo.name, iconUrl: coverUrl || '' }
     )
     this.markers.set(videoInfo.id, marker)
@@ -532,7 +553,7 @@ class MarkerService {
       properties: { id: videoInfo.id },
       geometry: {
         type: 'Point',
-        coordinates: toMapLibreLngLat(videoInfo.GPSLatitude, videoInfo.GPSLongitude),
+        coordinates: toMapLibreLngLat(gps.GPSLatitude, gps.GPSLongitude),
       },
     })
     this.clusterDirty = true
@@ -1174,6 +1195,9 @@ class MarkerService {
   filterMarkersByTimeRange(timeRange: { min: number; max: number }) {
     // 重建聚合索引（只包含时间范围内的图片点），使 cluster 数量与成员跟随筛选
     this.timeRange = timeRange
+    // 先结束进行中的飞行动画：被 remove 的节点若仍处于 animating 状态，
+    // renderClusters 会跳过它，导致其重新进入时间范围后也无法再次显示
+    this.cancelAllFlyAnimations()
     // 先移除所有单点图片/视频 marker，renderClusters 会重新添加时间范围内的
     this.markers.forEach((m) => {
       const t = m.options.type
