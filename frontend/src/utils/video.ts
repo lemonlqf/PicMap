@@ -15,7 +15,7 @@ import type { IVideoInfo } from '@/type/schema'
 
 // 共享的"选择视频"上下文：同一时刻只有一个入口消费后端解析事件。
 // 轨迹对齐弹窗内从本地选择视频时置为 'alignDialog'，避免上传面板同时把该批视频加入待上传列表。
-export const videoSelectContext = { owner: '' as '' | 'uploadPanel' | 'alignDialog' }
+export const videoSelectContext = { owner: '' as '' | 'uploadPanel' | 'alignDialog' | 'alignDialog-cancelled' }
 
 /**
  * @description: 从文件名解析视频起始时刻（与后端 ParseStartTimeFromName 规则一致，作为兜底）

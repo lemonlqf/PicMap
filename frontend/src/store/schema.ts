@@ -42,15 +42,19 @@ export const useSchemaStore = defineStore('schema', {
       ;(this.schema.mapInfo as Record<string, any>)[key] = value
     },
     pushImagesToImageInfo(value) {
-      if (value.length) {
-        value.forEach(item => {
-          const isExist = this.schema.imageInfo.some(info => {
-            return info.id === item.id || info.id === item.name
-          })
-          // 如果没有就添加
-          !isExist && this.schema.imageInfo.push(item)
-        })
-      }
+      if (!value?.length) return
+      // 一次性构建已存在的 id/name 集合，避免逐项 some() 线性扫描导致 O(n²)
+      const existing = new Set<string>()
+      this.schema.imageInfo?.forEach(info => {
+        if (info?.id != null) existing.add(info.id)
+        if (info?.name != null) existing.add(info.name)
+      })
+      value.forEach(item => {
+        if (existing.has(item.id) || existing.has(item.name)) return
+        this.schema.imageInfo.push(item)
+        existing.add(item.id)
+        existing.add(item.name)
+      })
     },
     deleteImageInImageInfo(imageId) {
       this.schema.imageInfo = this.schema.imageInfo.filter(item => {
@@ -83,6 +87,18 @@ export const useSchemaStore = defineStore('schema', {
       if (!this.uploadedImageIds.includes(id)) {
         this.uploadedImageIds.push(id)
       }
+    },
+    // 批量写入已上传图片 id（一次响应式更新 + 一次已存在集合构建），
+    // 供大批量上传时攒批回写，避免逐张 includes/push 导致的 O(n²)
+    pushImagesToUploadedImageIds(ids) {
+      if (!ids?.length) return
+      const existing = new Set(this.uploadedImageIds)
+      ids.forEach(id => {
+        if (!existing.has(id)) {
+          this.uploadedImageIds.push(id)
+          existing.add(id)
+        }
+      })
     },
     setUploadedImageIds(value) {
       this.uploadedImageIds = value

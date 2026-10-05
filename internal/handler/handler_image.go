@@ -156,6 +156,11 @@ func (h *Handler) DeleteImages(userId string, imageIds []string) model.Result {
 			for _, m := range thumbMatches {
 				os.Remove(m)
 			}
+			// Delete cached panorama derivative（_PANO_PM<baseName>*）
+			panoMatches, _ := filepath.Glob(filepath.Join(imageDir, "_PANO_PM"+baseName+"*"))
+			for _, m := range panoMatches {
+				os.Remove(m)
+			}
 		}(id)
 	}
 	wg.Wait()

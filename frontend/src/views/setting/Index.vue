@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2025-07-01 20:47:54
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-06 11:09:42
- * @FilePath: \PicMap\picMap_fontend\src\views\setting\Index.vue
+ * @LastEditTime: 2026-10-05 21:34:26
+ * @FilePath: \picmap-go\frontend\src\views\setting\Index.vue
  * @Description: 
 -->
 <template>
@@ -34,7 +34,11 @@
           </div>
         </div>
       </div>
-      <router-view class="view" />
+      <el-scrollbar class="content-scroll">
+        <div style="padding-left: 3px;">
+         <router-view class="view" />
+        </div>
+      </el-scrollbar>
     </div>
   </div>
 </template>
@@ -136,8 +140,10 @@ $activeBackgroud: $color;
 $noActiveBackground: #325bca;
 
 .setting-page {
+  position: relative;
+  height: 100vh;
+  overflow: hidden;
   background-color: rgb(246, 248, 251);
-  overflow: auto;
 }
 
 
@@ -216,7 +222,14 @@ $noActiveBackground: #325bca;
   display: flex;
   flex-direction: column;
 
+  // 内容区使用 el-scrollbar（自定义滚动条），不出现原生滚动条
+  .content-scroll {
+    flex: 1;
+    min-height: 0;
+  }
+
   .header {
+    flex-shrink: 0;
     display: flex;
     justify-content: space-between;
     align-items: center;

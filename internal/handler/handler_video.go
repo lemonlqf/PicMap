@@ -53,6 +53,7 @@ func (h *Handler) SelectVideos() model.Result {
 	}
 
 	h.parsing.Store(true)
+	h.videoParseCancel.Store(false)
 	go h.parseVideosInBatches(selection)
 
 	return model.NewSuccessResult(map[string]interface{}{
@@ -61,10 +62,20 @@ func (h *Handler) SelectVideos() model.Result {
 	})
 }
 
+// CancelVideoParse 取消正在进行的视频解析（对齐弹框关闭时调用）
+func (h *Handler) CancelVideoParse() model.Result {
+	h.videoParseCancel.Store(true)
+	return model.NewSuccessResult("已请求取消视频解析")
+}
+
 // parseVideosInBatches 分批解析视频，每批完成后通过事件推送给前端
 func (h *Handler) parseVideosInBatches(filePaths []string) {
 	defer h.parsing.Store(false)
 	defer func() { _ = recover() }()
+	// 无论正常结束还是被取消，都以一次 done 事件收尾，让前端释放选择上下文
+	defer runtime.EventsEmit(h.ctx, EventVideosDone, map[string]interface{}{
+		"total": len(filePaths),
+	})
 
 	const batchSize = 2 // 视频解析较重，降并发
 	total := len(filePaths)
@@ -73,6 +84,10 @@ func (h *Handler) parseVideosInBatches(filePaths []string) {
 	time.Sleep(50 * time.Millisecond)
 
 	for i := 0; i < total; i += batchSize {
+		// 用户取消：停止后续批次（已解析的批次结果前端会丢弃）
+		if h.videoParseCancel.Load() {
+			return
+		}
 		end := i + batchSize
 		if end > total {
 			end = total
@@ -126,10 +141,6 @@ func (h *Handler) parseVideosInBatches(filePaths []string) {
 			"total":     total,
 		})
 	}
-
-	runtime.EventsEmit(h.ctx, EventVideosDone, map[string]interface{}{
-		"total": total,
-	})
 }
 
 // processSelectedVideo 解析单个视频：时长、文件名起点时间、是否有内嵌 GPS

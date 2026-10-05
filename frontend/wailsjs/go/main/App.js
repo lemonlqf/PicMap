@@ -6,6 +6,10 @@ export function CancelBackup() {
   return window['go']['main']['App']['CancelBackup']();
 }
 
+export function CancelVideoParse() {
+  return window['go']['main']['App']['CancelVideoParse']();
+}
+
 export function CreateBackup(arg1) {
   return window['go']['main']['App']['CreateBackup'](arg1);
 }

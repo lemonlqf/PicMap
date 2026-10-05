@@ -114,7 +114,6 @@ export default {
   videoLabel: 'Video',
   trackLabel: 'Track',
   batchUpload: 'Batch upload',
-  batchUploadToGroup: 'Batch upload to group',
   batchDeleteImages: 'Batch delete',
   batchAddToGroup: 'Batch add to group',
   selectedCount: 'Selected',

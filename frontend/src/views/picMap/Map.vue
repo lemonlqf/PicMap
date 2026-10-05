@@ -578,6 +578,16 @@ function bindVideoPlayDialog() {
  */
 async function init() {
   const isFirstInit = !map
+  // markerService / trackService 为模块级单例，组件重新挂载（如创建用户后返回地图）时
+  // 内部仍残留上一用户的 marker、聚合索引与轨迹实例，会重新渲染到新地图上。
+  // 因此在初始化地图数据前统一清空，保证只展示当前用户的数据。
+  markerService.reset()
+  trackService.deleteAllTracks()
+  currentSelectedInstance = null
+  detailPanelTrackList.value = []
+  detailPanelVisible.value = false
+  detailPanelTrackId.value = ''
+  detailPanelTrackInfo.value = null
   initMap()
   mapService.observeMapChangeToUpgradeMarker()
   hiddenImageInfoDrawerMapClick()
@@ -590,9 +600,8 @@ async function init() {
   })
   // 渲染主地图上开启"显示在主地图"的轨迹
   renderMainMapTracks()
-  // 切换用户后重新加载 marker（首次初始化由 map load 回调处理）
+  // 首次初始化由 map load 回调渲染 marker，其余情况（切换用户/重新进入）在此重新加载
   if (!isFirstInit && map) {
-    markerService.reset()
     await initMarker()
   }
 }

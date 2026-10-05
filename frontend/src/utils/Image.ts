@@ -207,7 +207,7 @@ export async function getImageUrlById(imageId: string) {
 /**
  * @description: 获取图片本地流地址（失败返回空串，调用方回退 base64）
  */
-async function getImageStreamUrlSafe(imageId: string, kind: 'thumb' | 'marker' | 'full'): Promise<string> {
+async function getImageStreamUrlSafe(imageId: string, kind: 'thumb' | 'marker' | 'full' | 'pano'): Promise<string> {
   try {
     const res = await API.image.getImageStreamUrl({ imageId, kind }) as any
     if (res?.code !== 200) return ''
@@ -263,7 +263,9 @@ export async function getMarkerImageUrlByIds(imageIds: string[]) {
 }
 
 /**
- * @description: 获取原图（完整分辨率 base64），全景预览用，内部实现缓存与 in-flight 去重
+ * @description: 获取全景预览图 url（服务端已降采样到合适宽度），内部实现缓存与 in-flight 去重
+ * 优先使用本地 HTTP 流地址：全景原图常达上亿像素/数十 MB，直接交给客户端 WebGL 会卡死；
+ * 服务端按需降采样后返回，客户端拿到即可直接建纹理。Photo Sphere Viewer 以 Blob 方式加载，流地址可用。
  * @param {string} imageId
  * @return {*}
  */
@@ -274,8 +276,13 @@ export async function getFullImageUrlById(imageId: string) {
     return cached
   }
   return cache.fetchDedup(`full:${imageId}`, async () => {
-    // 全景预览由 photo-sphere-viewer 以 WebGL 纹理加载，跨源纹理易受 canvas 污染限制，
-    // 故保留 base64；流地址仅用于 thumb/marker 这类高频、数量大的场景
+    // 优先本地流地址（服务端 pano 降采样，支持 Range、浏览器原生缓存）
+    const streamUrl = await getImageStreamUrlSafe(imageId, 'pano')
+    if (streamUrl) {
+      cache.addFullImageUrl(imageId, streamUrl)
+      return streamUrl
+    }
+    // 回退：base64 桥接
     const res = await API.image.getFullImage({ imageId }) as any
     if (res.code !== 200 || !res.data?.file) {
       return ''
@@ -313,6 +320,22 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
     uploadableImageInfos.push(imageInfo)
   }
 
+  // 攒批 + 节流回写：避免每张图都改动响应式已上传数组 / 触发进度更新，
+  // 导致待上传列表反复全量重渲染（大批量上传时 O(n²) 卡顿）
+  let pendingUploadedIds: string[] = []
+  let lastFlushAt = 0
+  const FLUSH_INTERVAL = 120
+  const flush = (force = false) => {
+    const now = Date.now()
+    if (!force && now - lastFlushAt < FLUSH_INTERVAL) return
+    if (pendingUploadedIds.length) {
+      schemaStore.pushImagesToUploadedImageIds(pendingUploadedIds)
+      pendingUploadedIds = []
+    }
+    onProgress?.(current, total)
+    lastFlushAt = now
+  }
+
   // 每批最多 4 张图片并发导入
   const BATCH_SIZE = 4
   for (let i = 0; i < uploadableImageInfos.length; i += BATCH_SIZE) {
@@ -333,8 +356,8 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
         const previewUrl = `data:image/jpeg;base64,${imageInfo.preview}`
         ImageCacheManager.getInstance().addImageUrl(imageInfo.id, previewUrl)
       }
-      // 将图片保存到已经上传的地方
-      schemaStore.pushImageToUploadedImageIds(imageInfo.id)
+      // 记录已上传（节流后批量回写）
+      pendingUploadedIds.push(imageInfo.id)
       // marker中可以移动的图片重新设置为不可移动
       const marker = markerService.getMarkerById(imageInfo.id)
       if (marker) {
@@ -343,9 +366,10 @@ export async function uploadImages(imageInfos: IImageDetailInfo[], onProgress?: 
       }
       // 更新进度
       current++
-      onProgress?.(current, total)
     })
+    flush()
   }
+  flush(true)
   return res
 }
 

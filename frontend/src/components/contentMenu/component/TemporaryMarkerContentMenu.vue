@@ -54,6 +54,7 @@ const menuList = ref([
  */
 function temporaryMarkerToPermanent(markerId: string) {
   const marker = markerService.getMarkerById(markerId)
+  if (!marker) return
   const markerType = marker.options.type
   const markerClusters = markerService.getMarkerClusters()
   markerClusters.addLayer(marker)
@@ -65,6 +66,10 @@ function temporaryMarkerToPermanent(markerId: string) {
   marker.options.draggable = false
   // 固定后
   const GPSInfo = markerService.getGPSInfoByMarkerInstance(marker)
+  // 同步聚合索引中的坐标：schema 虽已更新，但聚合索引仍持旧坐标，
+  // 不同步的话重渲染/聚合时会按旧坐标把节点拉回，表现为"不刷新不生效"
+  const { lat, lng } = marker.getLatLng()
+  markerService.updateMarkerPointById(markerId, lng, lat)
   // 更新schema中的GPSInfo数据
   if (markerType === 'temporary-video') {
     // 视频 GPS 存储为平铺字段
@@ -72,6 +77,8 @@ function temporaryMarkerToPermanent(markerId: string) {
   } else {
     editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
   }
+  // 按新坐标重建聚合索引并重渲染，使定位立即生效
+  markerService.refreshClusters()
 }
 
 

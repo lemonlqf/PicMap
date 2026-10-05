@@ -34,6 +34,8 @@ type Handler struct {
 	// 备份任务状态（支持进度上报与中途取消）
 	backupRunning atomic.Bool
 	backupCancel  atomic.Bool
+	// 视频解析取消标志（对齐弹框关闭时取消本地视频解析）
+	videoParseCancel atomic.Bool
 }
 
 // 缩略图缓存容量上限（条目数）。marker 图小(120px)可多存，大图(1000px)按估算显存/内存控制。

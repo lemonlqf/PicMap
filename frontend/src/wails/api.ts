@@ -128,8 +128,8 @@ export async function getFullImage(data: { imageId: string }) {
 }
 
 // 图片本地流地址（支持 Range，供 <img> 直接加载，替代 base64）
-// kind: thumb（1000px 缩略图，默认）| marker（120px 小图）| full（原图）
-export async function getImageStreamUrl(data: { imageId: string; kind?: 'thumb' | 'marker' | 'full' }) {
+// kind: thumb（1000px 缩略图，默认）| marker（120px 小图）| full（原图）| pano（全景降采样图）
+export async function getImageStreamUrl(data: { imageId: string; kind?: 'thumb' | 'marker' | 'full' | 'pano' }) {
   const binding = getGoBinding()
   if (binding) {
     const result = await binding.GetImageStreamUrl(getCurrentUserId(), data.imageId, data.kind || 'thumb')
@@ -237,6 +237,16 @@ export async function selectVideos() {
   const binding = getGoBinding()
   if (binding) {
     const result = await binding.SelectVideos()
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
+// 取消正在进行的本地视频解析（对齐弹框关闭时调用）
+export async function cancelVideoParse() {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.CancelVideoParse()
     return unwrapResult(result)
   }
   throw new Error('Wails bindings not available')
@@ -548,6 +558,7 @@ const track = {
 
 const video = {
   selectVideos,
+  cancelVideoParse,
   importVideo,
   deleteVideos,
   getVideoRange,

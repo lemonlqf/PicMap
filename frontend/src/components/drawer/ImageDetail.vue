@@ -49,14 +49,25 @@ const panoramaUrl = ref('')
 const panoramaType = ref('')
 const panoramaLoading = ref(false)
 
-watch(() => props.imageId, async () => {
+watch(() => props.imageId, async (imageId) => {
   if (imageInfo.value?.isPanorama) {
     panoramaUrl.value = ''
     panoramaType.value = imageInfo.value?.panoramaType ?? ''
     panoramaLoading.value = true
-    const url = await getFullImageUrlById(props.imageId)
+    try {
+      const url = await getFullImageUrlById(imageId)
+      // 请求期间可能已切换到其他图片，避免旧结果覆盖
+      if (props.imageId !== imageId) return
+      panoramaUrl.value = url
+    } catch (e) {
+      console.error('加载全景原图失败', e)
+    } finally {
+      // 无论成功/失败/异常都要关闭 loading，避免一直转圈
+      if (props.imageId === imageId) panoramaLoading.value = false
+    }
+  } else {
+    panoramaUrl.value = ''
     panoramaLoading.value = false
-    panoramaUrl.value = url
   }
 }, { immediate: true })
 

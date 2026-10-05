@@ -57,7 +57,8 @@
       <div v-if="pendingImageList.length || pendingVideoList.length" class="section">
         <h3 class="section-title">{{ $t('mediaToBeUploaded') }}</h3>
         <!-- 图片项 -->
-        <div v-for="item in pendingImageList" :key="item.id" class="upload-item">
+        <div v-for="item in pendingImageList" :key="item.id" class="upload-item"
+          :class="{ 'is-uploading': !!uploadingImageIds[item.id] }" v-loading="!!uploadingImageIds[item.id]">
           <div class="item-info">
             <img class="thumb" :src="item.blobUrl ?? item.url" alt="" loading="lazy"
               @click="markerService.setViewByMarkerId(item.id)" @dblclick="previewImage(item)" />
@@ -66,7 +67,7 @@
                 <span class="name-text">{{ item.name }}</span>
               </el-tooltip>
               <span class="meta-text">
-                {{ item?.GPSInfo?.GPSLatitude ? `${item.GPSInfo.GPSLatitude}, ${item.GPSInfo.GPSLongitude}` :
+                {{ item?.GPSInfo?.GPSLatitude ? `${toFix(item.GPSInfo.GPSLatitude)}, ${toFix(item.GPSInfo.GPSLongitude)}` :
                 $t('noData') }}
               </span>
             </div>
@@ -94,7 +95,8 @@
           </div>
         </div>
         <!-- 视频项 -->
-        <div v-for="video in pendingVideoList" :key="video.id" class="upload-item">
+        <div v-for="video in pendingVideoList" :key="video.id" class="upload-item"
+          :class="{ 'is-uploading': !!importingMap[video.id] }" v-loading="!!importingMap[video.id]">
           <div class="item-info">
             <div class="video-thumb" :class="video.hasGpsData || manualGpsMap[video.id] ? '' : 'no-gps'"
               @click="locatePendingVideo(video)">
@@ -221,7 +223,60 @@ const panoramaShow = ref(false)
 const panoramaSrc = ref('')
 const panoramaType = ref('')
 const panoramaLoading = ref(false)
-const displayTimers: ReturnType<typeof setTimeout>[] = []
+// 解析结果先入队，按固定节拍合并后批量加入待上传列表。
+// 之前每张图单独 setTimeout(150ms) 里 push：每次 push 都触发一次全量列表重渲染
+// （v-for 每项含 el-tooltip/img 等），解析大批量时呈 O(n²) 卡顿。合并后更新次数降为 n/chunk。
+const displayQueue: IImageDetailInfo[] = []
+const knownImageIds = new Set<string>()
+let displayFlushTimer: ReturnType<typeof setTimeout> | null = null
+const DISPLAY_FLUSH_INTERVAL = 120
+const DISPLAY_FLUSH_CHUNK = 40
+
+function flushDisplayQueue() {
+  displayFlushTimer = null
+  if (displayQueue.length === 0) return
+  const chunk = displayQueue.splice(0, DISPLAY_FLUSH_CHUNK)
+  // 同一同步块内的多次 push 会被 Vue 合并为一次渲染
+  chunk.forEach(data => imageList.value.push(data))
+  // 图片加入 schema.imageInfo（与图片上传组件一致），供刷新后从 schema 加载 marker
+  schemaStore.pushImagesToImageInfo(chunk)
+  chunk.forEach(data => {
+    if (data.GPSInfo?.GPSLatitude && data.GPSInfo?.GPSLongitude) {
+      !isImageUploaded(data.id) && markerService.addImageMarkerToMap(data)
+    }
+  })
+  // 无需移动/缩放地图即可让新节点上屏（内部防抖合并为一次地图渲染）
+  scheduleMarkerRefresh()
+  if (displayQueue.length) scheduleDisplayFlush()
+}
+
+function scheduleDisplayFlush() {
+  if (displayFlushTimer) return
+  displayFlushTimer = setTimeout(flushDisplayQueue, DISPLAY_FLUSH_INTERVAL)
+}
+
+function resetImageDisplayQueue() {
+  displayQueue.length = 0
+  knownImageIds.clear()
+  if (displayFlushTimer) {
+    clearTimeout(displayFlushTimer)
+    displayFlushTimer = null
+  }
+}
+
+// 新增图片节点后延迟合并刷新一次地图渲染：addImageMarkerToMap 只标记聚合索引为脏，
+// 不会立即上屏，若不移动/缩放地图新节点将一直不可见。
+// 用"纯 trailing 防抖"：每次新增都顺延定时器，持续批量加入期间不断合并，
+// 只在新增暂停后渲染一次，避免反复重建聚合索引与全部节点造成 O(n²) 卡顿。
+const MARKER_REFRESH_DEBOUNCE = 300
+let markerRefreshTimer: ReturnType<typeof setTimeout> | null = null
+function scheduleMarkerRefresh() {
+  if (markerRefreshTimer) clearTimeout(markerRefreshTimer)
+  markerRefreshTimer = setTimeout(() => {
+    markerRefreshTimer = null
+    markerService.updateVisibleMarkers()
+  }, MARKER_REFRESH_DEBOUNCE)
+}
 
 // ---- 视频状态 ----
 const videoList = ref<ISelectedVideo[]>([])
@@ -229,6 +284,8 @@ const videoParsing = ref(false)
 const videoImporting = ref(false)
 const videoProgress = ref({ processed: 0, total: 0 })
 const importingMap = ref<Record<string, boolean>>({})
+// 正在上传的待上传图片 id 集合（用于列表项 loading 动画，单张/批量共用）
+const uploadingImageIds = ref<Record<string, boolean>>({})
 const manualGpsMap = ref<Record<string, { lat: number; lng: number }>>({})
 const videoLocateShow = ref(false)
 const videoLocateId = ref<string | null>(null)
@@ -279,17 +336,22 @@ const totalProgress = computed(() => {
 })
 
 // ---- 图片列表计算 ----
+// 已上传判定用 Set（O(1)）：uploadedImageIds 会随上传不断增长，若用 Array.includes，
+// 每次列表过滤都是 O(n·u)，叠加"上传期间每次进度变化都重渲染"会退化到 O(n³) 卡顿。
+const uploadedImageIdSet = computed(() => new Set(schemaStore.getUploadedImageIds))
+const uploadedVideoIdSet = computed(() => new Set(schemaStore.getUploadedVideoIds))
+
 const pendingImageList = computed(() => imageList.value.filter(item => !isImageUploaded(item.id)))
 const uploadedImageList = computed(() => imageList.value.filter(item => isImageUploaded(item.id)))
 
 function isImageUploaded(id: string) {
-  return schemaStore.getUploadedImageIds.includes(id)
+  return uploadedImageIdSet.value.has(id)
 }
 
 // ---- 视频列表计算 ----
 // 已上传判断以内存中的 uploadedVideoIds 为准（与图片 isImageUploaded 逻辑一致）
 function isVideoUploaded(id: string) {
-  return schemaStore.getUploadedVideoIds.includes(id)
+  return uploadedVideoIdSet.value.has(id)
 }
 const pendingVideoList = computed(() => videoList.value.filter(v => !isVideoUploaded(v.id)))
 const uploadedVideoList = computed(() => videoList.value.filter(v => isVideoUploaded(v.id)))
@@ -323,37 +385,45 @@ async function selectImages() {
   }
 }
 
-function handleImageParsedBatch(images: any[]) {
-  const pending: IImageDetailInfo[] = []
-  for (const img of images) {
-    if (imageList.value.some(item => item.id === img.id)) continue
-    const previewUrl = img.preview ? `data:image/jpeg;base64,${img.preview}` : ''
-    const data: IImageDetailInfo = { ...img, url: previewUrl, blobUrl: previewUrl }
-    addImageUrl(img.id, previewUrl)
-    pending.push(data)
+function toFix(num: any | null, decimalPlaces: number = 5) {
+  if (num === null || num === undefined) return ''
+  if (isNaN(num)) return ''
+  if (!Number.isInteger(num)) {
+    num = new Number(num)
   }
-  pending.forEach((data, index) => {
-    const timer = setTimeout(() => {
-      imageList.value.push(data)
-      // 图片加入 schema.imageInfo（与图片上传组件一致），供刷新后从 schema 加载 marker
-      schemaStore.pushImagesToImageInfo([data])
-      if (data.GPSInfo?.GPSLatitude && data.GPSInfo?.GPSLongitude) {
-        !isImageUploaded(data.id) && markerService.addImageMarkerToMap(data)
-      }
-    }, index * 150)
-    displayTimers.push(timer)
-  })
+  return num.toFixed(decimalPlaces)
+}
+
+function handleImageParsedBatch(images: any[]) {
+  for (const img of images) {
+    // 用 Set 去重，避免每次都对整个 imageList 做 O(n) 扫描
+    if (knownImageIds.has(img.id)) continue
+    knownImageIds.add(img.id)
+    const previewUrl = img.preview ? `data:image/jpeg;base64,${img.preview}` : ''
+    addImageUrl(img.id, previewUrl)
+    displayQueue.push({ ...img, url: previewUrl, blobUrl: previewUrl })
+  }
+  if (displayQueue.length) scheduleDisplayFlush()
 }
 
 async function uploadImage(name: string) {
   const data = pendingImageList.value.filter(item => item.id === name)
   if (data[0]?.GPSInfo?.GPSLongitude != null && data[0]?.GPSInfo?.GPSLatitude != null) {
-    await UploadImages(data)
-    await saveSchema()
-    emit('uploadSuccess')
+    uploadingImageIds.value[name] = true
+    try {
+      await UploadImages(data)
+      await saveSchema()
+      emit('uploadSuccess')
+    } finally {
+      uploadingImageIds.value[name] = false
+    }
   } else {
     ElMessage.error(t('description.needGPSInfo'))
   }
+}
+
+function setImagesUploading(ids: string[], uploading: boolean) {
+  ids.forEach(id => { uploadingImageIds.value[id] = uploading })
 }
 
 async function handleBatchUploadImages() {
@@ -362,25 +432,32 @@ async function handleBatchUploadImages() {
     ElMessage.warning(t('description.noPictureCanUpload'))
     return
   }
+  const uploadingIds = locateImageInfos.map(item => item.id)
   imageUploading.value = true
+  setImagesUploading(uploadingIds, true)
   imageProgress.value = { processed: 0, total: locateImageInfos.length }
-  const onProgress = (current: number, total: number) => { imageProgress.value = { processed: current, total } }
-  const res1 = await UploadImages(locateImageInfos, onProgress)
-  const res2 = await saveSchema()
-  const allSuccess = res1.filter(r => r.code === 200).length === res1.length
-  if (allSuccess && res1.length && res2.code === 200) {
-    ElMessage.success(t('description.pictureUploadedSuccess'))
-    emit('uploadSuccess')
-  } else if (!allSuccess && res1.length && res2.code === 200) {
-    ElMessage.success(t('description.somePictureUploadedSuccess'))
-    emit('uploadSuccess')
+  try {
+    const onProgress = (current: number, total: number) => { imageProgress.value = { processed: current, total } }
+    const res1 = await UploadImages(locateImageInfos, onProgress)
+    const res2 = await saveSchema()
+    const allSuccess = res1.filter(r => r.code === 200).length === res1.length
+    if (allSuccess && res1.length && res2.code === 200) {
+      ElMessage.success(t('description.pictureUploadedSuccess'))
+      emit('uploadSuccess')
+    } else if (!allSuccess && res1.length && res2.code === 200) {
+      ElMessage.success(t('description.somePictureUploadedSuccess'))
+      emit('uploadSuccess')
+    }
+  } finally {
+    setImagesUploading(uploadingIds, false)
+    imageUploading.value = false
+    imageProgress.value = { processed: 0, total: 0 }
   }
-  imageUploading.value = false
-  imageProgress.value = { processed: 0, total: 0 }
 }
 
 function deleteImage(name: string) {
   imageList.value = imageList.value.filter(item => item.name !== name)
+  knownImageIds.delete(name)
   const marker = markerService.getMarkerById(name)
   if (marker) markerService.deleteMarkerInMap(marker)
 }
@@ -391,6 +468,7 @@ function clearAllImages() {
     if (marker) markerService.deleteMarkerInMap(marker)
   })
   imageList.value = []
+  resetImageDisplayQueue()
 }
 
 // 清空所有待上传项（切换用户时调用）
@@ -471,9 +549,14 @@ async function previewImage(item: any) {
     panoramaSrc.value = ''
     panoramaShow.value = true
     panoramaLoading.value = true
-    const url = await getFullImageUrlById(item.id)
-    panoramaLoading.value = false
-    if (url) panoramaSrc.value = url
+    try {
+      const url = await getFullImageUrlById(item.id)
+      if (url) panoramaSrc.value = url
+    } catch (e) {
+      console.error('加载全景原图失败', e)
+    } finally {
+      panoramaLoading.value = false
+    }
   } else {
     imagePreviewSrc.value = item?.blobUrl ?? item?.url
     imagePreviewShow.value = true
@@ -666,8 +749,9 @@ async function doImportVideo(video: ISelectedVideo): Promise<IVideoInfo | null> 
     const coverUrl = await getVideoFramePreviewUrl(video.path)
     await markerService.addVideoMarkerToMap(vi, coverUrl || undefined)
   }
-  // 视频参与聚合后需重建渲染以放置节点（原先直接 addTo 即可，现在由 renderClusters 决定是否聚合）
-  markerService.updateVisibleMarkers()
+  // 视频参与聚合后需重建渲染以放置节点（原先直接 addTo 即可，现在由 renderClusters 决定是否聚合）。
+  // 用防抖合并：批量导入多条视频时避免每条都全量重渲染（O(n²)）
+  scheduleMarkerRefresh()
   video.imported = true
   // 导入后加载已上传封面（用户目录按 videoId 提取）
   loadUploadedVideoCover(vi)
@@ -723,8 +807,10 @@ async function handleBatchUploadAll() {
     return
   }
 
+  const uploadingIds = locateImages.map(item => item.id)
   imageUploading.value = true
   videoImporting.value = true
+  setImagesUploading(uploadingIds, true)
   try {
     // 1. 批量上传图片
     if (locateImages.length > 0) {
@@ -746,6 +832,7 @@ async function handleBatchUploadAll() {
       ? t('description.mediaUploadedSuccess')
       : t('description.someMediaUploadedSuccess'))
   } finally {
+    setImagesUploading(uploadingIds, false)
     imageUploading.value = false
     videoImporting.value = false
     imageProgress.value = { processed: 0, total: 0 }
@@ -808,15 +895,15 @@ onMounted(() => {
   API.image.onImagesDone(() => { imageParsing.value = false })
 
   API.video.onVideosParsed((payload: any) => {
-    if (videoSelectContext.owner === 'alignDialog') return
+    if (videoSelectContext.owner.startsWith('alignDialog')) return
     handleVideoParsedBatch(payload?.videos ?? [])
   })
   API.video.onVideosProgress((payload: any) => {
-    if (videoSelectContext.owner === 'alignDialog') return
+    if (videoSelectContext.owner.startsWith('alignDialog')) return
     videoProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
   })
   API.video.onVideosDone(() => {
-    if (videoSelectContext.owner === 'alignDialog') return
+    if (videoSelectContext.owner.startsWith('alignDialog')) return
     videoParsing.value = false
     videoSelectContext.owner = ''
   })
@@ -827,8 +914,11 @@ onUnmounted(() => {
   eventBus.off('edit-group-video', showVideoGroupDialog)
   API.image.offImagesEvents()
   API.video.offVideosEvents()
-  displayTimers.forEach(timer => clearTimeout(timer))
-  displayTimers.length = 0
+  resetImageDisplayQueue()
+  if (markerRefreshTimer) {
+    clearTimeout(markerRefreshTimer)
+    markerRefreshTimer = null
+  }
 })
 </script>
 
@@ -906,6 +996,14 @@ onUnmounted(() => {
     &.uploaded {
       background: #f8fafc;
       border-color: #d9e2ec;
+    }
+
+    // 上传中的项：禁用操作按钮，避免重复触发
+    &.is-uploading {
+      .item-actions {
+        pointer-events: none;
+        opacity: 0.4;
+      }
     }
 
     .item-info {

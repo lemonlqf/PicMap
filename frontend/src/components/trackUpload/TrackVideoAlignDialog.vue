@@ -27,6 +27,10 @@
             </el-button>
           </div>
         </div>
+        <div v-if="localSelecting" class="local-progress-bar">
+          <el-progress :percentage="localProgressPercent" :stroke-width="8"
+            :format="() => `解析本地视频 ${localProgress.processed}/${localProgress.total}`" />
+        </div>
         <div class="timeline-legend">
           <span>起点 0:00:00</span>
           <span>终点 {{ formatMs(trackDurationMs) }}</span>
@@ -85,23 +89,27 @@
     </div>
 
     <template #footer>
-      <el-button @click="dialogVisible = false">取消</el-button>
+      <el-button @click="requestCloseMain">取消</el-button>
       <!-- 上传模式必须至少保留一个视频；普通模式允许清空（保存后即取消该轨迹的全部视频关联） -->
-      <el-button type="primary" :disabled="!!props.pendingVideo && alignItems.length === 0" @click="handleSave">保存</el-button>
+      <el-button type="primary" :loading="saving" :disabled="!!props.pendingVideo && alignItems.length === 0" @click="handleSave">
+        {{ saving && saveProgress.total > 0 ? `导入中 ${saveProgress.processed}/${saveProgress.total}` : '保存' }}
+      </el-button>
     </template>
   </el-dialog>
 
   <!-- 添加视频弹窗 -->
-  <el-dialog v-model="addVideoDialogVisible" title="添加视频到该轨迹" width="600px" append-to-body>
+  <el-dialog v-model="addVideoDialogVisible" title="添加视频到该轨迹" width="600px" append-to-body
+    :before-close="handleBeforeClose">
     <div class="add-video-content">
       <div class="add-video-hint">选择要添加到该轨迹的视频（已上传，或从本地磁盘选择）</div>
       <div class="add-video-toolbar">
         <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectLocalForDialog">
           从本地选择视频
         </el-button>
-        <span v-if="localSelecting" class="local-progress">
-          解析中 {{ localProgress.processed }}/{{ localProgress.total }}
-        </span>
+      </div>
+      <div v-if="localSelecting" class="local-progress-bar">
+        <el-progress :percentage="localProgressPercent" :stroke-width="8"
+          :format="() => `解析中 ${localProgress.processed}/${localProgress.total}`" />
       </div>
       <el-select v-model="selectedVideoIds" multiple filterable placeholder="选择视频" style="width: 100%">
         <el-option v-for="v in selectableVideos" :key="v.id" :label="v.local ? `${v.name}（本地）` : v.name"
@@ -113,7 +121,7 @@
       <el-empty v-if="selectableVideos.length === 0" description="暂无可添加的视频，可点击上方「从本地选择视频」" :image-size="60" />
     </div>
     <template #footer>
-      <el-button @click="addVideoDialogVisible = false">取消</el-button>
+      <el-button @click="requestCloseAddVideo">取消</el-button>
       <el-button type="primary" :disabled="selectedVideoIds.length === 0" @click="confirmAddVideos">添加</el-button>
     </template>
   </el-dialog>
@@ -122,7 +130,7 @@
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as maplibregl from 'maplibre-gl'
-import { ElMessage } from 'element-plus'
+import { ElMessage, ElMessageBox } from 'element-plus'
 import i18n from '@/i18n/index'
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
@@ -130,7 +138,7 @@ import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
 import { fetchTrackPoints, VIDEO_COLORS } from '@/utils/videoNode'
 import type { IGpxPoint } from '@/utils/videoNode'
-import { importVideo, pushVideoToSchema, associateVideoToTrack, videoSelectContext } from '@/utils/video'
+import { pushVideoToSchema, associateVideoToTrack, videoSelectContext } from '@/utils/video'
 import { editSchemaAttrAndSave, saveSchema } from '@/utils/schema'
 import type { ITrackInfo, IVideoInfo, IVideoRef } from '@/type/schema'
 import type { ISelectedVideo } from '@/type/video'
@@ -277,8 +285,20 @@ const selectedVideoIds = ref<string[]>([])
 const localVideos = ref<ISelectedVideo[]>([])
 const localSelecting = ref(false)
 const localProgress = ref({ processed: 0, total: 0 })
+// 本地视频解析进度百分比（用于进度条）
+const localProgressPercent = computed(() => {
+  const { processed, total } = localProgress.value
+  return total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0
+})
 // 直接添加模式：从主弹窗「添加本地视频」入口选择后，解析完成自动加入对齐列表
 const addLocalDirectly = ref(false)
+// 一次选择多少个本地视频起给出"解析较慢"提示
+const LOCAL_VIDEO_WARN_THRESHOLD = 5
+// 保存状态：批量导入本地视频较慢，用于按钮 loading 与进度提示
+const saving = ref(false)
+const saveProgress = ref({ processed: 0, total: 0 })
+// 本地视频导入并发数（复制 + ffprobe 较重，限制并发避免磁盘争抢）
+const SAVE_IMPORT_CONCURRENCY = 3
 
 // 把当前本地解析结果加入对齐列表（跳过已在列表中的）
 function addLocalVideosToAlign() {
@@ -357,6 +377,10 @@ async function selectLocalVideos() {
     }
     const total = res.data?.total ?? 0
     localProgress.value = { processed: 0, total }
+    // 本地视频解析较重（ffmpeg 探测），数量多时明显变慢，提前提示用户
+    if (total >= LOCAL_VIDEO_WARN_THRESHOLD) {
+      ElMessage.warning(`已选择 ${total} 个本地视频，解析较慢，请耐心等待；解析期间请勿关闭弹窗`)
+    }
     // 取消选择框时不会触发 videos-done 事件，需手动结束加载态
     if (total === 0) {
       localSelecting.value = false
@@ -506,6 +530,8 @@ onMounted(() => {
         localVideos.value.push(v)
       }
     })
+    // 主弹窗「添加本地视频」：每解析完一批即加入对齐列表，实现"边解析边上屏"
+    if (addLocalDirectly.value) addLocalVideosToAlign()
   })
   API.video.onVideosProgress((payload: any) => {
     if (!localSelecting.value) return
@@ -815,7 +841,23 @@ function focusActiveSegment() {
 }
 
 // ---- 保存 ----
+// 并发映射（限制并发数）：批量导入本地视频时避免逐个串行等待
+async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const runnerCount = Math.max(1, Math.min(limit, items.length))
+  const runners = new Array(runnerCount).fill(0).map(async () => {
+    while (cursor < items.length) {
+      const i = cursor++
+      results[i] = await worker(items[i], i)
+    }
+  })
+  await Promise.all(runners)
+  return results
+}
+
 async function handleSave() {
+  if (saving.value) return
   const schema = schemaStore.getSchema
   const track = schema.trackInfo?.find(t => t.id === props.trackId)
   if (!track) {
@@ -827,56 +869,121 @@ async function handleSave() {
   if (props.pendingVideo) {
     const item = alignItems.value[0]
     if (!item) return
-    const res = await API.video.importVideo({
-      id: props.pendingVideo.id,
-      name: props.pendingVideo.name,
-      path: props.pendingVideo.path,
-    })
-    if (res.code !== 200) {
-      ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
-      return
+    saving.value = true
+    try {
+      const res = await API.video.importVideo({
+        id: props.pendingVideo.id,
+        name: props.pendingVideo.name,
+        path: props.pendingVideo.path,
+      })
+      if (res.code !== 200) {
+        ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
+        return
+      }
+      const vi: IVideoInfo = res.data
+      // 关联信息（轨迹 + 偏移）只存 trackInfo.videos，videoInfo 不存 trackId/timeOffsetMs
+      pushVideoToSchema(vi)
+      associateVideoToTrack(props.trackId, vi.id, item.timeOffsetMs)
+      await saveSchema()
+      ElMessage.success(i18n.global.t('description.videoLinkedAndUploaded'))
+      emit('aligned')
+      dialogVisible.value = false
+    } finally {
+      saving.value = false
     }
-    const vi: IVideoInfo = res.data
-    // 关联信息（轨迹 + 偏移）只存 trackInfo.videos，videoInfo 不存 trackId/timeOffsetMs
-    pushVideoToSchema(vi)
-    associateVideoToTrack(props.trackId, vi.id, item.timeOffsetMs)
-    await saveSchema()
-    ElMessage.success(i18n.global.t('description.videoLinkedAndUploaded'))
-    emit('aligned')
-    dialogVisible.value = false
     return
   }
 
   // 更新 trackInfo.videos（权威来源）
   const trackInfoList = [...(schema.trackInfo || [])]
   const trackIndex = trackInfoList.findIndex(t => t.id === props.trackId)
-  const refs: IVideoRef[] = []
+  const refs = new Array<IVideoRef>(alignItems.value.length)
   // 本地选择的视频需先导入到用户目录并写入 schema.videoInfo
-  for (const item of alignItems.value) {
-    let videoId = item.video.id
-    if (item.localPath) {
-      const vi = await importVideo({ id: item.video.id, name: item.video.name || '', path: item.localPath })
-      if (!vi) {
-        ElMessage.error(i18n.global.t('description.videoImportFailedNamed', { name: item.video.name || item.video.id }))
-        return
+  const localTasks: { item: AlignItem; index: number }[] = []
+  alignItems.value.forEach((item, index) => {
+    if (item.localPath) localTasks.push({ item, index })
+  })
+
+  saving.value = true
+  saveProgress.value = { processed: 0, total: localTasks.length }
+  try {
+    // 并发导入本地视频（限制并发），并实时刷新进度
+    await mapWithConcurrency(localTasks, SAVE_IMPORT_CONCURRENCY, async ({ item, index }) => {
+      const res = await API.video.importVideo({
+        id: item.video.id,
+        name: item.video.name || '',
+        path: item.localPath as string,
+      })
+      if (res.code !== 200) {
+        throw new Error(res.msg || i18n.global.t('description.videoImportFailedNamed', { name: item.video.name || item.video.id }))
       }
+      const vi: IVideoInfo = res.data
       pushVideoToSchema(vi)
-      videoId = vi.id
       item.video = vi
       item.localPath = undefined
-    }
-    refs.push({ videoId, timeOffsetMs: item.timeOffsetMs })
+      refs[index] = { videoId: vi.id, timeOffsetMs: item.timeOffsetMs }
+      saveProgress.value = { processed: saveProgress.value.processed + 1, total: saveProgress.value.total }
+    })
+    // 已上传（无 localPath）的项直接写入 refs
+    alignItems.value.forEach((item, index) => {
+      if (!refs[index]) refs[index] = { videoId: item.video.id, timeOffsetMs: item.timeOffsetMs }
+    })
+    trackInfoList[trackIndex] = { ...trackInfoList[trackIndex], videos: refs }
+    // editSchemaAttrAndSave 内部已 saveSchema，无需再保存一次
+    await editSchemaAttrAndSave('trackInfo', trackInfoList)
+    ElMessage.success(i18n.global.t('description.alignSaved'))
+    dialogVisible.value = false
+  } catch (e: any) {
+    ElMessage.error(String(e?.message || e))
+  } finally {
+    saving.value = false
+    saveProgress.value = { processed: 0, total: 0 }
   }
-  trackInfoList[trackIndex] = { ...trackInfoList[trackIndex], videos: refs }
+}
 
-  await editSchemaAttrAndSave('trackInfo', trackInfoList)
-  await saveSchema()
-  ElMessage.success(i18n.global.t('description.alignSaved'))
-  dialogVisible.value = false
+// 解析中关闭弹窗：提示会丢失进度，确认后取消后端解析并丢弃本地选择
+async function confirmCancelIfParsing(): Promise<boolean> {
+  // 保存中禁止关闭，避免导入中断/状态不一致
+  if (saving.value) {
+    ElMessage.warning('正在保存，请稍候')
+    return false
+  }
+  if (!localSelecting.value) return true
+  try {
+    await ElMessageBox.confirm(
+      '正在解析本地视频，关闭将丢失当前进度并取消已选择的本地视频，确定关闭吗？',
+      '提示',
+      { type: 'warning', confirmButtonText: '确定关闭', cancelButtonText: '继续等待' }
+    )
+  } catch {
+    return false
+  }
+  try {
+    await API.video.cancelVideoParse()
+  } catch (e) {
+    console.error('取消视频解析失败', e)
+  }
+  // 丢弃本地选择并结束解析态
+  localVideos.value = []
+  localProgress.value = { processed: 0, total: 0 }
+  addLocalDirectly.value = false
+  localSelecting.value = false
+  // 保持"忽略"状态，避免后端收尾事件被上传面板误消费；下次选择时会重置 owner
+  videoSelectContext.owner = 'alignDialog-cancelled'
+  return true
 }
 
 async function handleBeforeClose(done: () => void) {
-  done()
+  if (await confirmCancelIfParsing()) done()
+}
+
+// 底部"取消"按钮（不经过 before-close），同样先确认
+async function requestCloseMain() {
+  if (await confirmCancelIfParsing()) dialogVisible.value = false
+}
+
+async function requestCloseAddVideo() {
+  if (await confirmCancelIfParsing()) addVideoDialogVisible.value = false
 }
 
 // ---- 时间格式化 ----
@@ -1154,6 +1261,10 @@ function formatMs(ms: number | undefined): string {
 .local-progress {
   font-size: 12px;
   color: #909399;
+}
+
+.local-progress-bar {
+  margin: 8px 0;
 }
 
 .opt-local {

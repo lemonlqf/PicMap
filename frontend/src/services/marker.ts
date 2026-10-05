@@ -17,7 +17,7 @@ import {
   type FlyAnimationOptions,
 } from '@/services/markerAdapter'
 import IconHTMLFactory, { IconType } from '@/utils/iconHTML'
-import { getImageUrl, getMarkerImageUrlById } from '@/utils/Image'
+import { getImageUrl, getMarkerImageUrl, getMarkerImageUrlById } from '@/utils/Image'
 import { getVideoThumbnailUrl, getVideoStartMs } from '@/utils/video'
 import { judgeHadUploadImage, getSchemaInfoById, getVideoInfoById, getVideoGPSInfo, videoHasGPS } from '@/utils/schema'
 import { getGroupIdsByImageId, getGroupInfoByGroupId } from '@/utils/group'
@@ -159,10 +159,12 @@ class MarkerService {
     })
   }
 
-  // 清空所有 marker 与聚合状态（切换用户时调用，重新加载当前用户数据）
+  // 清空所有 marker 与聚合状态（切换用户 / 重新进入地图时调用，重新加载当前用户数据）
   reset() {
     this.cancelAllFlyAnimations()
     this.unspiderfy()
+    // 移除所有持久节点（图片/视频/分组/临时节点）。图片/视频同时挂在 clusterGroup 上，
+    // 但都包含在 this.markers 中，这里统一 remove；随后只需清空 clusterGroup 的成员引用即可。
     this.markers.forEach((m) => m.remove())
     this.markers.clear()
     this.clusterMarkers.forEach((m) => m.remove())
@@ -171,6 +173,7 @@ class MarkerService {
     this.hiddenMarkerIds.clear()
     this.imagePoints = []
     this.clusterIndex = null
+    // 以下为跨帧渲染对账状态：全量重置，使下一次 renderClusters 从零开始
     this.lastShownImageIds.clear()
     this.lastClusterCenters.clear()
     this.lastClusterIds.clear()
@@ -180,18 +183,21 @@ class MarkerService {
     this.timeRange = null
     this.clusterDirty = false
     this.clusterLeafCache.clear()
+    // 上一用户在途的封面加载结果已无意义，清空避免阻塞后续同 id 的加载
+    this.videoCoverLoading.clear()
   }
 
   // 重建聚合索引（supercluster load 后不可变，图片增删需重建）
   private rebuildClusterIndex() {
     this.clusterIndex = new Supercluster({ radius: 30, maxZoom: 17 })
     this.clusterIndex.load(this.getFilteredPoints() as any)
-    // 索引重建后 cluster id 全部重新分配，清空旧状态避免 getChildren 报错
+    // load 后所有 cluster id 都会重新分配，因此这里只失效"以 cluster id 为键、且在本帧渲染前会被读取"的状态：
+    // - lastClusterIds：上一帧的 cluster id 集合（合并/分裂动画判定用），旧 id 已无意义；
+    // - clusterLeafCache：以 cluster id 为键的叶子缓存，必须随 id 重分配作废。
+    // 不要清空 lastClusterMarkers / lastClusterCentersById：renderClusters 开头会由 clusterMarkers 重建它们。
+    // 特别不要清空 lastShownImageIds / lastClusterCenters / lastZoom：它们是上一帧的对账结果，
+    // 本帧要据此判断哪些单点需要移除/移动；清空会使"已被聚合的节点"因 wasShown=false 而残留（历史 bug）。
     this.lastClusterIds.clear()
-    this.lastClusterCentersById.clear()
-    this.lastClusterMarkers.clear()
-    this.lastClusterCenters.clear()
-    this.lastShownImageIds.clear()
     this.clusterLeafCache.clear()
   }
 
@@ -410,14 +416,17 @@ class MarkerService {
     // 重新入图前清除隐藏态：分组期间被 hiddenMarkerById 隐藏过，
     // 否则 getFilteredPoints 会把它过滤掉，导致解散分组后节点不再出现
     this.hiddenMarkerIds.delete(imageId)
-    if (!mapStore.visibleMarkerIdList.includes(imageId)) {
-      const imageInfo = schemaStore.getSchema.imageInfo?.filter((item: IImageInfo) => item.id === imageId)[0]
-      if (imageInfo) {
-        this.addImageMarkerToMap(imageInfo)
-      }
+    const imageInfo = schemaStore.getSchema.imageInfo?.filter((item: IImageInfo) => item.id === imageId)[0]
+    if (imageInfo) {
+      this.addImageMarkerToMap(imageInfo)
+    }
+    // 封面未加载时不要登记为"已加载"：否则会被 updateVisibleMarkers 跳过，
+    // 从分组出来后一直显示占位图。移出可见集合，交给懒加载补封面。
+    const marker = this.getMarkerById(imageId)
+    if (marker && marker.options.iconUrl) {
       this.addVisibleMarkerById(imageId)
     } else {
-      this.showMarkerById(imageId)
+      mapStore.deleteVisbleMarkerId(imageId)
     }
     // 新增/恢复的节点需要重建聚合索引并重新渲染
     this.clusterDirty = true
@@ -435,17 +444,22 @@ class MarkerService {
       const videoInfo = getVideoInfoById(videoId)
       if (videoHasGPS(videoInfo)) {
         this.addVideoMarkerToMap(videoInfo)
-        this.addVisibleMarkerById(videoId)
       }
+      // 封面未加载，交给 updateVisibleMarkers 懒加载
+      mapStore.deleteVisbleMarkerId(videoId)
       this.clusterDirty = true
       this.updateVisibleMarkers()
       return
     }
-    if (!mapStore.visibleMarkerIdList.includes(videoId)) {
+    // 封面已加载才登记为可见；否则移出，交给懒加载补封面
+    if (marker.options.iconUrl) {
       this.addVisibleMarkerById(videoId)
+    } else {
+      mapStore.deleteVisbleMarkerId(videoId)
     }
     // 已存在则取消隐藏并重新渲染
-    this.showMarkerById(videoId)
+    this.clusterDirty = true
+    this.updateVisibleMarkers()
   }
 
   addManualLocateImageMarkerToMap(imageInfo: IImageInfo, lat?: number, lng?: number) {
@@ -619,7 +633,7 @@ class MarkerService {
     }
     // 图片 / 视频 / 临时节点：加入隐藏集合并从地图移除
     this.hiddenMarkerIds.add(markerId)
-    // 直接移除地图上的节点（重建聚合索引会清空 lastShownImageIds，renderClusters 不再负责移除）
+    // 直接移除地图上的节点（不等 renderClusters；后者也会因 shouldShow=false 兜底移除）
     if (this.isMarkerOnMap(marker)) marker.remove()
     // 重建聚合索引，使其从聚合计数中移除
     this.clusterDirty = true
@@ -658,7 +672,11 @@ class MarkerService {
     if (markerType === 'image' || markerType === 'temporary-image') {
       const imageInfo = getSchemaInfoById(markerId) as IImageInfo | undefined
       if (!imageInfo) return
-      marker.setIcon(createImageMarkerIcon(imageInfo, marker.options.iconUrl || getImageUrl(markerId) || imageInfo.url))
+      // 封面来源优先级：节点已缓存封面 → 小图缓存（120px，懒加载用的就是这个）→ 大图缓存 → schema url。
+      // 之前漏了小图缓存，导致切换全景时节点封面被重置为占位图。
+      const coverUrl = marker.options.iconUrl || getMarkerImageUrl(markerId) || getImageUrl(markerId) || imageInfo.url
+      marker.setIcon(createImageMarkerIcon(imageInfo, coverUrl))
+      if (coverUrl) marker.options.iconUrl = coverUrl
     } else if (markerType === 'video') {
       const videoInfo = getVideoInfoById(markerId)
       if (!videoInfo) return
@@ -670,6 +688,22 @@ class MarkerService {
   refreshClusters() {
     this.clusterDirty = true
     this.updateVisibleMarkers()
+  }
+
+  /**
+   * @description: 同步某个图片/视频节点在聚合索引中的坐标。
+   * 手动重新定位后 schema 已更新，但聚合索引用的是内存里的 imagePoints（旧坐标），
+   * 若不更新，重渲染/聚合时会按旧坐标把节点拉回去（表现为"不刷新不生效"）。
+   * @param {string} markerId
+   * @param {number} lng 地图坐标经度
+   * @param {number} lat 地图坐标纬度
+   */
+  updateMarkerPointById(markerId: string, lng: number, lat: number) {
+    const point = this.imagePoints.find((p) => p.properties.id === markerId)
+    if (point) {
+      point.geometry.coordinates = [lng, lat]
+      this.clusterDirty = true
+    }
   }
 
   observeClisterClick() {
@@ -1048,6 +1082,8 @@ class MarkerService {
       // 复用 createImageMarkerIcon：保留全景角标等标识（聚合节点进入视口时重建图标不能丢角标）
       const schemaInfo = getSchemaInfoById(marker.options.id) as IImageInfo | null
       marker.setIcon(createImageMarkerIcon(schemaInfo ?? { id: marker.options.id } as IImageInfo, fileUrl))
+      // 记住已加载的封面，供后续重建图标（如切换全景）复用，避免回退成占位图
+      marker.options.iconUrl = fileUrl
     }
   }
 

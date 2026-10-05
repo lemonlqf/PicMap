@@ -2,6 +2,7 @@ package handler
 
 import (
 	"fmt"
+	"image"
 	"mime"
 	"net"
 	"net/http"
@@ -91,7 +92,7 @@ func (h *Handler) serveImage(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
-	if kind != "thumb" && kind != "marker" && kind != "full" {
+	if kind != "thumb" && kind != "marker" && kind != "full" && kind != "pano" {
 		http.Error(w, "bad request", http.StatusBadRequest)
 		return
 	}
@@ -115,6 +116,27 @@ func (h *Handler) serveImage(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		serveFileWithRange(w, r, origPath, contentTypeByExt(origPath))
+		return
+	}
+
+	// pano：全景预览专用。全景原图（equirectangular）常有上亿像素，
+	// 直接把原图交给客户端 WebGL 会因超出纹理尺寸/内存而卡死，
+	// 这里按需降采样到 PanoWidth 宽并落盘缓存，客户端拿到即可直接建纹理。
+	if kind == "pano" {
+		if origPath == "" {
+			http.Error(w, "not found", http.StatusNotFound)
+			return
+		}
+		panoPath := filepath.Join(imageDir, panoFileName(baseName))
+		if !util.FileExists(panoPath) {
+			if err := generatePanoFile(origPath, panoPath); err != nil {
+				// 降采样失败时退回原图，至少保证可返回
+				serveFileWithRange(w, r, origPath, contentTypeByExt(origPath))
+				return
+			}
+		}
+		w.Header().Set("Cache-Control", "private, max-age=86400")
+		serveFileWithRange(w, r, panoPath, "image/jpeg")
 		return
 	}
 
@@ -157,6 +179,48 @@ func (h *Handler) serveImage(w http.ResponseWriter, r *http.Request) {
 
 	// 最终兜底：直接返回源文件（浏览器可能不支持该格式）
 	serveFileWithRange(w, r, srcPath, contentTypeByExt(srcPath))
+}
+
+// PanoWidth 全景预览降采样目标宽度（px）。需明显小于常见 GPU 的 MAX_TEXTURE_SIZE
+// （通常 16384），避免客户端为超大全景图分配巨幅 canvas 导致卡死/渲染失败。
+const PanoWidth = 8192
+
+func panoFileName(baseName string) string {
+	return "_PANO_PM" + baseName + ".jpg"
+}
+
+// generatePanoFile 将原图降采样为 JPEG 写入 outPath（先写临时文件再改名，避免并发读到半成品）。
+// 小于 PanoWidth 的图不放大。
+func generatePanoFile(inputPath, outPath string) error {
+	src := inputPath
+	// HEIC/RAW 等浏览器无法解码的格式先转 JPEG
+	if !service.IsSupportedImageFormat(inputPath) {
+		converted, err := service.ConvertToTempJPEG(inputPath)
+		if err != nil {
+			return err
+		}
+		defer os.Remove(converted)
+		src = converted
+	}
+
+	// 仅降采样，避免把小图放大
+	targetWidth := PanoWidth
+	if f, err := os.Open(src); err == nil {
+		if cfg, _, err := image.DecodeConfig(f); err == nil && cfg.Width > 0 && cfg.Width < targetWidth {
+			targetWidth = cfg.Width
+		}
+		f.Close()
+	}
+
+	data, err := service.ResizeToJPEGBytes(src, targetWidth)
+	if err != nil {
+		return err
+	}
+	tmp := outPath + ".tmp"
+	if err := os.WriteFile(tmp, data, 0644); err != nil {
+		return err
+	}
+	return os.Rename(tmp, outPath)
 }
 
 // serveFileWithRange 使用 http.ServeContent 提供文件服务（自动处理 Range / Last-Modified）

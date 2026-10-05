@@ -49,10 +49,28 @@ watch(() => props.src, (newSrc) => {
 
 function createViewer() {
   if (!container.value || !props.src) return
+  // 柱形全景：限制垂直视野（水平 360°，垂直按图片高度映射）。
+  // 必须在构造时通过 panoData 传入：若构造后再调用 setPanorama，会先中止构造时的首次加载，
+  // 而 Photo Sphere Viewer 在加载被中止时不会清空 loadingPromise，导致视图一直停在 loading。
+  const panoData = props.panoramaType === 'cylindrical'
+    ? (image: HTMLImageElement): PanoData => {
+        const fullWidth = image.naturalWidth
+        const fullHeight = Math.round(fullWidth / 2)
+        return {
+          fullWidth,
+          fullHeight,
+          croppedWidth: image.naturalWidth,
+          croppedHeight: image.naturalHeight,
+          croppedX: 0,
+          croppedY: Math.round((fullHeight - image.naturalHeight) / 2),
+        }
+      }
+    : undefined
   viewer = new Viewer({
     container: container.value,
     panorama: props.src,
     adapter: EquirectangularAdapter,
+    panoData,
     navbar: [
       'zoom',
       {
@@ -72,25 +90,10 @@ function createViewer() {
     mousewheel: true,
     mousemove: true,
   })
-  // 柱形全景：限制垂直视野（水平 360°，垂直按图片高度映射）
-  if (props.panoramaType === 'cylindrical') {
-    viewer.setPanorama(props.src, {
-      panoData: (image: HTMLImageElement): PanoData => {
-        const fullWidth = image.naturalWidth
-        const fullHeight = Math.round(fullWidth / 2)
-        const croppedWidth = image.naturalWidth
-        const croppedHeight = image.naturalHeight
-        return {
-          fullWidth,
-          fullHeight,
-          croppedWidth,
-          croppedHeight,
-          croppedX: 0,
-          croppedY: Math.round((fullHeight - croppedHeight) / 2),
-        }
-      },
-    })
-  }
+  // 全景加载/解码失败时打印错误，避免只表现为一直 loading 而无从排查
+  viewer.addEventListener('panorama-error', (e: any) => {
+    console.error('[PanoramaViewer] 全景加载失败:', e?.error || e)
+  })
 }
 
 function destroyViewer() {

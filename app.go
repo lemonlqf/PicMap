@@ -104,6 +104,11 @@ func (a *App) SelectVideos() model.Result {
 	return a.handler.SelectVideos()
 }
 
+// CancelVideoParse 取消正在进行的本地视频解析（对齐弹框关闭时调用）
+func (a *App) CancelVideoParse() model.Result {
+	return a.handler.CancelVideoParse()
+}
+
 func (a *App) ImportVideo(userId string, file model.ImportVideoFile) model.Result {
 	return a.handler.ImportVideo(userId, file)
 }

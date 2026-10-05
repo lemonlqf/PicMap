@@ -4,6 +4,8 @@ import {model} from '../models';
 
 export function CancelBackup():Promise<model.Result>;
 
+export function CancelVideoParse():Promise<model.Result>;
+
 export function CreateBackup(arg1:string):Promise<model.Result>;
 
 export function CreateUser(arg1:string):Promise<model.Result>;

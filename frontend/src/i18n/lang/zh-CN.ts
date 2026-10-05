@@ -114,7 +114,6 @@ export default {
   videoLabel: '视频',
   trackLabel: '轨迹',
   batchUpload: '批量上传',
-  batchUploadToGroup: '批量上传到分组',
   batchDeleteImages: '批量删除',
   batchAddToGroup: '批量添加到分组',
   selectedCount: '已选',
