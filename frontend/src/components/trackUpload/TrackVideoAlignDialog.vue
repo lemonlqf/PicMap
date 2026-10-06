@@ -138,7 +138,7 @@ import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
 import { fetchTrackPoints, VIDEO_COLORS } from '@/utils/videoNode'
 import type { IGpxPoint } from '@/utils/videoNode'
-import { pushVideoToSchema, associateVideoToTrack, videoSelectContext } from '@/utils/video'
+import { pushVideoToSchema, associateVideoToTrack, videoSelectContext, parseVideoNameTimeMs } from '@/utils/video'
 import { editSchemaAttrAndSave, saveSchema } from '@/utils/schema'
 import type { ITrackInfo, IVideoInfo, IVideoRef } from '@/type/schema'
 import type { ISelectedVideo } from '@/type/video'
@@ -195,21 +195,9 @@ const trackDurationMs = computed(() => {
   return Math.max(0, last - first)
 })
 
-// 从文件名解析视频起始时刻（与后端 ParseStartTimeFromName 规则一致，作为兜底）
-// 支持 DJI_20251130121358_0033_D、20260820_171710、IMG_20260820_171710 等
-function parseNameTimeMs(name: string | undefined): number {
-  if (!name) return 0
-  const m = name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})[\s_\-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})/)
-  if (!m) return 0
-  const [, y, mo, d, h, mi, s] = m
-  const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s))
-  const ms = date.getTime()
-  return isNaN(ms) ? 0 : ms
-}
-
 // 视频起始绝对时刻（优先用文件解析值，缺失时用文件名解析兜底）
 function videoStartMs(video: IVideoInfo | undefined): number {
-  return video?.startTimeMs || parseNameTimeMs(video?.name) || 0
+  return video?.startTimeMs || parseVideoNameTimeMs(video?.name) || 0
 }
 
 /**
@@ -255,6 +243,19 @@ function assignAutoOffsets(items: AlignItem[]) {
   })
 }
 
+/**
+ * @description: 对齐列表排序比较：有时间的按偏移时间升序；无时间信息的保持导入顺序并排在最后。
+ * JS sort 稳定，因此偏移相同的视频与无时间信息的视频均保持原有（导入）顺序。
+ */
+function compareAlignItems(a: AlignItem, b: AlignItem): number {
+  const aHas = videoStartMs(a.video) > 0
+  const bHas = videoStartMs(b.video) > 0
+  if (aHas && bHas) return a.timeOffsetMs - b.timeOffsetMs
+  if (aHas) return -1
+  if (bHas) return 1
+  return 0
+}
+
 function loadTrackVideos(): AlignItem[] {
   const schema = schemaStore.getSchema
   const track: ITrackInfo | undefined = schema.trackInfo?.find(t => t.id === props.trackId)
@@ -274,6 +275,7 @@ function loadTrackVideos(): AlignItem[] {
       color: VIDEO_COLORS[idx % VIDEO_COLORS.length],
     })
   })
+  items.sort(compareAlignItems)
   return items
 }
 
@@ -318,6 +320,7 @@ function addLocalVideosToAlign() {
     added.push(item)
   })
   assignAutoOffsets(added)
+  alignItems.value.sort(compareAlignItems)
   if (!activeVideoId.value && alignItems.value.length > 0) {
     activeVideoId.value = alignItems.value[0].video.id
   }
@@ -894,7 +897,8 @@ async function handleSave() {
     return
   }
 
-  // 更新 trackInfo.videos（权威来源）
+  // 更新 trackInfo.videos（权威来源）；保存前按偏移时间排序，保证持久化顺序与时间线一致
+  alignItems.value.sort(compareAlignItems)
   const trackInfoList = [...(schema.trackInfo || [])]
   const trackIndex = trackInfoList.findIndex(t => t.id === props.trackId)
   const refs = new Array<IVideoRef>(alignItems.value.length)

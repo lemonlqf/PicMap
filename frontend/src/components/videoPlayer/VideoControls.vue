@@ -24,6 +24,18 @@
     <el-slider class="vp-progress" :model-value="currentTime" :min="0" :max="duration || 0" :step="0.1"
       :disabled="!duration" :show-tooltip="false" @input="handleSeekInput" />
     <span class="vp-time">{{ formatTime(duration) }}</span>
+    <!-- 播放倍速：自绘内联菜单，避免 teleport 弹层被高 z-index 弹框遮挡 -->
+    <div class="vp-rate-wrap" ref="rateWrapRef">
+      <span class="vp-rate" :title="`播放倍速 ${formatPlaybackRate(rate)}`" @click.stop="toggleRateMenu">
+        {{ formatPlaybackRate(rate) }}
+      </span>
+      <div v-if="rateMenuOpen" class="vp-rate-list">
+        <div v-for="r in PLAYBACK_RATE_OPTIONS" :key="r" class="vp-rate-item"
+          :class="{ 'is-active-rate': r === rate }" @click.stop="selectRate(r)">
+          {{ formatPlaybackRate(r) }}
+        </div>
+      </div>
+    </div>
     <!-- 附加控件（如自动播放下一个开关），位于全屏按钮左侧 -->
     <slot name="extra"></slot>
     <el-icon class="vp-icon" :title="isFullscreen ? '退出全屏' : '全屏'" @click="emit('toggle-fullscreen')">
@@ -35,11 +47,13 @@
 </template>
 
 <script lang="ts" setup>
+import { ref, onMounted, onUnmounted } from 'vue'
 import { FullScreen } from '@element-plus/icons-vue'
 import PlayIcon from '@/assets/icon/视频播放.svg?component'
 import PauseIcon from '@/assets/icon/视频暂停.svg?component'
 import VolumeIcon from '@/assets/icon/音量.svg?component'
 import MuteIcon from '@/assets/icon/静音.svg?component'
+import { PLAYBACK_RATE_OPTIONS, formatPlaybackRate } from '@/utils/playback'
 
 withDefaults(defineProps<{
   isPlaying: boolean
@@ -49,6 +63,7 @@ withDefaults(defineProps<{
   muted: boolean
   isFullscreen: boolean
   visible?: boolean
+  rate?: number
 }>(), {
   isPlaying: false,
   currentTime: 0,
@@ -56,7 +71,8 @@ withDefaults(defineProps<{
   volume: 1,
   muted: false,
   isFullscreen: false,
-  visible: true
+  visible: true,
+  rate: 1
 })
 
 const emit = defineEmits<{
@@ -65,6 +81,7 @@ const emit = defineEmits<{
   (e: 'toggle-fullscreen'): void
   (e: 'volume-change', value: number): void
   (e: 'seek', value: number): void
+  (e: 'rate-change', value: number): void
 }>()
 
 function handleVolumeInput(val: number | number[]) {
@@ -74,6 +91,25 @@ function handleVolumeInput(val: number | number[]) {
 function handleSeekInput(val: number | number[]) {
   emit('seek', Array.isArray(val) ? val[0] : val)
 }
+
+// ---- 播放倍速菜单 ----
+const rateMenuOpen = ref(false)
+const rateWrapRef = ref<HTMLElement>()
+function toggleRateMenu() {
+  rateMenuOpen.value = !rateMenuOpen.value
+}
+function selectRate(r: number) {
+  rateMenuOpen.value = false
+  emit('rate-change', r)
+}
+function onDocClick(e: MouseEvent) {
+  if (!rateMenuOpen.value) return
+  if (rateWrapRef.value && !rateWrapRef.value.contains(e.target as Node)) {
+    rateMenuOpen.value = false
+  }
+}
+onMounted(() => document.addEventListener('click', onDocClick))
+onUnmounted(() => document.removeEventListener('click', onDocClick))
 
 /**
  * @description: 秒 → 时间文本（H:MM:SS 或 MM:SS）
@@ -139,6 +175,62 @@ function formatTime(sec: number): string {
   color: rgba(255, 255, 255, 0.9);
   font-variant-numeric: tabular-nums;
   user-select: none;
+}
+
+/* ---- 播放倍速按钮与内联菜单 ---- */
+.vp-rate-wrap {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.vp-rate {
+  display: block;
+  min-width: 34px;
+  text-align: center;
+  font-size: 12px;
+  color: #fff;
+  cursor: pointer;
+  user-select: none;
+  font-variant-numeric: tabular-nums;
+  transition: color 0.15s ease;
+}
+
+.vp-rate:hover {
+  color: #409eff;
+}
+
+.vp-rate-list {
+  position: absolute;
+  bottom: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  min-width: 64px;
+  padding: 4px 0;
+  border-radius: 6px;
+  background: rgba(24, 26, 30, 0.95);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45);
+}
+
+.vp-rate-item {
+  padding: 5px 14px;
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.9);
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.vp-rate-item:hover {
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.15);
+}
+
+.vp-rate-item.is-active-rate {
+  color: #409eff;
+  font-weight: 600;
 }
 
 .vp-progress {

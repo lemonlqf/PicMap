@@ -28,6 +28,7 @@
         <span class="title">{{ title }}</span>
         <div class="user-item">
           <LanguageChange></LanguageChange>
+          <TimezoneChange></TimezoneChange>
           <span class="user-name">{{ currentUserInfo.userName }}</span>
           <div class="user-img">
             <img width="35" :src="getAvatarUrl(currentUserInfo.userAvatar as string)" alt="">
@@ -57,6 +58,7 @@ import type { IUserInfo } from '@/type/appSchema'
 import { changeCurrentUser, getAvatarUrl } from '@/utils/user'
 import { getUserSchema } from '@/utils/appSchema'
 import LanguageChange from '@/components/languageChange/LanguageChange.vue'
+import TimezoneChange from '@/components/timezoneChange/TimezoneChange.vue'
 import { useI18n } from 'vue-i18n'
 const { t } = useI18n()
 const router = useRouter()

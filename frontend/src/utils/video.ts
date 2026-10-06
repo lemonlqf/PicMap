@@ -5,6 +5,7 @@
 import { useSchemaStore } from '@/store/schema'
 import API from '@/wails/api'
 import { saveSchema, editSchemaAttrAndSave } from './schema'
+import { dateTimeToMsInOffset, getTimezoneOffsetMinutes } from './timezone'
 import { fileToBase64 } from './map'
 import { isVideoExistInOtherGroup } from './group'
 import markerService from '@/services/marker'
@@ -28,9 +29,8 @@ export function parseVideoNameTimeMs(name: string | undefined): number {
   const m = name.match(/(\d{4})[-_]?(\d{2})[-_]?(\d{2})[\s_\-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})/)
   if (!m) return 0
   const [, y, mo, d, h, mi, s] = m
-  const date = new Date(Number(y), Number(mo) - 1, Number(d), Number(h), Number(mi), Number(s))
-  const ms = date.getTime()
-  return isNaN(ms) ? 0 : ms
+  // 文件名中的日期时间为墙钟时间，按用户设置的时区（默认东八区）解释
+  return dateTimeToMsInOffset(Number(y), Number(mo), Number(d), Number(h), Number(mi), Number(s), getTimezoneOffsetMinutes())
 }
 
 /**

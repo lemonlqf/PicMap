@@ -15,8 +15,9 @@
     </div>
     <!-- 控制栏：复用 VideoControls，保证与普通视频播放器样式/交互一致 -->
     <VideoControls v-if="!loading" :is-playing="isPlaying" :current-time="currentTime" :duration="duration"
-      :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" @toggle-play="togglePlay"
-      @toggle-mute="toggleMute" @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek" />
+      :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" :rate="rate" @toggle-play="togglePlay"
+      @toggle-mute="toggleMute" @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek"
+      @rate-change="onRateChange" />
   </div>
 </template>
 
@@ -29,6 +30,7 @@ import { VideoPlugin } from '@photo-sphere-viewer/video-plugin'
 import '@photo-sphere-viewer/core/index.css'
 import '@photo-sphere-viewer/video-plugin/index.css'
 import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
+import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
 import VideoControls from './VideoControls.vue'
 
 const props = defineProps<{
@@ -43,17 +45,30 @@ const loadPercent = ref(0)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
-const volume = ref(1)
+// 音量跨弹窗记忆；其余参数每次打开弹窗重新初始化
+const volume = ref(getStoredVolume())
 const muted = ref(false)
 /** 静音前音量（取消静音时恢复） */
-const lastVolume = ref(1)
+const lastVolume = ref(volume.value > 0 ? volume.value : 1)
 const isFullscreen = ref(false)
+/** 播放倍速（每次打开重置为 1，不持久化） */
+const rate = ref(DEFAULT_PLAYBACK_RATE)
 
 let viewer: Viewer | null = null
 let videoPlugin: VideoPlugin | null = null
 
 function togglePlay() {
   videoPlugin?.playPause()
+}
+
+// 全景适配器的 video 元素未对外暴露，运行时通过插件私有字段获取
+function applyRate() {
+  const video = (videoPlugin as any)?.video as HTMLVideoElement | undefined
+  if (video && video.playbackRate !== rate.value) video.playbackRate = rate.value
+}
+function onRateChange(r: number) {
+  rate.value = r
+  applyRate()
 }
 
 function toggleMute() {
@@ -77,7 +92,10 @@ function toggleMute() {
 function onVolumeChange(val: number | number[]) {
   const v = Array.isArray(val) ? val[0] : val
   volume.value = v
-  if (v > 0) lastVolume.value = v
+  if (v > 0) {
+    lastVolume.value = v
+    setStoredVolume(v)
+  }
   muted.value = v <= 0
   videoPlugin?.setVolume(v)
   videoPlugin?.setMute(v <= 0)
@@ -137,7 +155,8 @@ async function createViewer() {
     container: container.value,
     panorama: { source },
     adapter: EquirectangularVideoAdapter,
-    plugins: [[VideoPlugin, { progressbar: false, bigbutton: false, autoplay: true }]],
+    // bigbutton：暂停时在画面中央显示播放按钮
+    plugins: [[VideoPlugin, { progressbar: false, bigbutton: true, autoplay: true }]],
     // 隐藏 PSV 自带 navbar，播放/音量/进度由自制控制栏提供
     navbar: false,
     loadingTxt: '',
@@ -148,8 +167,9 @@ async function createViewer() {
   const plugin = viewer.getPlugin<VideoPlugin>(VideoPlugin)
   videoPlugin = plugin
   if (plugin) {
-    volume.value = plugin.getVolume()
-    muted.value = volume.value <= 0
+    // 应用记忆的音量（插件默认音量为 1，直接读取会覆盖记忆值）
+    plugin.setVolume(volume.value)
+    plugin.setMute(muted.value)
     duration.value = plugin.getDuration() || 0
     plugin.addEventListener('volume-change', ({ volume: v }: any) => {
       volume.value = v
@@ -157,11 +177,18 @@ async function createViewer() {
     })
     plugin.addEventListener('play-pause', ({ playing }: any) => {
       isPlaying.value = playing
+      applyRate()
     })
     plugin.addEventListener('progress', ({ time, duration: dur }: any) => {
       currentTime.value = time
       duration.value = dur
+      applyRate()
     })
+    // 点击查看器（非拖拽）切换播放/暂停
+    viewer.addEventListener('click', () => {
+      videoPlugin?.playPause()
+    })
+    applyRate()
     // ProgressEvent 仅在 timeupdate（播放时）触发，未播放时拿不到时长；
     // 这里轮询兜底，直到拿到有效 duration（metadata 加载完成）或超时
     startDurationPolling()

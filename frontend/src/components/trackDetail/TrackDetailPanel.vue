@@ -50,6 +50,7 @@ import TrackBasicInfo from './components/TrackBasicInfo.vue'
 import TrackInfoSection from './components/TrackInfoSection.vue'
 import { useSchemaStore } from '@/store/schema'
 import { getVideoColor } from '@/utils/videoNode'
+import { getVideoStartMs } from '@/utils/video'
 
 const { t } = useI18n()
 const schemaStore = useSchemaStore()
@@ -96,13 +97,26 @@ const currentVideos = computed(() => {
     (item: any) => normalize(item.id) === normalize(trackId)
   )
   const videoInfoList = schemaStore.getSchema.videoInfo || []
-  return (track?.videos || []).map((ref, idx) => ({
-    videoId: ref.videoId,
-    name: videoInfoList.find((v) => v.id === ref.videoId)?.name || ref.videoId,
-    instanceId: props.currentTrackId,
-    trackId: track?.id,
-    color: getVideoColor(idx),
-  }))
+  const items = (track?.videos || []).map((ref, idx) => {
+    const info = videoInfoList.find((v) => v.id === ref.videoId)
+    return {
+      videoId: ref.videoId,
+      name: info?.name || ref.videoId,
+      instanceId: props.currentTrackId,
+      trackId: track?.id,
+      color: getVideoColor(idx),
+      timeOffsetMs: ref.timeOffsetMs ?? 0,
+      hasTime: getVideoStartMs(info) > 0,
+    }
+  })
+  // 排序：优先按偏移时间升序；无时间信息的保持导入顺序并排在最后（JS sort 稳定）
+  items.sort((a, b) => {
+    if (a.hasTime && b.hasTime) return a.timeOffsetMs - b.timeOffsetMs
+    if (a.hasTime) return -1
+    if (b.hasTime) return 1
+    return 0
+  })
+  return items
 })
 
 function handleVideoFocus(videoId: string, instanceId: string) {

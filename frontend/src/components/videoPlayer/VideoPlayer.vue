@@ -9,6 +9,14 @@
   <div ref="rootRef" class="video-player" @mousemove="showControls">
     <video ref="videoEl" class="video-js vjs-big-play-centered" :poster="posterUrl || undefined"></video>
 
+    <!-- 点击视频区域切换播放/暂停（位于控制栏之下，点击控制栏不触发） -->
+    <div class="video-click-layer" @click="togglePlay"></div>
+
+    <!-- 暂停时画面中央显示播放按钮 -->
+    <div v-if="!loading && !isPlaying" class="video-center-play">
+      <el-icon class="video-center-play-icon"><PlayIcon /></el-icon>
+    </div>
+
     <!-- 加载进度遮罩 -->
     <div v-if="loading" class="video-loading-mask">
       <el-icon class="video-loading-icon is-loading"><Loading /></el-icon>
@@ -17,9 +25,10 @@
 
     <!-- 自定义控制栏（与全景播放器共用 VideoControls） -->
     <VideoControls v-if="!hideControls && !loading" :is-playing="isPlaying" :current-time="currentTime"
-      :duration="duration" :volume="volume" :muted="muted" :is-fullscreen="isFullscreen"
+      :duration="duration" :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" :rate="rate"
       :visible="!isFullscreen || controlsVisible" @toggle-play="togglePlay" @toggle-mute="toggleMute"
-      @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek">
+      @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek"
+      @rate-change="onRateChange">
       <template #prev><slot name="prev"></slot></template>
       <template #next><slot name="next"></slot></template>
     </VideoControls>
@@ -34,6 +43,8 @@ import videojs from 'video.js'
 import 'video.js/dist/video-js.css'
 import i18n from '@/i18n/index'
 import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
+import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
+import PlayIcon from '@/assets/icon/视频播放.svg?component'
 import VideoControls from './VideoControls.vue'
 
 const props = defineProps({
@@ -63,11 +74,14 @@ const loadPercent = ref(0)
 const isPlaying = ref(false)
 const currentTime = ref(0)
 const duration = ref(0)
-const volume = ref(1)
+// 音量跨弹窗记忆；其余参数每次打开弹窗重新初始化
+const volume = ref(getStoredVolume())
 const muted = ref(false)
 /** 静音前音量（取消静音时恢复） */
-const lastVolume = ref(1)
+const lastVolume = ref(volume.value > 0 ? volume.value : 1)
 const isFullscreen = ref(false)
+/** 播放倍速（每次打开重置为 1，不持久化） */
+const rate = ref(DEFAULT_PLAYBACK_RATE)
 
 /** 快进快退步长（秒） */
 const SEEK_STEP = 5
@@ -78,6 +92,13 @@ function togglePlay() {
   if (!player || player.isDisposed()) return
   player.paused() ? player.play() : player.pause()
 }
+function applyRate(r: number) {
+  if (player && !player.isDisposed()) player.playbackRate(r)
+}
+function onRateChange(r: number) {
+  rate.value = r
+  applyRate(r)
+}
 function onSeek(val: number | number[]) {
   const sec = Array.isArray(val) ? val[0] : val
   if (player && !player.isDisposed()) player.currentTime(sec)
@@ -86,7 +107,10 @@ function onSeek(val: number | number[]) {
 function onVolumeChange(val: number | number[]) {
   const v = Array.isArray(val) ? val[0] : val
   volume.value = v
-  if (v > 0) lastVolume.value = v
+  if (v > 0) {
+    lastVolume.value = v
+    setStoredVolume(v)
+  }
   muted.value = v <= 0
   if (player && !player.isDisposed()) {
     player.volume(v)
@@ -264,9 +288,10 @@ async function initPlayer() {
     })
     player.on('loadedmetadata', () => {
       duration.value = player.duration() || 0
-      // 应用当前音量并自动播放
+      // 应用当前音量、倍速并自动播放
       player.volume(volume.value)
       player.muted(muted.value)
+      player.playbackRate(rate.value)
       emit('loadedmetadata', duration.value)
       if (!props.hideControls) player.play()
     })
@@ -363,6 +388,13 @@ defineExpose({
   },
   isMuted() {
     return player && !player.isDisposed() ? !!player.muted() : false
+  },
+  setPlaybackRate(r: number) {
+    rate.value = r
+    applyRate(r)
+  },
+  getPlaybackRate() {
+    return rate.value
   }
 })
 </script>
@@ -378,6 +410,32 @@ defineExpose({
 .video-js {
   width: 100%;
   height: 100%;
+}
+
+/* 点击视频切换播放/暂停（位于控制栏之下） */
+.video-click-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  cursor: pointer;
+}
+
+/* 暂停时画面中央的播放按钮（仅展示，点击穿透到 click-layer） */
+.video-center-play {
+  position: absolute;
+  inset: 0;
+  z-index: 6;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.video-center-play-icon {
+  font-size: 72px;
+  color: rgba(255, 255, 255, 0.85);
+  filter: drop-shadow(0 2px 10px rgba(0, 0, 0, 0.65));
+  transition: transform 0.15s ease, color 0.15s ease;
 }
 
 .video-loading-mask {

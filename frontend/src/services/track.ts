@@ -48,6 +48,8 @@ interface TrackLayerRef {
   hitLayerId?: string
   // 流动虚线层（仅高亮轨迹时显示，表示前进方向），与可见线层共用 source
   flowLayerId?: string
+  // 段间连接虚线层（记录中断处的跳变，非真实轨迹）
+  gapLayerId?: string
 }
 
 /**
@@ -112,6 +114,7 @@ class TrackService {
         if (!ref) return
         if (m.getLayer(ref.layerId)) m.setLayoutProperty(ref.layerId, 'visibility', 'none')
         if (ref.hitLayerId && m.getLayer(ref.hitLayerId)) m.setLayoutProperty(ref.hitLayerId, 'visibility', 'none')
+        if (ref.gapLayerId && m.getLayer(ref.gapLayerId)) m.setLayoutProperty(ref.gapLayerId, 'visibility', 'none')
       }
       if (map) {
         setHidden(map)
@@ -127,6 +130,7 @@ class TrackService {
       if (ref) {
         if (map.getLayer(ref.layerId)) map.setLayoutProperty(ref.layerId, 'visibility', 'none')
         if (ref.hitLayerId && map.getLayer(ref.hitLayerId)) map.setLayoutProperty(ref.hitLayerId, 'visibility', 'none')
+        if (ref.gapLayerId && map.getLayer(ref.gapLayerId)) map.setLayoutProperty(ref.gapLayerId, 'visibility', 'none')
       }
       trackInstance.removeMap(map)
     })
@@ -229,41 +233,101 @@ interface GpxPoint {
   temp: number | null
 }
 
-function parseGpxPoints(gpxText: string): GpxPoint[] {
-  const parser = new DOMParser()
+// 记录中断阈值：相邻采样点时间差超过该值（设备暂停/中断记录）视为独立线段
+const SEGMENT_GAP_MS = 5 * 60 * 1000
+// 跳变阈值：相邻采样点直线距离超过该值（跨段跳变/定位漂移）视为独立线段
+const SEGMENT_JUMP_M = 500
+
+function haversineM(a: GpxPoint, b: GpxPoint): number {
+  const R = 6371000
+  const toRad = (d: number) => (d * Math.PI) / 180
+  const dLat = toRad(b.lat - a.lat)
+  const dLng = toRad(b.lng - a.lng)
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2
+  return 2 * R * Math.asin(Math.sqrt(s))
+}
+
+// 命名空间无关地取某根节点下的指定标签
+function collectByTag(root: Document | Element, tag: string): Element[] {
+  const ns = root.getElementsByTagNameNS('*', tag)
+  if (ns.length > 0) return Array.from(ns)
+  return Array.from(root.getElementsByTagName(tag))
+}
+
+// 把单个 trkpt 元素解析为 GpxPoint（坐标转 GCJ02）；无效返回 null
+function parseTrkpt(pt: Element): GpxPoint | null {
+  const lat = parseFloat(pt.getAttribute('lat') || '')
+  const lon = parseFloat(pt.getAttribute('lon') || '')
+  if (!isFinite(lat) || !isFinite(lon)) return null
+  const [gcjLng, gcjLat] = wgs84ToGcj02(lon, lat)
+  if (!isFinite(gcjLng) || !isFinite(gcjLat)) return null
+  const getTag = (name: string) =>
+    pt.getElementsByTagNameNS('*', name)[0]?.textContent || pt.getElementsByTagName(name)[0]?.textContent
+  const ele = getTag('ele')
+  const time = getTag('time')
+  const hr = getTag('hr')
+  const cad = getTag('cad')
+  const temp = getTag('atemp')
+  return {
+    lat: Number(gcjLat),
+    lng: Number(gcjLng),
+    ele: ele ? parseFloat(ele) : null,
+    time: time ? parseGpxTimeToMs(time) : null,
+    hr: hr ? parseFloat(hr) : null,
+    cadence: cad ? parseFloat(cad) : null,
+    temp: temp ? parseFloat(temp) : null,
+  }
+}
+
+/**
+ * @description: 按记录中断把一段连续点切分为多段：时间跳变或空间跳变处断开。
+ * 时间缺失时不做时间判断；静止暂停（位移很小）不会被切分。
+ */
+function splitByDiscontinuity(points: GpxPoint[]): GpxPoint[][] {
+  const segments: GpxPoint[][] = []
+  let cur: GpxPoint[] = []
+  for (const p of points) {
+    if (cur.length > 0) {
+      const prev = cur[cur.length - 1]
+      const timeGap = p.time != null && prev.time != null && p.time - prev.time > SEGMENT_GAP_MS
+      const spaceJump = haversineM(prev, p) > SEGMENT_JUMP_M
+      if (timeGap || spaceJump) {
+        segments.push(cur)
+        cur = []
+      }
+    }
+    cur.push(p)
+  }
+  if (cur.length > 0) segments.push(cur)
+  return segments
+}
+
+/**
+ * @description: 解析 GPX 为分段轨迹：先按 <trkseg> 结构分段，再在各段内按记录中断进一步切分。
+ */
+function parseGpxSegments(gpxText: string): GpxPoint[][] {
   // 去除 UTF-8 BOM，避免解析器报 "XML declaration allowed only at the start"
   const text = gpxText.replace(/^\uFEFF/, '')
-  const doc = parser.parseFromString(text, 'text/xml')
-  const points: GpxPoint[] = []
-  // 命名空间无关：带默认 xmlns 的 GPX（如 iGPSPORT）用 querySelectorAll('trkpt') 可能匹配不到
-  const trkpts = doc.getElementsByTagNameNS('*', 'trkpt')
-  const trkptList = trkpts.length > 0
-    ? Array.from(trkpts)
-    : Array.from(doc.getElementsByTagName('trkpt'))
-  trkptList.forEach((pt) => {
-    const lat = parseFloat(pt.getAttribute('lat') || '')
-    const lon = parseFloat(pt.getAttribute('lon') || '')
-    if (!isFinite(lat) || !isFinite(lon)) return
-    const [gcjLng, gcjLat] = wgs84ToGcj02(lon, lat)
-    if (!isFinite(gcjLng) || !isFinite(gcjLat)) return
-    const getTag = (name: string) =>
-      pt.getElementsByTagNameNS('*', name)[0]?.textContent || pt.getElementsByTagName(name)[0]?.textContent
-    const ele = getTag('ele')
-    const time = getTag('time')
-    const hr = getTag('hr')
-    const cad = getTag('cad')
-    const temp = getTag('atemp')
-    points.push({
-      lat: Number(gcjLat),
-      lng: Number(gcjLng),
-      ele: ele ? parseFloat(ele) : null,
-      time: time ? parseGpxTimeToMs(time) : null,
-      hr: hr ? parseFloat(hr) : null,
-      cadence: cad ? parseFloat(cad) : null,
-      temp: temp ? parseFloat(temp) : null,
-    })
-  })
-  return points
+  const doc = new DOMParser().parseFromString(text, 'text/xml')
+  const segments: GpxPoint[][] = []
+
+  const segEls = collectByTag(doc, 'trkseg')
+  if (segEls.length > 0) {
+    for (const segEl of segEls) {
+      const pts = collectByTag(segEl, 'trkpt')
+        .map(parseTrkpt)
+        .filter((p): p is GpxPoint => !!p)
+      splitByDiscontinuity(pts).forEach((s) => { if (s.length > 0) segments.push(s) })
+    }
+  } else {
+    const pts = collectByTag(doc, 'trkpt')
+      .map(parseTrkpt)
+      .filter((p): p is GpxPoint => !!p)
+    splitByDiscontinuity(pts).forEach((s) => { if (s.length > 0) segments.push(s) })
+  }
+  return segments
 }
 
 function haversine(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -277,7 +341,7 @@ function haversine(lat1: number, lng1: number, lat2: number, lng2: number): numb
   return 2 * R * Math.asin(Math.sqrt(a))
 }
 
-function computeTrackInfo(points: GpxPoint[]): Partial<TrackInfo> {
+function computeTrackInfo(segments: GpxPoint[][]): Partial<TrackInfo> {
   let distance = 0
   let movingTime = 0
   let elevationGain = 0
@@ -285,8 +349,6 @@ function computeTrackInfo(points: GpxPoint[]): Partial<TrackInfo> {
   let elevationMin = Infinity
   let elevationMax = -Infinity
   let speedMax = 0
-  let startTime: number | null = null
-  let endTime: number | null = null
   let hrSum = 0
   let hrCount = 0
   let cadSum = 0
@@ -294,40 +356,42 @@ function computeTrackInfo(points: GpxPoint[]): Partial<TrackInfo> {
   let tempSum = 0
   let tempCount = 0
 
-  for (let i = 1; i < points.length; i++) {
-    const prev = points[i - 1]
-    const cur = points[i]
-    const seg = haversine(prev.lat, prev.lng, cur.lat, cur.lng)
-    distance += seg
-    if (cur.ele != null) {
-      const delta = cur.ele - (prev.ele ?? cur.ele)
-      if (delta > 0) elevationGain += delta
-      if (delta < 0) elevationLoss += -delta
-      elevationMin = Math.min(elevationMin, cur.ele)
-      elevationMax = Math.max(elevationMax, cur.ele)
-    }
-    if (prev.time != null && cur.time != null) {
-      const dt = (cur.time - prev.time) / 1000
-      if (dt > 0) {
-        const speed = seg / dt
-        // 速度 > 0.3 m/s 视为移动，累计移动时长
-        if (speed > 0.3) movingTime += dt
-        if (speed > speedMax) speedMax = speed
+  // 仅统计段内相邻点，跨段（记录中断的跳变）不计入距离/速度/爬升
+  for (const seg of segments) {
+    for (let i = 1; i < seg.length; i++) {
+      const prev = seg[i - 1]
+      const cur = seg[i]
+      const dist = haversine(prev.lat, prev.lng, cur.lat, cur.lng)
+      distance += dist
+      if (cur.ele != null) {
+        const delta = cur.ele - (prev.ele ?? cur.ele)
+        if (delta > 0) elevationGain += delta
+        if (delta < 0) elevationLoss += -delta
+      }
+      if (prev.time != null && cur.time != null) {
+        const dt = (cur.time - prev.time) / 1000
+        if (dt > 0) {
+          const speed = dist / dt
+          // 速度 > 0.3 m/s 视为移动，累计移动时长
+          if (speed > 0.3) movingTime += dt
+          if (speed > speedMax) speedMax = speed
+        }
       }
     }
-    if (cur.hr != null) { hrSum += cur.hr; hrCount++ }
-    if (cur.cadence != null) { cadSum += cur.cadence; cadCount++ }
-    if (cur.temp != null) { tempSum += cur.temp; tempCount++ }
-  }
-
-  if (points.length > 0) {
-    startTime = points[0].time
-    endTime = points[points.length - 1].time
-    if (points[0].ele != null) {
-      elevationMin = Math.min(elevationMin, points[0].ele)
-      elevationMax = Math.max(elevationMax, points[0].ele)
+    for (const p of seg) {
+      if (p.ele != null) {
+        elevationMin = Math.min(elevationMin, p.ele)
+        elevationMax = Math.max(elevationMax, p.ele)
+      }
+      if (p.hr != null) { hrSum += p.hr; hrCount++ }
+      if (p.cadence != null) { cadSum += p.cadence; cadCount++ }
+      if (p.temp != null) { tempSum += p.temp; tempCount++ }
     }
   }
+
+  const allPoints = segments.flat()
+  const startTime: number | null = allPoints.length > 0 ? allPoints[0].time : null
+  const endTime: number | null = allPoints.length > 0 ? allPoints[allPoints.length - 1].time : null
 
   const totalTime = startTime != null && endTime != null ? (endTime - startTime) / 1000 : 0
   const movingPace = movingTime > 0 ? (movingTime * 1000) / Math.max(distance, 0.001) : 0
@@ -373,6 +437,8 @@ class TrackInstance {
   private pendingCallbacks: ((trackInfo: any) => void)[] = []
   private options: any
   private points: GpxPoint[] = []
+  // 分段后的轨迹点（记录中断处断开），用于按段渲染，避免跨段画直线
+  private segments: GpxPoint[][] = []
   private coordinates: [number, number][] = []
   private coordinatesReadyCallbacks: (() => void)[] = []
   private coordinatesReady = false
@@ -407,6 +473,9 @@ class TrackInstance {
       }
       if (ref?.flowLayerId && map.getLayer(ref.flowLayerId)) {
         map.setPaintProperty(ref.flowLayerId, 'line-color', color ?? getDefaultLineColor(true))
+      }
+      if (ref?.gapLayerId && map.getLayer(ref.gapLayerId)) {
+        map.setPaintProperty(ref.gapLayerId, 'line-color', color ?? getDefaultLineColor(true))
       }
     })
   }
@@ -449,7 +518,8 @@ class TrackInstance {
     }
 
     this.readFileAsText(file).then((fileContent) => {
-      this.points = parseGpxPoints(fileContent)
+      this.segments = parseGpxSegments(fileContent)
+      this.points = this.segments.flat()
       this.coordinates = this.points.map((p) => toMapLibreLngLat(p.lat, p.lng))
       this.mapInstances.forEach((map) => {
         if (map) {
@@ -476,22 +546,58 @@ class TrackInstance {
     const layerId = `track-layer-${hash}`
     const hitLayerId = `track-hit-${hash}`
     const flowLayerId = `track-flow-${hash}`
-    if (!map.getSource(sourceId)) {
-      map.addSource(sourceId, {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: { type: 'LineString', coordinates: this.coordinates },
+    const gapLayerId = `track-gap-${hash}`
+    // 每个连续段一条 LineString；段间跳变单独用 kind=gap 的线表示
+    const features: any[] = []
+    for (const seg of this.segments) {
+      if (seg.length < 2) continue
+      features.push({
+        type: 'Feature',
+        properties: { kind: 'track' },
+        geometry: { type: 'LineString', coordinates: seg.map((p) => toMapLibreLngLat(p.lat, p.lng)) },
+      })
+    }
+    for (let i = 0; i < this.segments.length - 1; i++) {
+      const a = this.segments[i][this.segments[i].length - 1]
+      const b = this.segments[i + 1][0]
+      if (!a || !b) continue
+      features.push({
+        type: 'Feature',
+        properties: { kind: 'gap' },
+        geometry: {
+          type: 'LineString',
+          coordinates: [toMapLibreLngLat(a.lat, a.lng), toMapLibreLngLat(b.lat, b.lng)],
         },
       })
     }
-    // 可见线层（细线展示）
+    if (!map.getSource(sourceId)) {
+      map.addSource(sourceId, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features },
+      })
+    }
+    // 段间连接线：虚线 + 半透明，弱化跳变，区别于真实轨迹
+    if (!map.getLayer(gapLayerId)) {
+      map.addLayer({
+        id: gapLayerId,
+        type: 'line',
+        source: sourceId,
+        filter: ['==', ['get', 'kind'], 'gap'] as any,
+        paint: {
+          'line-color': this.lineColor ?? getDefaultLineColor(true),
+          'line-width': TRACK_LINE_WIDTH,
+          'line-opacity': 0.45,
+          'line-dasharray': [2, 2],
+        },
+      })
+    }
+    // 可见线层（仅真实轨迹段；细线展示）
     if (!map.getLayer(layerId)) {
       map.addLayer({
         id: layerId,
         type: 'line',
         source: sourceId,
+        filter: ['==', ['get', 'kind'], 'track'] as any,
         paint: {
           'line-color': this.lineColor ?? getDefaultLineColor(true),
           'line-width': TRACK_LINE_WIDTH,
@@ -499,12 +605,13 @@ class TrackInstance {
         },
       })
     }
-    // 流动虚线层：默认隐藏，高亮时显示表示前进方向（颜色跟随轨迹）
+    // 流动虚线层：默认隐藏，高亮时显示表示前进方向（颜色跟随轨迹，仅真实轨迹段）
     if (!map.getLayer(flowLayerId)) {
       map.addLayer({
         id: flowLayerId,
         type: 'line',
         source: sourceId,
+        filter: ['==', ['get', 'kind'], 'track'] as any,
         layout: { visibility: 'none' },
         paint: {
           'line-color': this.lineColor ?? getDefaultLineColor(true),
@@ -514,12 +621,13 @@ class TrackInstance {
         },
       })
     }
-    // 加宽透明的命中层：扩大 hover/点击判定范围，置于可见线层之下
+    // 加宽透明的命中层：扩大 hover/点击判定范围，置于可见线层之下（仅真实轨迹段）
     if (!map.getLayer(hitLayerId)) {
       map.addLayer({
         id: hitLayerId,
         type: 'line',
         source: sourceId,
+        filter: ['==', ['get', 'kind'], 'track'] as any,
         paint: {
           'line-color': 'transparent',
           'line-width': TRACK_HIT_LINE_WIDTH,
@@ -553,12 +661,12 @@ class TrackInstance {
       this.trackInfo = {
         ...this.trackInfo,
         name: this.trackId.replace(/\.gpx$/i, ''),
-        ...computeTrackInfo(this.points),
+        ...computeTrackInfo(this.segments),
       }
       this.pendingCallbacks.forEach((cb) => cb(this.trackInfo))
       this.pendingCallbacks = []
     }
-    return { sourceId, layerId, hitLayerId, flowLayerId }
+    return { sourceId, layerId, hitLayerId, flowLayerId, gapLayerId }
   }
 
   private addEdgeMarkers(map: maplibregl.Map) {
@@ -636,8 +744,10 @@ class TrackInstance {
     if (!ref) {
       ref = this.createLayerForMap(map)
       this.layerByMap.set(map, ref)
-    } else if (map.getLayer(ref.layerId)) {
-      map.setLayoutProperty(ref.layerId, 'visibility', 'visible')
+    } else {
+      if (map.getLayer(ref.layerId)) map.setLayoutProperty(ref.layerId, 'visibility', 'visible')
+      if (ref.hitLayerId && map.getLayer(ref.hitLayerId)) map.setLayoutProperty(ref.hitLayerId, 'visibility', 'visible')
+      if (ref.gapLayerId && map.getLayer(ref.gapLayerId)) map.setLayoutProperty(ref.gapLayerId, 'visibility', 'visible')
     }
   }
 
@@ -683,6 +793,7 @@ class TrackInstance {
       if (ref.hitLayerId && map.getLayer(ref.hitLayerId)) map.removeLayer(ref.hitLayerId)
       if (ref.flowLayerId && map.getLayer(ref.flowLayerId)) map.removeLayer(ref.flowLayerId)
       if (map.getLayer(ref.layerId)) map.removeLayer(ref.layerId)
+      if (ref.gapLayerId && map.getLayer(ref.gapLayerId)) map.removeLayer(ref.gapLayerId)
       if (map.getSource(ref.sourceId)) map.removeSource(ref.sourceId)
     }
     // 若正在该地图上播放流动动画，先停止

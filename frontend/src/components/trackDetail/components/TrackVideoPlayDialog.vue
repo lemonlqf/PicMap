@@ -40,9 +40,10 @@
 
         <!-- 统一控制栏（与 VideoPlayer/PanoramaVideoViewer 共用）；自动播放下一个开关通过 extra 插槽注入 -->
         <VideoControls class="track-video-controls" :is-playing="isPlaying" :current-time="currentSeconds"
-          :duration="durationSeconds" :volume="volume" :muted="muted" :is-fullscreen="isFullscreen"
+          :duration="durationSeconds" :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" :rate="rate"
           :visible="!isFullscreen || controlsVisible" @toggle-play="togglePlay" @toggle-mute="toggleMute"
-          @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="handleSliderInput">
+          @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="handleSliderInput"
+          @rate-change="onRateChange">
           <template #extra>
             <span class="auto-next" :title="t('track.autoNext')">
               <el-switch v-model="autoPlayNext" size="small" />
@@ -89,6 +90,7 @@ import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
 import { fetchTrackPoints, extractRangeCoords, interpolateAt, getVideoColor } from '@/utils/videoNode'
+import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
 import type { IGpxPoint } from '@/utils/videoNode'
 
 const props = defineProps<{
@@ -258,11 +260,18 @@ watch(isFullscreen, (val) => {
   }
 })
 
-// ---- 音量 ----
-const volume = ref(1)
+// ---- 音量（跨弹窗记忆）----
+const volume = ref(getStoredVolume())
 const muted = ref(false)
 /** 静音前音量（取消静音时恢复） */
-const lastVolume = ref(1)
+const lastVolume = ref(volume.value > 0 ? volume.value : 1)
+
+// ---- 播放倍速（每次打开重置为 1，不持久化）----
+const rate = ref(DEFAULT_PLAYBACK_RATE)
+function onRateChange(r: number) {
+  rate.value = r
+  playerRef.value?.setPlaybackRate(r)
+}
 function toggleMute() {
   // 静音时音量归零，取消静音恢复静音前的值
   if (muted.value) {
@@ -282,7 +291,10 @@ function toggleMute() {
 function onVolumeChange(val: number | number[]) {
   const v = Array.isArray(val) ? val[0] : val
   volume.value = v
-  if (v > 0) lastVolume.value = v
+  if (v > 0) {
+    lastVolume.value = v
+    setStoredVolume(v)
+  }
   muted.value = v <= 0
   playerRef.value?.setVolume(v)
   playerRef.value?.setMuted(v <= 0)
@@ -509,6 +521,7 @@ function handleLoadedMetadata(duration: number) {
   nextTick(() => {
     playerRef.value?.setVolume(volume.value)
     playerRef.value?.setMuted(muted.value)
+    playerRef.value?.setPlaybackRate(rate.value)
     playerRef.value?.play()
   })
 }
@@ -563,6 +576,17 @@ watch(
   { immediate: true }
 )
 
+// 每次打开弹窗重新初始化播放参数（音量除外；弹窗关闭后组件仍常驻，需显式复位）
+watch(
+  () => props.visible,
+  (v) => {
+    if (!v) return
+    rate.value = DEFAULT_PLAYBACK_RATE
+    muted.value = false
+  },
+  { immediate: true }
+)
+
 function onVisibleChange(value: boolean) {
   emit('update:visible', value)
 }
@@ -576,6 +600,9 @@ function handleClosed() {
   durationSeconds.value = 0
   isPlaying.value = false
   miniMapMinimized.value = false
+  // 关闭时复位倍速/静音（音量保留），下次打开从 1x 开始
+  rate.value = DEFAULT_PLAYBACK_RATE
+  muted.value = false
 }
 
 onMounted(() => {

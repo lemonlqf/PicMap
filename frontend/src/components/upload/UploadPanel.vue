@@ -31,7 +31,12 @@
     <el-scrollbar style="height: calc(100% - 50px)" v-if="hasContent" max-height="55vh">
       <!-- 已上传 - 图片与视频混合区 -->
       <div v-if="uploadedImageList.length || uploadedVideoList.length" class="section">
-        <h3 class="section-title">{{ $t('uploadedPicture') }}</h3>
+        <div class="section-header">
+          <h3 class="section-title">{{ $t('uploadedPicture') }}</h3>
+          <el-button size="small" text type="danger" @click="clearUploadedList">
+            {{ $t('clear') }}
+          </el-button>
+        </div>
         <div class="uploaded-list">
           <div class="uploaded-card" v-for="item in uploadedImageList" :key="item.id">
             <el-tooltip :show-after="500" :content="item.name" placement="top">
@@ -483,6 +488,18 @@ function deleteAll() {
 }
 
 defineExpose({ deleteAll })
+
+// 清空已上传列表（图片 + 视频）：仅从面板列表移除，不影响已上传到地图/schema 的内容
+function clearUploadedList() {
+  const uploadedImageIds = uploadedImageIdSet.value
+  const uploadedVideoIds = uploadedVideoIdSet.value
+  imageList.value = imageList.value.filter(item => !uploadedImageIds.has(item.id))
+  videoList.value = videoList.value.filter(v => {
+    if (!uploadedVideoIds.has(v.id)) return true
+    delete videoCoverMap.value[v.id]
+    return false
+  })
+}
 
 function showImageLocate(id: string) {
   imageLocateId.value = id
@@ -958,6 +975,17 @@ onUnmounted(() => {
       color: #909399;
       margin: 0 0 8px;
       font-weight: 600;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+
+      .section-title {
+        margin-bottom: 0;
+      }
     }
 
   }

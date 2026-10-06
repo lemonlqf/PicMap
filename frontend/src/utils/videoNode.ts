@@ -3,6 +3,7 @@
  * @Description: 将关联 GPX 的视频按其时间轴生成地图节点（坐标来自 GPX 时间对应位置的插值）
  */
 import API from '@/wails/api'
+import { getTimezoneOffsetMinutes } from './timezone'
 import type { IVideoNode } from '@/type/video'
 import type { IVideoInfo, ITrackInfo, IVideoRef } from '@/type/schema'
 
@@ -73,14 +74,32 @@ export interface IGpxPoint {
 
 /**
  * @description: 解析 GPX 的时间字符串为毫秒时间戳。
- * 部分设备（如 iGPSPORT）导出时把本地时间错误地加上了 'Z'（UTC 后缀），
- * 若按 UTC 解析会多出时区偏移（如 +8h）。此处统一按本地墙钟时间解析（忽略时区后缀）。
+ * - 带时区标记（Z / ±HH:MM）时严格按时区解析（保证与视频 creation_time 的 UTC 基准一致）
+ * - 不带时区标记时，按用户设置的时区（默认东八区）解释墙钟时间
  */
 export function parseGpxTimeToMs(time: string): number {
   if (!time) return 0
-  const m = time.match(/(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/)
+  const m = time.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$/)
   if (m) {
-    return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]), Number(m[6])).getTime()
+    const year = Number(m[1])
+    const month = Number(m[2])
+    const day = Number(m[3])
+    const hour = Number(m[4])
+    const minute = Number(m[5])
+    const second = Number(m[6])
+    const fracMs = m[7] ? Math.round(parseFloat(`0.${m[7]}`) * 1000) : 0
+    const base = Date.UTC(year, month - 1, day, hour, minute, second, fracMs)
+    const tz = m[8]
+    if (tz === 'Z') return base
+    if (tz) {
+      // ±HH:MM / ±HHMM：本地时间 = UTC + 偏移，故 UTC = base - 偏移
+      const sign = tz[0] === '-' ? -1 : 1
+      const digits = tz.slice(1).replace(':', '')
+      const offMin = sign * (Number(digits.slice(0, 2)) * 60 + Number(digits.slice(2)))
+      return base - offMin * 60000
+    }
+    // 无时区信息：按用户设置的时区解释墙钟时间
+    return base - getTimezoneOffsetMinutes() * 60000
   }
   const t = new Date(time).getTime()
   return isNaN(t) ? 0 : t
