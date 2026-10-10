@@ -25,8 +25,8 @@ import Image from './components/Image.vue'
 import ImageInfoComponent from './components/ImageInfo.vue'
 import PanoramaViewer from '@/components/imagePreview/PanoramaViewer.vue'
 import { DRAWER_HEIGHT } from '@/utils/constant'
-import { getSchemaInfoById } from '@/utils/schema'
-import { getFullImageUrlById } from '@/utils/Image'
+import { getSchemaInfoById, judgeHadUploadImage } from '@/utils/schema'
+import { getFullImageUrlById, getImageUrl } from '@/utils/Image'
 
 const props = defineProps({
   imageId: {
@@ -55,7 +55,11 @@ watch(() => props.imageId, async (imageId) => {
     panoramaType.value = imageInfo.value?.panoramaType ?? ''
     panoramaLoading.value = true
     try {
-      const url = await getFullImageUrlById(imageId)
+      // 待上传图片尚未导入用户目录，服务端的全景图不存在（按 id 请求会失败），
+      // 因此未上传时回退到解析预览（内存中的 base64）作为全景源
+      const url = judgeHadUploadImage(imageId)
+        ? await getFullImageUrlById(imageId)
+        : (getImageUrl(imageId) || (imageInfo.value as any)?.url || '')
       // 请求期间可能已切换到其他图片，避免旧结果覆盖
       if (props.imageId !== imageId) return
       panoramaUrl.value = url

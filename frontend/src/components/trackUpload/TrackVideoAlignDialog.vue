@@ -39,19 +39,27 @@
           <!-- 主轨刻度线 -->
           <div class="track-scale"></div>
           <!-- 视频条带轨道 -->
-          <div v-for="item in alignItems" :key="item.video.id" class="video-row"
+          <div v-for="(item, index) in alignItems" :key="item.video.id" class="video-row"
             :class="{ active: activeVideoId === item.video.id }" @click="selectVideo(item.video.id)">
+            <span class="video-index">{{ index + 1 }}</span>
             <span class="video-name" :title="item.video.name">{{ item.video.name }}</span>
+            <el-tag class="video-status" size="small" effect="light" disable-transitions
+              :type="isUploadedVideo(item) ? 'success' : 'warning'">
+              {{ isUploadedVideo(item) ? $t('uploaded') : $t('notUploaded') }}
+            </el-tag>
+            <div class="video-panorama" :class="{ active: !!item.video.isPanorama }"
+              :title="item.video.isPanorama ? $t('cancelPanorama') : $t('setPanorama')"
+              @click.stop="togglePanorama(item)">
+              <span class="panorama-text">360</span>
+            </div>
             <div class="video-lane">
-              <!-- 条带 -->
-              <div class="video-bar"
-                :class="{ out: isOutOfRange(item) }"
-                :style="barStyle(item)"
+              <!-- 轨道范围内：渲染可拖拽滑块 -->
+              <div v-if="!isOutOfRange(item)" class="video-bar" :style="barStyle(item)"
                 @mousedown.stop="startDrag($event, item)">
                 <span class="bar-label">{{ formatMs(item.video.durationMs) }}</span>
               </div>
-              <!-- 越界标记 -->
-              <span v-if="isOutOfRange(item)" class="out-warning" :style="outWarningStyle(item)">超出轨迹</span>
+              <!-- 超出轨道（前/后）：不渲染滑块，仅显示偏离时间 -->
+              <span v-else class="out-label" :class="outSide(item)">{{ outLabel(item) }}</span>
             </div>
             <div class="video-offset">
               <el-input v-model="item.offsetText" size="small" placeholder="HH:mm:ss" class="offset-input"
@@ -60,6 +68,8 @@
             <el-button size="small" type="danger" class="video-remove" @click.stop="removeVideo(item.video.id)">
               移除
             </el-button>
+            <el-button size="small" type="primary" circle title="播放" :icon="VideoPlay"
+              :loading="!!playingIds[item.video.id]" @click.stop="playAlignVideo(item)" />
           </div>
           <div v-if="alignItems.length === 0" class="no-video-tip">
             <el-empty description="该轨迹尚未关联视频，点击「添加视频」选择已上传视频，或「添加本地视频」从磁盘选择" :image-size="60" />
@@ -125,12 +135,16 @@
       <el-button type="primary" :disabled="selectedVideoIds.length === 0" @click="confirmAddVideos">添加</el-button>
     </template>
   </el-dialog>
+
+  <!-- 视频播放弹窗（对齐时预览当前视频） -->
+  <VideoPlayDialog v-model:visible="playVideoVisible" :video-id="playVideoId" />
 </template>
 
 <script lang="ts" setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import * as maplibregl from 'maplibre-gl'
 import { ElMessage, ElMessageBox } from 'element-plus'
+import { VideoPlay } from '@element-plus/icons-vue'
 import i18n from '@/i18n/index'
 import API from '@/wails/api'
 import { useSchemaStore } from '@/store/schema'
@@ -139,7 +153,10 @@ import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
 import { fetchTrackPoints, VIDEO_COLORS } from '@/utils/videoNode'
 import type { IGpxPoint } from '@/utils/videoNode'
 import { pushVideoToSchema, associateVideoToTrack, videoSelectContext, parseVideoNameTimeMs } from '@/utils/video'
-import { editSchemaAttrAndSave, saveSchema } from '@/utils/schema'
+import { getTimezoneOffsetMinutes } from '@/utils/timezone'
+import VideoPlayDialog from '@/components/videoPlayer/VideoPlayDialog.vue'
+import { editSchemaAttrAndSave, saveSchema, getVideoInfoById, setVideoPanoramaAndSave } from '@/utils/schema'
+import markerService from '@/services/marker'
 import type { ITrackInfo, IVideoInfo, IVideoRef } from '@/type/schema'
 import type { ISelectedVideo } from '@/type/video'
 
@@ -177,11 +194,16 @@ interface AlignItem {
   color: string
   // 本地待导入视频的磁盘路径（未进 schema，保存时导入）
   localPath?: string
+  // 为播放而临时导入到用户目录的视频信息（尚未写入 schema，保存时复用，避免重复导入）
+  importedVideo?: IVideoInfo
 }
 const alignItems = ref<AlignItem[]>([])
 
-// 相对对齐的基准时刻（视频时钟与轨迹时钟基准不一致时使用，取本次打开后最早的视频起点，跨多次添加保持稳定）
-let relativeBaseMs = 0
+// 视频播放预览
+const playVideoVisible = ref(false)
+const playVideoId = ref('')
+// 正在为播放而导入的视频 id 集合（按钮 loading）
+const playingIds = ref<Record<string, boolean>>({})
 
 const activeVideoId = ref<string | null>(null)
 
@@ -200,34 +222,60 @@ function videoStartMs(video: IVideoInfo | undefined): number {
   return video?.startTimeMs || parseVideoNameTimeMs(video?.name) || 0
 }
 
+// 该视频是否已上传（已存在于 schema.videoInfo）；本地待导入/待上传视频为未上传
+function isUploadedVideo(item: AlignItem): boolean {
+  return !!getVideoInfoById(item.video.id)
+}
+
+/**
+ * @description: 切换视频是否为全景视频。
+ * - 已上传视频：写入 schema 并即时刷新地图节点全景角标
+ * - 待上传/本地视频：仅更新内存标记，保存导入时一并写入 schema
+ */
+async function togglePanorama(item: AlignItem) {
+  const next = !item.video.isPanorama
+  item.video.isPanorama = next
+  if (item.importedVideo) item.importedVideo.isPanorama = next
+  if (getVideoInfoById(item.video.id)) {
+    await setVideoPanoramaAndSave(item.video.id, next)
+    markerService.refreshMarkerIconById(item.video.id)
+  }
+}
+
 /**
  * @description: 为一组新增视频自动分配偏移。
- * 正常情况按"视频起点 - GPX 起点"绝对对齐；若所有视频都早于 GPX 起点（视频与轨迹时钟基准不一致，
- * 常见于无人机时区/时钟未校准），则退化为以最早视频为 0 点、按视频彼此间隔排布，保证相对位置正确。
+ * 按"视频起点 - GPX 起点"做绝对对齐；视频早于轨迹起点时偏移为负，交由上层按"超出轨道"处理
+ * （不渲染滑块、仅显示偏离时间、保存时不上传）。
+ * 特例：当所有视频都早于 GPX 起点、且疑似设备把本地时间写成 UTC（如 IGPSPORT 把本地时间标注为 Z）时，
+ * 先把 GPX 起点按用户时区重新解释再对齐，避免把时区基准不一致误判为"超出轨道"。
  */
 function assignAutoOffsets(items: AlignItem[]) {
   if (items.length === 0) return
   const gpxStart = gpxPoints.value[0]?.timeMs || 0
   const starts = items.map(i => videoStartMs(i.video))
-  const hasStart = starts.map(s => s > 0)
   const absOffsets = starts.map(s => (gpxStart && s > 0) ? s - gpxStart : 0)
 
-  const allKnown = hasStart.every(Boolean)
+  const allKnown = starts.every(s => s > 0)
   const allBeforeTrack = allKnown && absOffsets.every(o => o <= 0)
 
-  let offsets: number[]
-  if (allBeforeTrack) {
-    // 时钟基准不一致：以最早视频为基准做相对对齐；基准跨多次添加保持稳定
-    const minStart = Math.min(...starts.filter(s => s > 0))
-    if (!relativeBaseMs) relativeBaseMs = minStart
-    offsets = starts.map(s => (s > 0 ? Math.max(0, s - relativeBaseMs) : 0))
-  } else {
-    offsets = absOffsets.map(o => Math.max(0, o))
+  let mode = 'absolute(相对GPX起点)'
+  // 默认保留原始绝对偏移（可为负：视频早于轨迹起点）
+  let offsets = absOffsets
+  if (allBeforeTrack && gpxStart > 0) {
+    // GPX 声称 UTC、实为本地墙钟时间时，按用户时区重新解释后即可得到正确偏移
+    const gpxStartLocal = gpxStart - getTimezoneOffsetMinutes() * 60000
+    const candidate = starts.map(s => s - gpxStartLocal)
+    const duration = trackDurationMs.value
+    const allInRange = candidate.every(o => o >= 0 && (duration <= 0 || o <= duration))
+    if (allInRange && candidate.some(o => o > 0)) {
+      offsets = candidate
+      mode = 'absolute(按用户时区重解释GPX起点)'
+    }
   }
 
   const toText = (ms: number) => (ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-')
   console.log('[TrackVideoAlign] assignAutoOffsets', {
-    mode: allBeforeTrack ? 'relative(相对最早视频)' : 'absolute(相对GPX起点)',
+    mode,
     gpxStartText: toText(gpxStart),
     items: items.map((item, i) => ({
       id: item.video.id,
@@ -458,6 +506,55 @@ function removeVideo(videoId: string) {
   }
 }
 
+/**
+ * @description: 播放当前视频。已上传视频直接按 id 播放；本地待导入视频先临时导入到
+ * 用户目录以便流式播放（保存时复用该结果，不会重复导入）。
+ */
+async function playAlignVideo(item: AlignItem) {
+  // 已上传：直接播放
+  if (getVideoInfoById(item.video.id)) {
+    playVideoId.value = item.video.id
+    playVideoVisible.value = true
+    return
+  }
+  // 已在本弹窗内为播放导入过：直接播放
+  if (item.importedVideo) {
+    playVideoId.value = item.importedVideo.id
+    playVideoVisible.value = true
+    return
+  }
+  // 本地待导入：取源文件路径（本地添加项或上传模式待上传视频）
+  const localPath = item.localPath
+    || (props.pendingVideo?.id === item.video.id ? props.pendingVideo?.path : undefined)
+  if (!localPath) {
+    ElMessage.warning('视频尚未就绪，无法播放')
+    return
+  }
+  if (playingIds.value[item.video.id]) return
+  playingIds.value[item.video.id] = true
+  try {
+    const res = await API.video.importVideo({
+      id: item.video.id,
+      name: item.video.name || '',
+      path: localPath,
+    })
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
+      return
+    }
+    item.importedVideo = res.data as IVideoInfo
+    // 保留用户在弹窗中设置的全景标记
+    item.importedVideo.isPanorama = item.video.isPanorama
+    playVideoId.value = item.importedVideo.id
+    playVideoVisible.value = true
+  } catch (e) {
+    console.error('播放前导入视频失败', e)
+    ElMessage.error(i18n.global.t('description.videoImportFailed'))
+  } finally {
+    playingIds.value[item.video.id] = false
+  }
+}
+
 async function loadData() {
   loading.value = true
   alignItems.value = []
@@ -466,7 +563,6 @@ async function loadData() {
   localSelecting.value = false
   localProgress.value = { processed: 0, total: 0 }
   addLocalDirectly.value = false
-  relativeBaseMs = 0
   try {
     const pts = await fetchTrackPoints(props.trackId)
     gpxPoints.value = pts || []
@@ -570,14 +666,30 @@ function barStyle(item: AlignItem): Record<string, string> {
   }
 }
 
-function outWarningStyle(item: AlignItem): Record<string, string> {
-  const duration = trackDurationMs.value || 1
-  const left = (item.timeOffsetMs + (item.video.durationMs || 0)) / duration * 100
-  return { left: `${Math.min(100, left)}%` }
+/**
+ * @description: 视频是否超出轨道范围：起点早于轨迹起点，或终点晚于轨迹终点。
+ * 超出时不渲染滑块，仅在轨道上显示偏离时间。
+ */
+function isOutOfRange(item: AlignItem): boolean {
+  const total = trackDurationMs.value
+  if (total <= 0) return false
+  if (item.timeOffsetMs < 0) return true
+  return item.timeOffsetMs + (item.video.durationMs || 0) > total
 }
 
-function isOutOfRange(item: AlignItem): boolean {
-  return item.timeOffsetMs + (item.video.durationMs || 0) > trackDurationMs.value
+// 超出方向：'before'（早于起点）/ 'after'（晚于终点）
+function outSide(item: AlignItem): 'before' | 'after' {
+  return item.timeOffsetMs < 0 ? 'before' : 'after'
+}
+
+// 偏离时间文本：早于轨迹起点 / 超出轨迹终点 的具体时长
+function outLabel(item: AlignItem): string {
+  const total = trackDurationMs.value
+  const dur = item.video.durationMs || 0
+  if (item.timeOffsetMs < 0) {
+    return `早于轨迹起点 ${formatMs(-item.timeOffsetMs)}`
+  }
+  return `超出轨迹终点 ${formatMs(item.timeOffsetMs + dur - total)}`
 }
 
 // ---- 条带拖拽 ----
@@ -611,9 +723,8 @@ function onDragMove(e: MouseEvent) {
   if (!draggingItem) return
   // 像素位移 / 轨道像素宽度 * 总时长 = 对应毫秒（保证与鼠标位移 1:1）
   const deltaMs = (e.clientX - dragStartX) / laneWidthPx * trackDurationMs.value
-  let newOffset = Math.round(dragStartOffset + deltaMs)
-  // 起点允许为负（视频从轨迹起点之前开始），但给出越界提示；不过度钳制以便调整
-  if (newOffset < 0) newOffset = 0
+  const newOffset = Math.round(dragStartOffset + deltaMs)
+  // 起点允许为负（视频从轨迹起点之前开始）；超出轨道时不在时间线上渲染滑块，仅提示偏离时间
   draggingItem.timeOffsetMs = newOffset
   draggingItem.offsetText = msToHhmmss(newOffset)
   // 实时联动地图预览（所有视频弧段一起刷新）
@@ -629,7 +740,8 @@ function onDragEnd() {
 // ---- 偏移文本输入 ----
 function handleOffsetTextChange(item: AlignItem) {
   const ms = hhmmssToMs(item.offsetText)
-  if (isNaN(ms) || ms < 0) {
+  // 允许负值（早于轨迹起点）；仅非法格式时回退
+  if (isNaN(ms)) {
     item.offsetText = msToHhmmss(item.timeOffsetMs)
     return
   }
@@ -872,25 +984,38 @@ async function handleSave() {
   if (props.pendingVideo) {
     const item = alignItems.value[0]
     if (!item) return
+    // 超出轨道的视频不上传
+    if (isOutOfRange(item)) {
+      ElMessage.warning('视频超出轨迹范围，未上传。请调整偏移后再保存')
+      return
+    }
     saving.value = true
     try {
-      const res = await API.video.importVideo({
-        id: props.pendingVideo.id,
-        name: props.pendingVideo.name,
-        path: props.pendingVideo.path,
-      })
-      if (res.code !== 200) {
-        ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
-        return
+      let vi: IVideoInfo
+      // 播放时可能已临时导入，直接复用，避免重复复制
+      if (item.importedVideo) {
+        vi = item.importedVideo
+      } else {
+        const res = await API.video.importVideo({
+          id: props.pendingVideo.id,
+          name: props.pendingVideo.name,
+          path: props.pendingVideo.path,
+        })
+        if (res.code !== 200) {
+          ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
+          return
+        }
+        vi = res.data
       }
-      const vi: IVideoInfo = res.data
+      // 保留用户在弹窗中设置的全景标记
+      vi.isPanorama = item.video.isPanorama
       // 关联信息（轨迹 + 偏移）只存 trackInfo.videos，videoInfo 不存 trackId/timeOffsetMs
       pushVideoToSchema(vi)
       associateVideoToTrack(props.trackId, vi.id, item.timeOffsetMs)
       await saveSchema()
       ElMessage.success(i18n.global.t('description.videoLinkedAndUploaded'))
       emit('aligned')
-      dialogVisible.value = false
+      // 保存后不自动关闭弹窗，便于继续查看/调整
     } finally {
       saving.value = false
     }
@@ -899,13 +1024,16 @@ async function handleSave() {
 
   // 更新 trackInfo.videos（权威来源）；保存前按偏移时间排序，保证持久化顺序与时间线一致
   alignItems.value.sort(compareAlignItems)
+  // 超出轨道（前/后）的视频不上传、不关联，仅在时间线上提示偏离时间
+  const savedItems = alignItems.value.filter(item => !isOutOfRange(item))
+  const skippedCount = alignItems.value.length - savedItems.length
   const trackInfoList = [...(schema.trackInfo || [])]
   const trackIndex = trackInfoList.findIndex(t => t.id === props.trackId)
-  const refs = new Array<IVideoRef>(alignItems.value.length)
-  // 本地选择的视频需先导入到用户目录并写入 schema.videoInfo
+  const refs = new Array<IVideoRef>(savedItems.length)
+  // 本地选择的视频需先导入到用户目录并写入 schema.videoInfo（播放时已导入的除外）
   const localTasks: { item: AlignItem; index: number }[] = []
-  alignItems.value.forEach((item, index) => {
-    if (item.localPath) localTasks.push({ item, index })
+  savedItems.forEach((item, index) => {
+    if (item.localPath && !item.importedVideo) localTasks.push({ item, index })
   })
 
   saving.value = true
@@ -922,21 +1050,33 @@ async function handleSave() {
         throw new Error(res.msg || i18n.global.t('description.videoImportFailedNamed', { name: item.video.name || item.video.id }))
       }
       const vi: IVideoInfo = res.data
+      // 保留用户在弹窗中设置的全景标记
+      vi.isPanorama = item.video.isPanorama
       pushVideoToSchema(vi)
       item.video = vi
       item.localPath = undefined
       refs[index] = { videoId: vi.id, timeOffsetMs: item.timeOffsetMs }
       saveProgress.value = { processed: saveProgress.value.processed + 1, total: saveProgress.value.total }
     })
-    // 已上传（无 localPath）的项直接写入 refs
-    alignItems.value.forEach((item, index) => {
-      if (!refs[index]) refs[index] = { videoId: item.video.id, timeOffsetMs: item.timeOffsetMs }
+    // 已上传（无 localPath）的项直接写入 refs；播放时已导入的本地视频此处写入 schema 并复用
+    savedItems.forEach((item, index) => {
+      if (refs[index]) return
+      if (item.importedVideo) {
+        item.importedVideo.isPanorama = item.video.isPanorama
+        pushVideoToSchema(item.importedVideo)
+        refs[index] = { videoId: item.importedVideo.id, timeOffsetMs: item.timeOffsetMs }
+      } else {
+        refs[index] = { videoId: item.video.id, timeOffsetMs: item.timeOffsetMs }
+      }
     })
     trackInfoList[trackIndex] = { ...trackInfoList[trackIndex], videos: refs }
     // editSchemaAttrAndSave 内部已 saveSchema，无需再保存一次
     await editSchemaAttrAndSave('trackInfo', trackInfoList)
+    if (skippedCount > 0) {
+      ElMessage.warning(`已跳过 ${skippedCount} 个超出轨迹范围的视频（未上传/未关联）`)
+    }
     ElMessage.success(i18n.global.t('description.alignSaved'))
-    dialogVisible.value = false
+    // 保存后不自动关闭弹窗，便于继续查看/调整
   } catch (e: any) {
     ElMessage.error(String(e?.message || e))
   } finally {
@@ -993,18 +1133,22 @@ async function requestCloseAddVideo() {
 // ---- 时间格式化 ----
 function msToHhmmss(ms: number): string {
   if (!ms && ms !== 0) return ''
-  const totalSec = Math.floor(ms / 1000)
+  const sign = ms < 0 ? '-' : ''
+  const totalSec = Math.floor(Math.abs(ms) / 1000)
   const h = Math.floor(totalSec / 3600)
   const m = Math.floor((totalSec % 3600) / 60)
   const s = totalSec % 60
   const pad = (n: number) => String(n).padStart(2, '0')
-  return `${pad(h)}:${pad(m)}:${pad(s)}`
+  return `${sign}${pad(h)}:${pad(m)}:${pad(s)}`
 }
 
 function hhmmssToMs(str: string): number {
-  const parts = str.split(':').map(Number)
+  const s = (str || '').trim()
+  const neg = s.startsWith('-')
+  const body = neg ? s.slice(1) : s
+  const parts = body.split(':').map(Number)
   if (parts.length !== 3 || parts.some(n => isNaN(n))) return NaN
-  return ((parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000)
+  return (neg ? -1 : 1) * ((parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000)
 }
 
 function formatMs(ms: number | undefined): string {
@@ -1077,7 +1221,7 @@ function formatMs(ms: number | undefined): string {
   padding: 8px;
   min-height: 60px;
   /* 轨道区最高 200px，超出滚动显示 */
-  max-height: 200px;
+  max-height: 180px;
   overflow-y: auto;
 }
 
@@ -1105,14 +1249,56 @@ function formatMs(ms: number | undefined): string {
   background: #f0f7ff;
 }
 
+.video-index {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #909399;
+  font-variant-numeric: tabular-nums;
+}
+
 .video-name {
-  width: 140px;
+  width: 120px;
   flex-shrink: 0;
   font-size: 12px;
   color: #606266;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.video-status {
+  flex-shrink: 0;
+}
+
+/* 全景开关（360）：点击切换是否为全景视频 */
+.video-panorama {
+  flex-shrink: 0;
+  width: 30px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #909399;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.video-panorama:hover {
+  filter: brightness(1.08);
+}
+
+.video-panorama.active {
+  background: #409eff;
+}
+
+.video-panorama .panorama-text {
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
 }
 
 .video-lane {
@@ -1140,10 +1326,6 @@ function formatMs(ms: number | undefined): string {
   filter: brightness(1.1);
 }
 
-.video-bar.out {
-  background: #e6a23c;
-}
-
 .bar-label {
   font-size: 10px;
   color: #fff;
@@ -1151,21 +1333,29 @@ function formatMs(ms: number | undefined): string {
   text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
 }
 
-.out-warning {
+/* 超出轨道：不渲染滑块，仅显示偏离时间 */
+.out-label {
   position: absolute;
-  top: -2px;
-  transform: translateX(-50%);
-  font-size: 10px;
-  color: #e6a23c;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
   white-space: nowrap;
-  background: #fff;
-  padding: 0 4px;
-  border-radius: 2px;
-  border: 1px solid #e6a23c;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px dashed #e6a23c;
+  background: rgba(230, 162, 60, 0.1);
+  color: #e6a23c;
+}
+
+.out-label.before {
+  color: #f56c6c;
+  border-color: #f56c6c;
+  background: rgba(245, 108, 108, 0.1);
 }
 
 .video-offset {
-  width: 110px;
+  width: 96px;
   flex-shrink: 0;
 }
 

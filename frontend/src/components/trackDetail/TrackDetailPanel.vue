@@ -2,8 +2,8 @@
  * @Author: Do not edit
  * @Date: 2026-03-25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-26 22:07:58
- * @FilePath: \PicMap\picMap_fontend\src\components\trackDetail\TrackDetailPanel.vue
+ * @LastEditTime: 2026-10-10 20:33:30
+ * @FilePath: \picmap-go\frontend\src\components\trackDetail\TrackDetailPanel.vue
  * @Description: 轨迹详情卡片组件，全屏时底部居中显示完整信息
 -->
 <template>
@@ -191,7 +191,7 @@ const healthItems = computed(() => [
   left: 50%;
   transform: translateX(-50%);
   z-index: 9999;
-  max-width: 90vw;
+  max-width: 80vw;
   min-width: 70vw;
   border-radius: 10px 10px 0 0;
   overflow: hidden;

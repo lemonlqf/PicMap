@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2026-03-25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-09-11 19:17:20
+ * @LastEditTime: 2026-10-10 20:32:28
  * @FilePath: \picmap-go\frontend\src\components\trackDetail\components\TrackDetailHeader.vue
  * @Description: 轨迹详情头部：轨迹标签页切换 + 当前轨迹关联视频列表 + 播放按钮（打开独立空弹框）
 -->
@@ -71,6 +71,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import TrackVideoPlayDialog from './TrackVideoPlayDialog.vue'
 import eventBus from '@/utils/eventBus'
+import { useSchemaStore } from '@/store/schema'
 
 interface TrackVideoItem {
   videoId: string
@@ -82,6 +83,7 @@ interface TrackVideoItem {
 
 interface TrackInfo {
   instanceId: string
+  id?: string
   name?: string
 }
 
@@ -98,9 +100,21 @@ const emit = defineEmits<{
 
 const currentVideos = computed(() => props.currentVideos ?? [])
 
-const currentTrackName = computed(
-  () => props.trackList.find((t) => t.instanceId === props.currentTrackId)?.name
-)
+const schemaStore = useSchemaStore()
+// 名称优先取 schema 中持久化的名称（改名后即时生效），回退到轨迹实例解析出的名称
+const currentTrackName = computed(() => {
+  const track = props.trackList.find((t) => t.instanceId === props.currentTrackId)
+  if (!track) return undefined
+  const rawId = track.id
+  if (rawId) {
+    const normalize = (id: string) => String(id).replace(/\.gpx$/i, '').toLowerCase()
+    const saved = (schemaStore.getSchema.trackInfo || []).find(
+      (t: any) => normalize(t.id) === normalize(rawId)
+    )
+    if (saved?.name) return saved.name
+  }
+  return track.name
+})
 
 const playDialogVisible = ref(false)
 const playVideoName = ref('')
@@ -191,7 +205,6 @@ onUnmounted(() => {
 .track-videos-scroll {
   flex: 1;
   min-width: 0;
-  max-width: 1000px;
 }
 
 .track-videos {

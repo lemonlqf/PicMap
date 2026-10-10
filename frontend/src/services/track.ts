@@ -515,6 +515,10 @@ class TrackInstance {
       this.initTrackInfo(schemaTrackInfo)
       this.startIconId = schemaTrackInfo.setting?.startIconId
       this.endIconId = schemaTrackInfo.setting?.endIconId
+      // 使用 schema 中保存的轨迹颜色，避免地图上默认随机色与轨迹管理/持久化颜色不一致
+      if (schemaTrackInfo.setting?.lineColor) {
+        this.lineColor = schemaTrackInfo.setting.lineColor
+      }
     }
 
     this.readFileAsText(file).then((fileContent) => {

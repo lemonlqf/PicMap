@@ -483,6 +483,20 @@ class MarkerService {
     this.markers.set(imageInfo.id, marker)
     marker.addTo(map)
     this.markerMouseListener(marker)
+    // 登记到聚合索引：避免 renderClusters 在其他图片点为 0 时清空临时节点，
+    // 并让手动定位节点同样参与聚合/离散与视口管理，防止"确定位置后直接消失"
+    this.imagePoints.push({
+      type: 'Feature',
+      properties: { id: imageInfo.id },
+      geometry: { type: 'Point', coordinates: markerLatLng },
+    })
+    this.clusterDirty = true
+    // 拖动结束后同步聚合索引坐标，避免重渲染时按旧坐标回拉
+    marker.on('moveend', () => {
+      const { lat: mLat, lng: mLng } = marker.getLatLng()
+      this.updateMarkerPointById(imageInfo.id, mLng, mLat)
+    })
+    this.updateVisibleMarkers()
     return marker
   }
 
@@ -535,6 +549,18 @@ class MarkerService {
     this.markers.set(videoInfo.id, marker)
     marker.addTo(map)
     this.markerMouseListener(marker)
+    // 登记到聚合索引：与手动定位图片一致，避免无其他图片点时被 renderClusters 清空
+    this.imagePoints.push({
+      type: 'Feature',
+      properties: { id: videoInfo.id },
+      geometry: { type: 'Point', coordinates: markerLatLng },
+    })
+    this.clusterDirty = true
+    marker.on('moveend', () => {
+      const { lat: mLat, lng: mLng } = marker.getLatLng()
+      this.updateMarkerPointById(videoInfo.id, mLng, mLat)
+    })
+    this.updateVisibleMarkers()
     return marker
   }
 
@@ -682,6 +708,20 @@ class MarkerService {
       if (!videoInfo) return
       marker.setIcon(createVideoMarkerIcon(videoInfo, marker.options.iconUrl))
     }
+  }
+
+  /**
+   * @description: 用传入的视频信息重建视频节点图标（用于待上传视频切换全景等属性后即时刷新）。
+   * 待上传视频尚未写入 schema.videoInfo，故不能依赖 refreshMarkerIconById 从 schema 读取。
+   * @param {IVideoInfo} videoInfo 至少包含 id、name、isPanorama
+   */
+  refreshVideoMarkerIcon(videoInfo: IVideoInfo) {
+    if (!videoInfo?.id) return
+    const marker = this.getMarkerById(videoInfo.id)
+    if (!marker) return
+    const markerType = marker.options.type
+    if (markerType !== 'video' && markerType !== 'temporary-video') return
+    marker.setIcon(createVideoMarkerIcon(videoInfo, marker.options.iconUrl))
   }
 
   // 强制重建聚合索引并刷新渲染（用于分组归属等外部状态变化后同步地图节点）

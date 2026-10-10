@@ -2,7 +2,7 @@
  * @Author: Do not edit
  * @Date: 2025-07-16 22:05:25
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-09-17 20:12:31
+ * @LastEditTime: 2026-10-10 20:17:35
  * @FilePath: \picmap-go\frontend\src\i18n\lang\zh-CN.ts
  * @Description: 
  */
@@ -92,7 +92,8 @@ export default {
   autoLocate: '自动定位',
   groupInfo: '分组信息',
   addGroup: '添加分组',
-  uploadedPicture: '已上传图片',
+  uploaded: '已上传',
+  notUploaded: '未上传',
   uploadPicture: '上传图片',
   uploadVideo: '上传视频',
   uploadedVideo: '已上传视频',

@@ -14,7 +14,7 @@
       <span class="pv-loading-text">视频加载中 {{ loadPercent }}%</span>
     </div>
     <!-- 控制栏：复用 VideoControls，保证与普通视频播放器样式/交互一致 -->
-    <VideoControls v-if="!loading" :is-playing="isPlaying" :current-time="currentTime" :duration="duration"
+    <VideoControls v-if="!hideControls && !loading" :is-playing="isPlaying" :current-time="currentTime" :duration="duration"
       :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" :rate="rate" @toggle-play="togglePlay"
       @toggle-mute="toggleMute" @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek"
       @rate-change="onRateChange" />
@@ -33,8 +33,20 @@ import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
 import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
 import VideoControls from './VideoControls.vue'
 
-const props = defineProps<{
+const props = withDefaults(defineProps<{
   videoId: string
+  // 隐藏内置控制栏（由外部共同进度条控制时使用，如轨迹视频播放）
+  hideControls?: boolean
+}>(), {
+  hideControls: false
+})
+
+const emit = defineEmits<{
+  (e: 'timeupdate', currentTime: number): void
+  (e: 'loadedmetadata', duration: number): void
+  (e: 'play'): void
+  (e: 'pause'): void
+  (e: 'ended'): void
 }>()
 
 const rootRef = ref<HTMLElement>()
@@ -56,6 +68,21 @@ const rate = ref(DEFAULT_PLAYBACK_RATE)
 
 let viewer: Viewer | null = null
 let videoPlugin: VideoPlugin | null = null
+
+// 元数据/结束事件去重标记
+let durationNotified = false
+let endedNotified = false
+
+// 首次拿到有效时长时对外发出 loadedmetadata（供外部控制栏/联动使用）
+function notifyLoadedMetadata() {
+  if (durationNotified) return
+  const dur = videoPlugin?.getDuration() || 0
+  if (dur > 0 && isFinite(dur)) {
+    duration.value = dur
+    durationNotified = true
+    emit('loadedmetadata', dur)
+  }
+}
 
 function togglePlay() {
   videoPlugin?.playPause()
@@ -154,9 +181,10 @@ async function createViewer() {
   viewer = new Viewer({
     container: container.value,
     panorama: { source },
-    adapter: EquirectangularVideoAdapter,
+    // autoplay/muted 属于 adapter 配置（VideoPlugin 没有该选项），否则点开不会自动播放
+    adapter: EquirectangularVideoAdapter.withConfig({ autoplay: true }),
     // bigbutton：暂停时在画面中央显示播放按钮
-    plugins: [[VideoPlugin, { progressbar: false, bigbutton: true, autoplay: true }]],
+    plugins: [[VideoPlugin, { progressbar: false, bigbutton: true }]],
     // 隐藏 PSV 自带 navbar，播放/音量/进度由自制控制栏提供
     navbar: false,
     loadingTxt: '',
@@ -171,18 +199,29 @@ async function createViewer() {
     plugin.setVolume(volume.value)
     plugin.setMute(muted.value)
     duration.value = plugin.getDuration() || 0
+    notifyLoadedMetadata()
     plugin.addEventListener('volume-change', ({ volume: v }: any) => {
       volume.value = v
       muted.value = v <= 0
     })
     plugin.addEventListener('play-pause', ({ playing }: any) => {
       isPlaying.value = playing
+      if (playing) endedNotified = false
       applyRate()
+      if (playing) emit('play')
+      else emit('pause')
     })
     plugin.addEventListener('progress', ({ time, duration: dur }: any) => {
       currentTime.value = time
       duration.value = dur
       applyRate()
+      emit('timeupdate', time)
+      notifyLoadedMetadata()
+      // 播放到末尾且已暂停 → 视为播放结束（PSV 无独立 ended 事件）
+      if (dur > 0 && time >= dur - 0.1 && !plugin.isPlaying() && !endedNotified) {
+        endedNotified = true
+        emit('ended')
+      }
     })
     // 点击查看器（非拖拽）切换播放/暂停
     viewer.addEventListener('click', () => {
@@ -204,6 +243,7 @@ function startDurationPolling() {
     const dur = videoPlugin?.getDuration() || 0
     if (dur > 0 && isFinite(dur)) {
       duration.value = dur
+      notifyLoadedMetadata()
       stopDurationPolling()
       return
     }
@@ -228,6 +268,8 @@ function destroyViewer() {
   isPlaying.value = false
   currentTime.value = 0
   duration.value = 0
+  durationNotified = false
+  endedNotified = false
   viewer?.destroy()
   viewer = null
 }
@@ -251,6 +293,40 @@ onBeforeUnmount(() => {
 
 watch(() => props.videoId, () => {
   createViewer()
+})
+
+// 暴露给父组件的播放控制接口（与 VideoPlayer 对齐，供外部共同进度条/联动复用）
+defineExpose({
+  play() {
+    videoPlugin?.play()
+  },
+  pause() {
+    videoPlugin?.pause()
+  },
+  seek(seconds: number) {
+    const sec = Math.max(0, seconds)
+    videoPlugin?.setTime(sec)
+    currentTime.value = sec
+  },
+  setVolume(v: number) {
+    const nv = Math.max(0, Math.min(1, v))
+    volume.value = nv
+    videoPlugin?.setVolume(nv)
+  },
+  setMuted(m: boolean) {
+    muted.value = m
+    videoPlugin?.setMute(m)
+  },
+  setPlaybackRate(r: number) {
+    rate.value = r
+    applyRate()
+  },
+  getCurrentTime() {
+    return currentTime.value
+  },
+  getDuration() {
+    return duration.value
+  },
 })
 </script>
 

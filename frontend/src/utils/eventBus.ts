@@ -16,6 +16,7 @@ export type EventMap = {
   'drawer-hidden': void
   'drawer-show': any
   'delete-image': string
+  'delete-video': string
   'edit-group': string
   'edit-group-video': string
   'batch-delete': string[]

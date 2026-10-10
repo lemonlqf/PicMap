@@ -22,15 +22,17 @@
         <span class="gpx-size-hint">{{ $t('gpxSizeLimit') }}</span>
       </div>
       <div v-if="isRestricted" class="restricted-hint">
-        {{ $t('selectTrackToLinkVideo') }}
+        {{ $t('description.selectTrackToLinkVideo') }}
       </div>
       <div class="content-box">
-        <TrackUploadTable ref="tableRef" class="table" :data="filteredTableData" :group-list="groupList"
-          :current-row-id="currentRow?.id" :restricted="isRestricted" @row-change="handleRowChange"
-          @group-change="handleGroupChange"
-          @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange"
-          @main-map-change="handleMainMapChange" @icon-change="handleIconChange" @name-change="handleNameChange"
-          @align-video-row="handleAlignVideo" />
+        <div class="table">
+          <TrackUploadTable ref="tableRef" :data="filteredTableData" :group-list="groupList"
+            :current-row-id="currentRow?.id" :restricted="isRestricted" @row-change="handleRowChange"
+            @group-change="handleGroupChange"
+            @upload-row="uploadRow" @delete-row="deleteRow" @color-change="handleColorChange"
+            @main-map-change="handleMainMapChange" @icon-change="handleIconChange" @name-change="handleNameChange"
+            @align-video-row="handleAlignVideo" />
+        </div>
         <div class="track-map-container">
           <!-- 地图组件，用于显示轨迹 -->
           <MapComponent ref="trackMapRef" :track-ids="activeTrackIds"></MapComponent>
@@ -83,12 +85,11 @@ const emit = defineEmits<{
 // 受限模式：有待上传视频即受限
 const isRestricted = computed(() => !!props.pendingVideo)
 
-// 对齐完成后：通知父组件视频已关联轨迹并自动上传，然后关闭受限表格
+// 对齐完成后：通知父组件视频已关联轨迹并自动上传；不自动关闭弹窗，便于继续查看/调整
 function handleAligned() {
   if (props.pendingVideo) {
     emit('track-linked', props.pendingVideo.id, alignTrackId.value)
   }
-  dialogVisible.value = false
 }
 
 // 上传组件的文件列表
@@ -285,7 +286,8 @@ async function handleTrackFileChange(file: any) {
     trackInstance.onTrackInfoReady((trackInfo: any) => {
       const row = existingRow || tableData.value.find(item => item.id === id && !item.uploaded)
       if (row) {
-        row.name = trackInfo.name || id
+        // 用户已手动命名则不覆盖
+        if (!row.nameEdited) row.name = trackInfo.name || id
         row.distance = formatDistance(trackInfo.distance) || '-'
         row.startTime = trackInfo.startTime ? formatDate(trackInfo.startTime) : '-'
         row.endTime = trackInfo.endTime ? formatDate(trackInfo.endTime) : '-'
@@ -501,7 +503,21 @@ async function handleIconChange(row: TrackData, type: 'start' | 'end', iconId: s
 async function handleNameChange(row: TrackData, newName: string) {
   try {
     row.name = newName
+    // 标记为手动命名，避免轨迹信息解析完成后用文件名回写覆盖用户自定义名称
+    row.nameEdited = true
 
+    // 同步轨迹实例的 trackInfo.name：
+    // - 未上传时：上传走 updateTrackSchema，会读取实例 trackInfo，若不同步则名称丢失
+    // - 已上传时：详情面板等读取实例名称处可同步更新
+    const instance = trackService.getTrackInstanceById(row.id) ||
+      trackService.getTrackInstanceById(`${row.id}.gpx`) ||
+      trackService.getInstances().find((i: any) => i.getTrackId() === row.id)
+    if (instance) {
+      const info = instance.getTrackInfo()
+      if (info) info.name = newName
+    }
+
+    // 已存在 schema 记录时同步持久化
     const trackInfoList = [...(schemaStore.getSchema.trackInfo || [])]
     const trackIndex = trackInfoList.findIndex((track: any) => track.id === row.id)
     if (trackIndex >= 0) {

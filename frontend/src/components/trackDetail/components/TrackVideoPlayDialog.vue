@@ -26,7 +26,15 @@
     <div v-if="visible && videoId" ref="bodyRef" class="track-video-play-body"
       :class="{ 'controls-hidden': isFullscreen && !controlsVisible }" @mousemove="showControls">
       <div class="video-area">
-        <VideoPlayer
+        <!-- 全景视频与普通视频分别适配播放器；二者对外接口一致，共用下方控制栏与轨迹联动 -->
+        <PanoramaVideoViewer v-if="isPanoramaVideo" :key="videoId" ref="playerRef" :video-id="videoId" hide-controls
+          @loadedmetadata="handleLoadedMetadata"
+          @timeupdate="handleTimeUpdate"
+          @play="isPlaying = true"
+          @pause="isPlaying = false"
+          @ended="handleEnded"
+        />
+        <VideoPlayer v-else
           :key="videoId"
           ref="playerRef"
           :video-id="videoId"
@@ -52,6 +60,11 @@
           </template>
         </VideoControls>
       </div>
+
+      <!-- 全屏时右上角退出全屏按钮 -->
+      <button v-if="isFullscreen" class="fullscreen-exit" :title="t('exitFullscreen')" @click="toggleFullscreen">
+        <el-icon><Close /></el-icon>
+      </button>
 
       <!-- 上一个 / 下一个视频（仅当该轨迹有多个视频时显示） -->
       <button v-if="hasPrev" class="video-nav video-nav-prev" :title="t('track.prevVideo')" @click="goPrev">
@@ -83,8 +96,9 @@ import { useI18n } from 'vue-i18n'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { ElMessage } from 'element-plus'
-import { MapLocation, ArrowDown, ArrowUp, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
+import { MapLocation, ArrowDown, ArrowUp, ArrowLeft, ArrowRight, Close } from '@element-plus/icons-vue'
 import VideoPlayer from '@/components/videoPlayer/VideoPlayer.vue'
+import PanoramaVideoViewer from '@/components/videoPlayer/PanoramaVideoViewer.vue'
 import VideoControls from '@/components/videoPlayer/VideoControls.vue'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
@@ -114,6 +128,11 @@ const appStore = useAppStore()
 const subtitle = computed(() => props.videoName || props.trackName)
 const title = computed(() =>
   subtitle.value ? `${t('track.videoPlay')} - ${subtitle.value}` : t('track.videoPlay')
+)
+
+// 当前视频是否为全景视频（决定使用全景查看器还是普通播放器）
+const isPanoramaVideo = computed(() =>
+  !!(schemaStore.getSchema.videoInfo || []).find((v) => v.id === props.videoId)?.isPanorama
 )
 
 // ---- 同轨迹视频列表（用于上一个/下一个切换） ----
@@ -171,7 +190,7 @@ const miniMapMinimized = ref(false)
 
 // ---- 画中画地图拖动放置 ----
 const miniMapWrapRef = ref<HTMLElement>()
-// 相对播放区左上角的位置；null 表示使用默认位置（右上角）
+// 相对播放区左上角的位置；null 表示使用默认位置（左上角）
 const miniMapPos = ref<{ x: number; y: number } | null>(null)
 const miniMapStyle = computed(() => {
   const pos = miniMapPos.value
@@ -304,7 +323,7 @@ function onVolumeChange(val: number | number[]) {
 function toggleMiniMap() {
   miniMapMinimized.value = !miniMapMinimized.value
   if (miniMapMinimized.value) {
-    // 最小化时收缩回右上角
+    // 最小化时收缩回左上角
     miniMapPos.value = null
   } else {
     nextTick(() => {
@@ -331,6 +350,8 @@ const videoColor = computed(() => {
 // ---- 地图 ----
 const miniMapRef = ref<HTMLElement>()
 let miniMap: maplibregl.Map | null = null
+const TRACK_SOURCE = 'tvp-track-src'
+const TRACK_LAYER = 'tvp-track-layer'
 const SEG_SOURCE = 'tvp-seg-src'
 const SEG_LAYER = 'tvp-seg-layer'
 const DONE_SOURCE = 'tvp-done-src'
@@ -381,6 +402,19 @@ function initMap() {
       miniMap!.addSource('tvp-tile', { type: 'raster', tiles: [tileUrl], tileSize: 256 })
       miniMap!.addLayer({ id: 'tvp-tile-layer', type: 'raster', source: 'tvp-tile' })
     }
+    // 完整轨迹（浅色背景线）：让视频弧段在整条轨迹上的对应位置一目了然
+    if (!miniMap!.getSource(TRACK_SOURCE)) {
+      miniMap!.addSource(TRACK_SOURCE, {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+      })
+      miniMap!.addLayer({
+        id: TRACK_LAYER,
+        type: 'line',
+        source: TRACK_SOURCE,
+        paint: { 'line-color': '#409eff', 'line-width': 4, 'line-opacity': 0.5 },
+      })
+    }
     // 视频完整弧段（半透明底色）
     if (!miniMap!.getSource(SEG_SOURCE)) {
       miniMap!.addSource(SEG_SOURCE, {
@@ -426,6 +460,7 @@ function applyVideoToMap() {
     positionMarker.remove()
     positionMarker = null
   }
+  drawFullTrack()
   drawFullSegment()
   updateProgress(currentSeconds.value)
 }
@@ -455,6 +490,13 @@ function setLineData(sourceId: string, coords: [number, number][]) {
     properties: {},
     geometry: { type: 'LineString', coordinates: coords },
   })
+}
+
+// 绘制整条轨迹（浅色背景线），作为视频弧段的位置参照
+function drawFullTrack() {
+  if (!miniMap || !mapReady) return
+  const coords = gpxPoints.value.map((p) => [p.lng, p.lat] as [number, number])
+  setLineData(TRACK_SOURCE, coords.length >= 2 ? coords : [])
 }
 
 // 绘制视频完整弧段并适配视野
@@ -731,9 +773,36 @@ onUnmounted(() => {
   right: 24px;
 }
 
+/* 全屏时右上角退出全屏按钮 */
+.fullscreen-exit {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 12;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.fullscreen-exit:hover {
+  background: rgba(245, 108, 108, 0.85);
+  transform: scale(1.05);
+}
+
 .mini-map-wrap {
   position: absolute;
-  right: 24px;
+  left: 24px;
   top: 24px;
   width: 300px;
   border-radius: 10px;
@@ -744,6 +813,8 @@ onUnmounted(() => {
   backdrop-filter: blur(14px) saturate(1.5);
   -webkit-backdrop-filter: blur(14px) saturate(1.5);
   z-index: 5;
+  /* 缩放时锚定左上角，最小化/还原始终朝左上角收缩展开 */
+  transform-origin: top left;
   transition: width 0.2s ease;
 }
 

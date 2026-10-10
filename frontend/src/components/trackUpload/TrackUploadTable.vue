@@ -34,10 +34,9 @@
     </el-table-column>
     <el-table-column :label="$t('trackColor')" width="100">
       <template #default="{ row }">
-        <div class="color-picker-wrapper">
-          <ColorPicker :pureColor="row.setting?.lineColor" :disabled="props.restricted"
-            @update:pureColor="(color: string) => { if (!row.setting) row.setting = {}; row.setting.lineColor = color; emit('color-change', row) }" />
-        </div>
+        <div class="color-swatch" :class="{ 'is-disabled': props.restricted, 'is-active': colorPicker.visible && colorPicker.row === row }"
+          :style="{ background: row.setting?.lineColor || '#dcdfe6' }" :title="$t('trackColor')"
+          @click.stop="openColorPicker(row, $event)" />
       </template>
     </el-table-column>
     <el-table-column :label="$t('icon.startIcon')" width="64" align="center">
@@ -91,10 +90,18 @@
   </el-table>
   <IconSelector v-model:visible="iconSelectorVisible" category="track" :current-id="iconSelectorCurrentId"
     :title="iconSelectorTitle" @select="handleIconSelect" @closed="iconTarget = null" />
+
+  <!-- 全局复用的颜色选择面板：所有行共用一个实例，避免每行渲染一个完整取色器 -->
+  <Teleport to="body">
+    <div v-if="colorPicker.visible" ref="colorPopupRef" class="shared-color-popup" :style="colorPicker.style"
+      @mousedown.stop>
+      <ColorPicker isWidget :pureColor="colorPicker.color" disableAlpha @update:pureColor="onSharedColorUpdate" />
+    </div>
+  </Teleport>
 </template>
 
 <script lang="ts" setup>
-import { ref } from 'vue'
+import { ref, reactive, watch, onMounted, onBeforeUnmount } from 'vue'
 import { ColorPicker } from 'vue3-colorpicker'
 import { Edit } from '@element-plus/icons-vue'
 import 'vue3-colorpicker/style.css'
@@ -230,6 +237,60 @@ function cancelRename() {
   editingName.value = ''
 }
 
+// ---- 全局复用的颜色选择面板 ----
+const colorPopupRef = ref<HTMLElement>()
+const colorPicker = reactive({
+  visible: false,
+  row: null as TrackData | null,
+  color: '',
+  style: {} as Record<string, string>,
+})
+// 面板尺寸估算（用于视口内定位，避免溢出）
+const COLOR_POPUP_WIDTH = 268
+const COLOR_POPUP_HEIGHT = 340
+
+function openColorPicker(row: TrackData, e: MouseEvent) {
+  if (props.restricted) return
+  const rect = (e.currentTarget as HTMLElement).getBoundingClientRect()
+  let left = rect.left + rect.width - COLOR_POPUP_WIDTH
+  left = Math.max(8, Math.min(left, window.innerWidth - COLOR_POPUP_WIDTH - 8))
+  let top = rect.bottom + 6
+  if (top + COLOR_POPUP_HEIGHT > window.innerHeight - 8) {
+    top = Math.max(8, rect.top - COLOR_POPUP_HEIGHT - 6)
+  }
+  colorPicker.row = row
+  colorPicker.color = row.setting?.lineColor || '#409eff'
+  colorPicker.style = { left: `${left}px`, top: `${top}px` }
+  colorPicker.visible = true
+}
+
+function onSharedColorUpdate(color: string) {
+  const row = colorPicker.row
+  if (!row) return
+  if (!row.setting) row.setting = {}
+  row.setting.lineColor = color
+  colorPicker.color = color
+  emit('color-change', row)
+}
+
+function closeColorPicker() {
+  colorPicker.visible = false
+  colorPicker.row = null
+}
+
+function onDocMouseDown(e: MouseEvent) {
+  if (!colorPicker.visible) return
+  const target = e.target as Node
+  if (colorPopupRef.value?.contains(target)) return
+  closeColorPicker()
+}
+
+onMounted(() => document.addEventListener('mousedown', onDocMouseDown))
+onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
+
+// 数据切换（搜索/重载）时关闭面板，避免指向已失效的行
+watch(() => props.data, () => closeColorPicker())
+
 defineExpose({
   setCurrentRow
 })
@@ -244,9 +305,33 @@ defineExpose({
   min-height: 28px;
 }
 
-.color-picker-wrapper {
-  display: flex;
-  align-items: center;
+.color-swatch {
+  width: 20px;
+  height: 20px;
+  margin: 0 auto;
+  border-radius: 4px;
+  border: 1px solid rgba(0, 0, 0, 0.15);
+  cursor: pointer;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.color-swatch:hover {
+  transform: scale(1.1);
+}
+
+.color-swatch.is-active {
+  box-shadow: 0 0 0 2px rgba(64, 158, 255, 0.55);
+}
+
+.color-swatch.is-disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.shared-color-popup {
+  position: fixed;
+  z-index: 3000;
+  filter: drop-shadow(0 8px 24px rgba(0, 0, 0, 0.22));
 }
 
 .track-name {

@@ -9,6 +9,7 @@ import { dateTimeToMsInOffset, getTimezoneOffsetMinutes } from './timezone'
 import { fileToBase64 } from './map'
 import { isVideoExistInOtherGroup } from './group'
 import markerService from '@/services/marker'
+import eventBus from './eventBus'
 import { ElMessage } from 'element-plus'
 import i18n from '@/i18n/index'
 import type { ISelectedVideo, IImportVideoFile } from '@/type/video'
@@ -283,6 +284,8 @@ export async function deleteVideos(videoIds: string[]) {
   // 移除地图上的视频标记
   videoIds.forEach(videoId => {
     markerService.deleteMarkerById(videoId)
+    // 通知上传面板：同步移除待上传列表中的对应视频（与图片删除一致）
+    eventBus.emit('delete-video', videoId)
   })
   // 刷新受影响分组的封面/计数（视频可能作为分组封面）
   affectedGroupIds.forEach(groupId => {

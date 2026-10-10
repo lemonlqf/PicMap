@@ -32,7 +32,7 @@
       <!-- 已上传 - 图片与视频混合区 -->
       <div v-if="uploadedImageList.length || uploadedVideoList.length" class="section">
         <div class="section-header">
-          <h3 class="section-title">{{ $t('uploadedPicture') }}</h3>
+          <h3 class="section-title">{{ $t('uploaded') }}</h3>
           <el-button size="small" text type="danger" @click="clearUploadedList">
             {{ $t('clear') }}
           </el-button>
@@ -121,6 +121,9 @@
               :class="['action-btn', 'locate', { active: manualGpsMap[video.id] }]" @click="showVideoLocate(video.id)">
               <img src="@/assets/icon/定位(白色).png" alt="">
             </div>
+            <div :title="$t('upload')" class="action-btn upload" @click="handleImport(video)">
+              <img src="@/assets/icon/上传 (白色).png" alt="">
+            </div>
             <div :title="linkedTrackMap[video.id] ? $t('linked') : $t('linkTrack')"
               :class="['action-btn', 'locate', { active: !!linkedTrackMap[video.id] }]" @click="openTrackAssociation(video)">
               <img :src="linkTrackIcon" alt="">
@@ -128,9 +131,6 @@
             <div :title="video.isPanorama ? $t('cancelPanorama') : $t('setPanorama')"
               :class="['action-btn', 'panorama', { active: video.isPanorama }]" @click="toggleVideoPanorama(video)">
               <span class="panorama-text">360</span>
-            </div>
-            <div :title="$t('upload')" class="action-btn upload" @click="handleImport(video)">
-              <img src="@/assets/icon/上传 (白色).png" alt="">
             </div>
             <div :title="$t('delete')" class="action-btn delete" @click="handleRemoveVideo(video.id)">
               <img src="@/assets/icon/删除 (白色).png" alt="">
@@ -182,7 +182,7 @@ import API from '@/wails/api'
 import eventBus from '@/utils/eventBus'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
-import { saveSchema, getVideoInfoById } from '@/utils/schema'
+import { saveSchema, getVideoInfoById, judgeHadUploadImage } from '@/utils/schema'
 import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById } from '@/utils/Image'
 import { pushVideoToSchema, getVideoFramePreviewUrl, getVideoThumbnailUrl, videoSelectContext } from '@/utils/video'
 import { mapCoordToSchema } from '@/utils/coordinate'
@@ -467,6 +467,30 @@ function deleteImage(name: string) {
   if (marker) markerService.deleteMarkerInMap(marker)
 }
 
+/**
+ * @description: 地图上删除图片（右键删除）→ 同步移除待上传/已上传列表中的对应项
+ */
+function handleMapDeleteImage(imageId: string) {
+  if (!imageId) return
+  imageList.value = imageList.value.filter(item => item.id !== imageId)
+  knownImageIds.delete(imageId)
+  const marker = markerService.getMarkerById(imageId)
+  if (marker) markerService.deleteMarkerInMap(marker)
+}
+
+/**
+ * @description: 地图上删除视频（右键删除）→ 同步移除待上传/已上传列表中的对应项
+ */
+function handleMapDeleteVideo(videoId: string) {
+  if (!videoId) return
+  videoList.value = videoList.value.filter(v => v.id !== videoId)
+  delete manualGpsMap.value[videoId]
+  delete videoCoverMap.value[videoId]
+  delete linkedTrackMap.value[videoId]
+  const marker = markerService.getMarkerById(videoId)
+  if (marker) markerService.deleteMarkerInMap(marker)
+}
+
 function clearAllImages() {
   pendingImageList.value.forEach(item => {
     const marker = markerService.getMarkerById(item.id)
@@ -558,6 +582,8 @@ function handleImageGroupSetupComplete(imageIds: string[]) {
 
 function togglePanorama(item: any) {
   item.isPanorama = !item.isPanorama
+  // 同步刷新地图节点的全景角标（待上传图片已进入 schema.imageInfo，可直接刷新）
+  markerService.refreshMarkerIconById(item.id)
 }
 
 async function previewImage(item: any) {
@@ -567,7 +593,10 @@ async function previewImage(item: any) {
     panoramaShow.value = true
     panoramaLoading.value = true
     try {
-      const url = await getFullImageUrlById(item.id)
+      // 待上传图片未导入用户目录，服务端的全景图不存在，回退到解析预览（内存 base64）作为全景源
+      const url = judgeHadUploadImage(item.id)
+        ? await getFullImageUrlById(item.id)
+        : (item.blobUrl ?? item.url ?? '')
       if (url) panoramaSrc.value = url
     } catch (e) {
       console.error('加载全景原图失败', e)
@@ -784,11 +813,17 @@ function handleRemoveVideo(videoId: string) {
 }
 
 /**
- * @description: 切换待上传视频是否为全景（导入时写入 schema）
+ * @description: 切换待上传视频是否为全景（导入时写入 schema），并同步刷新地图节点全景角标
  * @param {ISelectedVideo} video
  */
 function toggleVideoPanorama(video: ISelectedVideo) {
   video.isPanorama = !video.isPanorama
+  // 待上传视频尚未写入 schema.videoInfo，用节点自身的视频信息重建图标
+  markerService.refreshVideoMarkerIcon({
+    id: video.id,
+    name: video.name,
+    isPanorama: video.isPanorama,
+  } as IVideoInfo)
 }
 
 // ---- 批量操作（覆盖待上传的图片 + 视频） ----
@@ -904,6 +939,9 @@ onMounted(() => {
   eventBus.on('edit-group', showImageGroupDialog)
   // 视频节点右键「设置分组」→ 打开分组弹框
   eventBus.on('edit-group-video', showVideoGroupDialog)
+  // 地图上删除图片/视频 → 同步移除待上传列表中的对应数据
+  eventBus.on('delete-image', handleMapDeleteImage)
+  eventBus.on('delete-video', handleMapDeleteVideo)
 
   API.image.onImagesParsed((payload: any) => handleImageParsedBatch(payload?.images ?? []))
   API.image.onImagesProgress((payload: any) => {
@@ -929,6 +967,8 @@ onMounted(() => {
 onUnmounted(() => {
   eventBus.off('edit-group', showImageGroupDialog)
   eventBus.off('edit-group-video', showVideoGroupDialog)
+  eventBus.off('delete-image', handleMapDeleteImage)
+  eventBus.off('delete-video', handleMapDeleteVideo)
   API.image.offImagesEvents()
   API.video.offVideosEvents()
   resetImageDisplayQueue()
