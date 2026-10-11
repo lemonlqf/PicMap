@@ -1,0 +1,14 @@
+{
+  "change": "maplibre-migration",
+  "phase": "design",
+  "mode": "compact",
+  "canonical_spec": "openspec",
+  "generated_by": "comet-handoff.sh",
+  "context_hash": "dad15f2b455041e3405720149b4b404eaee8be6857cd03396614e66c894bb962",
+  "files": [
+    { "path": "docs/openspec/changes/maplibre-migration/proposal.md", "sha256": "78d0460891ae159d710aa31ce57288e2f326d9ad1e4767302bff934be6861b32" },
+    { "path": "docs/openspec/changes/maplibre-migration/design.md", "sha256": "4ba252bab10addce874f5dea736b55c5af5f5242b1a6888ce7c0eb53413e2eca" },
+    { "path": "docs/openspec/changes/maplibre-migration/tasks.md", "sha256": "6d3d35ef6a9f2c102dd72c773d27ac73c9a98ab84d4f87519b50baf78af648b5" },
+    { "path": "docs/openspec/changes/maplibre-migration/specs/map-rendering/spec.md", "sha256": "c1a1f6513504d26e8f27bb7dce88e7a05be1f3121250c2ede0c790eff63c011f" }
+  ]
+}

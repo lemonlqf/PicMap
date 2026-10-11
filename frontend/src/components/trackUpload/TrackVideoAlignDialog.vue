@@ -1,0 +1,1479 @@
+<!--
+ * @Description: 轨迹视频时间线对齐弹窗
+ * - 主轨 = 该 GPX 轨迹的起点(0) → 终点(总时长)
+ * - 每条视频一条带，宽度 = durationMs / 总时长 比例
+ * - 整条拖拽视频条带 → 更新 timeOffsetMs（视频起点相对 GPX 起点的偏移）
+ * - 地图预览：在轨迹线上叠加高亮子线，范围 = 视频起止时间对应坐标
+-->
+<template>
+  <el-dialog :append-to-body="true" :z-index="1100" v-model="dialogVisible" :title="`${$t('align.title')}${trackName ? ' - ' + trackName : ''}`"
+    width="80vw" :before-close="handleBeforeClose">
+    <div v-if="loading" class="align-loading">
+      <el-skeleton :rows="6" animated />
+    </div>
+    <div v-else-if="gpxPoints.length < 2" class="align-empty">
+      <el-empty :description="$t('align.missingData')" :image-size="80" />
+    </div>
+    <div v-else class="align-content">
+      <!-- 时间线 -->
+      <div class="timeline-section">
+        <div class="timeline-header">
+          <span class="track-label">{{ $t('align.mainTrack') }}</span>
+          <div class="header-right">
+            <span class="track-range">{{ formatMs(trackDurationMs) }}</span>
+            <el-button size="small" @click="addVideoDialogVisible = true">{{ $t('align.addVideo') }}</el-button>
+            <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectAndAddLocalVideos">
+              {{ $t('align.addLocalVideo') }}
+            </el-button>
+          </div>
+        </div>
+        <div v-if="localSelecting" class="local-progress-bar">
+          <el-progress :percentage="localProgressPercent" :stroke-width="8"
+            :format="() => `${$t('align.parsingLocalVideo')} ${localProgress.processed}/${localProgress.total}`" />
+        </div>
+        <div class="timeline-legend">
+          <span>{{ $t('align.startPoint') }} 0:00:00</span>
+          <span>{{ $t('align.endPoint') }} {{ formatMs(trackDurationMs) }}</span>
+        </div>
+        <div class="timeline" ref="timelineRef">
+          <!-- 主轨刻度线 -->
+          <div class="track-scale"></div>
+          <!-- 视频条带轨道 -->
+          <div v-for="(item, index) in alignItems" :key="item.video.id" class="video-row"
+            :class="{ active: activeVideoId === item.video.id }" @click="selectVideo(item.video.id)">
+            <span class="video-index">{{ index + 1 }}</span>
+            <span class="video-name" :title="item.video.name">{{ item.video.name }}</span>
+            <el-tag class="video-status" size="small" effect="light" disable-transitions
+              :type="isUploadedVideo(item) ? 'success' : 'warning'">
+              {{ isUploadedVideo(item) ? $t('uploaded') : $t('notUploaded') }}
+            </el-tag>
+            <div class="video-panorama" :class="{ active: !!item.video.isPanorama }"
+              :title="item.video.isPanorama ? $t('cancelPanorama') : $t('setPanorama')"
+              @click.stop="togglePanorama(item)">
+              <span class="panorama-text">360</span>
+            </div>
+            <div class="video-lane">
+              <!-- 轨道范围内：渲染可拖拽滑块 -->
+              <div v-if="!isOutOfRange(item)" class="video-bar" :style="barStyle(item)"
+                @mousedown.stop="startDrag($event, item)">
+                <span class="bar-label">{{ formatMs(item.video.durationMs) }}</span>
+              </div>
+              <!-- 超出轨道（前/后）：不渲染滑块，仅显示偏离时间 -->
+              <span v-else class="out-label" :class="outSide(item)">{{ outLabel(item) }}</span>
+            </div>
+            <div class="video-offset">
+              <el-input v-model="item.offsetText" size="small" placeholder="HH:mm:ss" class="offset-input"
+                @change="handleOffsetTextChange(item)" @blur="handleOffsetTextChange(item)" />
+            </div>
+            <el-button size="small" type="danger" class="video-remove" @click.stop="removeVideo(item.video.id)">
+              {{ $t('align.remove') }}
+            </el-button>
+            <el-button size="small" type="primary" circle :title="$t('align.play')" :icon="VideoPlay"
+              :loading="!!playingIds[item.video.id]" @click.stop="playAlignVideo(item)" />
+          </div>
+          <div v-if="alignItems.length === 0" class="no-video-tip">
+            <el-empty :description="$t('align.noLinkedVideo')" :image-size="60" />
+          </div>
+        </div>
+      </div>
+
+      <!-- 地图预览：轨迹线 + 高亮弧段 -->
+      <div class="map-section">
+        <div class="map-header">
+          <span>{{ $t('align.mapPreview') }}</span>
+          <span v-if="activeVideoId" class="map-hint">
+            {{ activeVideoName }}：{{ formatMs(activeOffsetMs) }} - {{ formatMs(activeOffsetMs + activeDurationMs) }}
+          </span>
+        </div>
+        <div class="preview-map" ref="previewMapRef"></div>
+      </div>
+
+      <!-- 选中视频详情 -->
+      <div v-if="activeVideo" class="detail-section">
+        <span class="detail-label">{{ $t('align.startOffset') }}</span>
+        <el-input v-model="activeOffsetText" size="small" class="detail-offset" placeholder="HH:mm:ss"
+          @change="handleActiveOffsetChange" />
+        <span class="detail-duration">{{ $t('align.duration') }} {{ formatMs(activeDurationMs) }}</span>
+        <el-button size="small" type="primary" class="detail-focus" @click="focusActiveSegment">{{ $t('align.focusSegment') }}</el-button>
+      </div>
+    </div>
+
+    <template #footer>
+      <el-button @click="requestCloseMain">{{ $t('cancel') }}</el-button>
+      <!-- 上传模式必须至少保留一个视频；普通模式允许清空（保存后即取消该轨迹的全部视频关联） -->
+      <el-button type="primary" :loading="saving" :disabled="!!props.pendingVideo && alignItems.length === 0" @click="handleSave">
+        {{ saving && saveProgress.total > 0 ? `${$t('align.importing')} ${saveProgress.processed}/${saveProgress.total}` : $t('save') }}
+      </el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 添加视频弹窗 -->
+  <el-dialog v-model="addVideoDialogVisible" :title="$t('align.addVideoToTrack')" width="600px" append-to-body
+    :before-close="handleBeforeClose">
+    <div class="add-video-content">
+      <div class="add-video-hint">{{ $t('align.addVideoHint') }}</div>
+      <div class="add-video-toolbar">
+        <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectLocalForDialog">
+          {{ $t('align.selectLocalVideo') }}
+        </el-button>
+      </div>
+      <div v-if="localSelecting" class="local-progress-bar">
+        <el-progress :percentage="localProgressPercent" :stroke-width="8"
+          :format="() => `${$t('align.parsing')} ${localProgress.processed}/${localProgress.total}`" />
+      </div>
+      <el-select v-model="selectedVideoIds" multiple filterable :placeholder="$t('align.selectVideo')" style="width: 100%">
+        <el-option v-for="v in selectableVideos" :key="v.id" :label="v.local ? `${v.name}（${$t('align.local')}）` : v.name"
+          :value="v.id">
+          <span>{{ v.name }}<span v-if="v.local" class="opt-local">{{ $t('align.local') }}</span></span>
+          <span class="opt-duration">{{ formatMs(v.durationMs) }}</span>
+        </el-option>
+      </el-select>
+      <el-empty v-if="selectableVideos.length === 0" :description="$t('align.noSelectableVideo')" :image-size="60" />
+    </div>
+    <template #footer>
+      <el-button @click="requestCloseAddVideo">{{ $t('cancel') }}</el-button>
+      <el-button type="primary" :disabled="selectedVideoIds.length === 0" @click="confirmAddVideos">{{ $t('align.add') }}</el-button>
+    </template>
+  </el-dialog>
+
+  <!-- 视频播放弹窗（对齐时预览当前视频） -->
+  <VideoPlayDialog v-model:visible="playVideoVisible" :video-id="playVideoId" />
+</template>
+
+<script lang="ts" setup>
+import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import * as maplibregl from 'maplibre-gl'
+import { ElMessage, ElMessageBox } from 'element-plus'
+import { VideoPlay } from '@element-plus/icons-vue'
+import i18n from '@/i18n/index'
+import API from '@/wails/api'
+import { useSchemaStore } from '@/store/schema'
+import { useAppStore } from '@/store/appSchema'
+import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
+import { fetchTrackPoints, VIDEO_COLORS } from '@/utils/videoNode'
+import type { IGpxPoint } from '@/utils/videoNode'
+import { pushVideoToSchema, associateVideoToTrack, videoSelectContext, parseVideoNameTimeMs } from '@/utils/video'
+import { getTimezoneOffsetMinutes } from '@/utils/timezone'
+import VideoPlayDialog from '@/components/videoPlayer/VideoPlayDialog.vue'
+import { editSchemaAttrAndSave, saveSchema, getVideoInfoById, setVideoPanoramaAndSave } from '@/utils/schema'
+import markerService from '@/services/marker'
+import type { ITrackInfo, IVideoInfo, IVideoRef } from '@/type/schema'
+import type { ISelectedVideo } from '@/type/video'
+
+const dialogVisible = defineModel<boolean>('modelValue', { required: true })
+
+const emit = defineEmits<{
+  (e: 'aligned'): void
+}>()
+
+const props = defineProps<{
+  trackId: string
+  trackName?: string
+  // 上传模式：传入待上传视频（尚未进 schema）时，对齐确认后自动上传并关联到该轨迹
+  pendingVideo?: {
+    id: string
+    name: string
+    path: string
+    durationMs?: number
+    startTimeMs?: number
+  } | null
+}>()
+
+const schemaStore = useSchemaStore()
+const appStore = useAppStore()
+
+// ---- 数据加载 ----
+const loading = ref(false)
+const gpxPoints = ref<IGpxPoint[]>([])
+
+// 对齐项：video + 当前偏移文本
+interface AlignItem {
+  video: IVideoInfo
+  timeOffsetMs: number
+  offsetText: string
+  color: string
+  // 本地待导入视频的磁盘路径（未进 schema，保存时导入）
+  localPath?: string
+  // 为播放而临时导入到用户目录的视频信息（尚未写入 schema，保存时复用，避免重复导入）
+  importedVideo?: IVideoInfo
+}
+const alignItems = ref<AlignItem[]>([])
+
+// 视频播放预览
+const playVideoVisible = ref(false)
+const playVideoId = ref('')
+// 正在为播放而导入的视频 id 集合（按钮 loading）
+const playingIds = ref<Record<string, boolean>>({})
+
+const activeVideoId = ref<string | null>(null)
+
+// 主轨总时长（GPX 起止时间差）
+const trackDurationMs = computed(() => {
+  const pts = gpxPoints.value
+  if (pts.length < 2) return 0
+  const first = pts[0].timeMs
+  const last = pts[pts.length - 1].timeMs
+  if (!first || !last) return 0
+  return Math.max(0, last - first)
+})
+
+// 视频起始绝对时刻（优先用文件解析值，缺失时用文件名解析兜底）
+function videoStartMs(video: IVideoInfo | undefined): number {
+  return video?.startTimeMs || parseVideoNameTimeMs(video?.name) || 0
+}
+
+// 该视频是否已上传（已存在于 schema.videoInfo）；本地待导入/待上传视频为未上传
+function isUploadedVideo(item: AlignItem): boolean {
+  return !!getVideoInfoById(item.video.id)
+}
+
+/**
+ * @description: 切换视频是否为全景视频。
+ * - 已上传视频：写入 schema 并即时刷新地图节点全景角标
+ * - 待上传/本地视频：仅更新内存标记，保存导入时一并写入 schema
+ */
+async function togglePanorama(item: AlignItem) {
+  const next = !item.video.isPanorama
+  item.video.isPanorama = next
+  if (item.importedVideo) item.importedVideo.isPanorama = next
+  if (getVideoInfoById(item.video.id)) {
+    await setVideoPanoramaAndSave(item.video.id, next)
+    markerService.refreshMarkerIconById(item.video.id)
+  }
+}
+
+/**
+ * @description: 为一组新增视频自动分配偏移。
+ * 按"视频起点 - GPX 起点"做绝对对齐；视频早于轨迹起点时偏移为负，交由上层按"超出轨道"处理
+ * （不渲染滑块、仅显示偏离时间、保存时不上传）。
+ * 特例：当所有视频都早于 GPX 起点、且疑似设备把本地时间写成 UTC（如 IGPSPORT 把本地时间标注为 Z）时，
+ * 先把 GPX 起点按用户时区重新解释再对齐，避免把时区基准不一致误判为"超出轨道"。
+ */
+function assignAutoOffsets(items: AlignItem[]) {
+  if (items.length === 0) return
+  const gpxStart = gpxPoints.value[0]?.timeMs || 0
+  const starts = items.map(i => videoStartMs(i.video))
+  const absOffsets = starts.map(s => (gpxStart && s > 0) ? s - gpxStart : 0)
+
+  const allKnown = starts.every(s => s > 0)
+  const allBeforeTrack = allKnown && absOffsets.every(o => o <= 0)
+
+  let mode = 'absolute(相对GPX起点)'
+  // 默认保留原始绝对偏移（可为负：视频早于轨迹起点）
+  let offsets = absOffsets
+  if (allBeforeTrack && gpxStart > 0) {
+    // GPX 声称 UTC、实为本地墙钟时间时，按用户时区重新解释后即可得到正确偏移
+    const gpxStartLocal = gpxStart - getTimezoneOffsetMinutes() * 60000
+    const candidate = starts.map(s => s - gpxStartLocal)
+    const duration = trackDurationMs.value
+    const allInRange = candidate.every(o => o >= 0 && (duration <= 0 || o <= duration))
+    if (allInRange && candidate.some(o => o > 0)) {
+      offsets = candidate
+      mode = 'absolute(按用户时区重解释GPX起点)'
+    }
+  }
+
+  const toText = (ms: number) => (ms ? new Date(ms).toLocaleString('zh-CN', { hour12: false }) : '-')
+  console.log('[TrackVideoAlign] assignAutoOffsets', {
+    mode,
+    gpxStartText: toText(gpxStart),
+    items: items.map((item, i) => ({
+      id: item.video.id,
+      videoStartText: toText(starts[i]),
+      rawOffsetMin: (absOffsets[i] / 60000).toFixed(1),
+      offsetMin: (offsets[i] / 60000).toFixed(1),
+    })),
+  })
+
+  items.forEach((item, i) => {
+    item.timeOffsetMs = offsets[i]
+    item.offsetText = msToHhmmss(offsets[i])
+  })
+}
+
+/**
+ * @description: 对齐列表排序比较：有时间的按偏移时间升序；无时间信息的保持导入顺序并排在最后。
+ * JS sort 稳定，因此偏移相同的视频与无时间信息的视频均保持原有（导入）顺序。
+ */
+function compareAlignItems(a: AlignItem, b: AlignItem): number {
+  const aHas = videoStartMs(a.video) > 0
+  const bHas = videoStartMs(b.video) > 0
+  if (aHas && bHas) return a.timeOffsetMs - b.timeOffsetMs
+  if (aHas) return -1
+  if (bHas) return 1
+  return 0
+}
+
+function loadTrackVideos(): AlignItem[] {
+  const schema = schemaStore.getSchema
+  const track: ITrackInfo | undefined = schema.trackInfo?.find(t => t.id === props.trackId)
+  const videoMap = new Map<string, IVideoInfo>()
+  ;(schema.videoInfo || []).forEach(v => videoMap.set(v.id, v))
+
+  const refs: IVideoRef[] = track?.videos || []
+  const items: AlignItem[] = []
+  refs.forEach((ref, idx) => {
+    const video = videoMap.get(ref.videoId)
+    if (!video) return
+    const offset = ref.timeOffsetMs ?? 0
+    items.push({
+      video,
+      timeOffsetMs: offset,
+      offsetText: msToHhmmss(offset),
+      color: VIDEO_COLORS[idx % VIDEO_COLORS.length],
+    })
+  })
+  items.sort(compareAlignItems)
+  return items
+}
+
+// ---- 添加/移除视频 ----
+const addVideoDialogVisible = ref(false)
+const selectedVideoIds = ref<string[]>([])
+
+// 本地磁盘选择解析出来的视频（尚未导入 schema）
+const localVideos = ref<ISelectedVideo[]>([])
+const localSelecting = ref(false)
+const localProgress = ref({ processed: 0, total: 0 })
+// 本地视频解析进度百分比（用于进度条）
+const localProgressPercent = computed(() => {
+  const { processed, total } = localProgress.value
+  return total > 0 ? Math.min(100, Math.round((processed / total) * 100)) : 0
+})
+// 直接添加模式：从主弹窗「添加本地视频」入口选择后，解析完成自动加入对齐列表
+const addLocalDirectly = ref(false)
+// 一次选择多少个本地视频起给出"解析较慢"提示
+const LOCAL_VIDEO_WARN_THRESHOLD = 5
+// 保存状态：批量导入本地视频较慢，用于按钮 loading 与进度提示
+const saving = ref(false)
+const saveProgress = ref({ processed: 0, total: 0 })
+// 本地视频导入并发数（复制 + ffprobe 较重，限制并发避免磁盘争抢）
+const SAVE_IMPORT_CONCURRENCY = 3
+
+// 把当前本地解析结果加入对齐列表（跳过已在列表中的）
+function addLocalVideosToAlign() {
+  const added: AlignItem[] = []
+  localVideos.value.forEach(v => {
+    if (alignItems.value.find(i => i.video.id === v.id)) return
+    console.log('[TrackVideoAlign] addLocalVideo raw', v)
+    const video = { id: v.id, name: v.name, durationMs: v.durationMs, startTimeMs: v.startTimeMs } as IVideoInfo
+    const item: AlignItem = {
+      video,
+      timeOffsetMs: 0,
+      offsetText: msToHhmmss(0),
+      color: VIDEO_COLORS[alignItems.value.length % VIDEO_COLORS.length],
+      localPath: v.path,
+    }
+    alignItems.value.push(item)
+    added.push(item)
+  })
+  assignAutoOffsets(added)
+  alignItems.value.sort(compareAlignItems)
+  if (!activeVideoId.value && alignItems.value.length > 0) {
+    activeVideoId.value = alignItems.value[0].video.id
+  }
+}
+
+// 主弹窗「添加本地视频」：选择后直接加入对齐列表
+function selectAndAddLocalVideos() {
+  addLocalDirectly.value = true
+  selectLocalVideos()
+}
+
+// 添加视频弹窗内「从本地选择视频」：仅收集到列表，待用户确认后加入
+function selectLocalForDialog() {
+  addLocalDirectly.value = false
+  selectLocalVideos()
+}
+
+// 可添加的已上传视频：所有已导入视频中尚未关联到该轨迹的
+const availableVideos = computed(() => {
+  const schema = schemaStore.getSchema
+  const track: ITrackInfo | undefined = schema.trackInfo?.find(t => t.id === props.trackId)
+  const linkedIds = new Set((track?.videos || []).map(r => r.videoId))
+  return (schema.videoInfo || []).filter(v => !linkedIds.has(v.id))
+})
+
+// 本地视频中尚未进 schema、且未在已上传列表出现的项
+const localOnlyVideos = computed(() => {
+  const uploadedIds = new Set((schemaStore.getSchema.videoInfo || []).map(v => v.id))
+  const availableIds = new Set(availableVideos.value.map(v => v.id))
+  return localVideos.value.filter(v => !uploadedIds.has(v.id) && !availableIds.has(v.id))
+})
+
+// 下拉可选列表：已上传视频 + 本地待导入视频（本地项标记 local）
+interface SelectableVideo {
+  id: string
+  name: string
+  durationMs?: number
+  local: boolean
+}
+const selectableVideos = computed<SelectableVideo[]>(() => [
+  ...availableVideos.value.map(v => ({ id: v.id, name: v.name || v.id, durationMs: v.durationMs, local: false })),
+  ...localOnlyVideos.value.map(v => ({ id: v.id, name: v.name, durationMs: v.durationMs, local: true })),
+])
+
+// 打开本地文件选择框（复用后端 SelectVideos + 解析事件）
+async function selectLocalVideos() {
+  localSelecting.value = true
+  localProgress.value = { processed: 0, total: 0 }
+  videoSelectContext.owner = 'alignDialog'
+  try {
+    const res = await API.video.selectVideos()
+    if (res.code !== 200) {
+      localSelecting.value = false
+      videoSelectContext.owner = ''
+      ElMessage.error(res.msg || i18n.global.t('description.selectVideoFailed'))
+      return
+    }
+    const total = res.data?.total ?? 0
+    localProgress.value = { processed: 0, total }
+    // 本地视频解析较重（ffmpeg 探测），数量多时明显变慢，提前提示用户
+    if (total >= LOCAL_VIDEO_WARN_THRESHOLD) {
+      ElMessage.warning(i18n.global.t('align.localVideoSlowWarning', { total }))
+    }
+    // 取消选择框时不会触发 videos-done 事件，需手动结束加载态
+    if (total === 0) {
+      localSelecting.value = false
+      videoSelectContext.owner = ''
+      addLocalDirectly.value = false
+    }
+  } catch (e) {
+    console.error('选择视频失败', e)
+    localSelecting.value = false
+    videoSelectContext.owner = ''
+    addLocalDirectly.value = false
+    ElMessage.error(i18n.global.t('description.selectVideoFailed'))
+  }
+}
+
+function confirmAddVideos() {
+  const localMap = new Map(localOnlyVideos.value.map(v => [v.id, v]))
+  const toAdd = selectedVideoIds.value
+    .map(id => {
+      const uploaded = availableVideos.value.find(v => v.id === id)
+      if (uploaded) {
+        return { video: uploaded as IVideoInfo, localPath: undefined as string | undefined }
+      }
+      const local = localMap.get(id)
+      if (local) {
+        return {
+          video: { id: local.id, name: local.name, durationMs: local.durationMs, startTimeMs: local.startTimeMs } as IVideoInfo,
+          localPath: local.path as string | undefined,
+        }
+      }
+      return null
+    })
+    .filter((v): v is { video: IVideoInfo; localPath: string | undefined } => !!v)
+  if (toAdd.length === 0) {
+    addVideoDialogVisible.value = false
+    return
+  }
+  console.log('[TrackVideoAlign] confirmAddVideos', toAdd.map(t => ({
+    id: t.video.id,
+    name: t.video.name,
+    startTimeMs: t.video.startTimeMs,
+    localPath: t.localPath,
+  })))
+  const added: AlignItem[] = []
+  toAdd.forEach(({ video, localPath }) => {
+    if (!alignItems.value.find(i => i.video.id === video.id)) {
+      const item: AlignItem = {
+        video,
+        timeOffsetMs: 0,
+        offsetText: msToHhmmss(0),
+        color: VIDEO_COLORS[alignItems.value.length % VIDEO_COLORS.length],
+        localPath,
+      }
+      alignItems.value.push(item)
+      added.push(item)
+    }
+  })
+  assignAutoOffsets(added)
+  if (!activeVideoId.value && alignItems.value.length > 0) {
+    activeVideoId.value = alignItems.value[0].video.id
+  }
+  selectedVideoIds.value = []
+  addVideoDialogVisible.value = false
+}
+
+function removeVideo(videoId: string) {
+  const index = alignItems.value.findIndex(i => i.video.id === videoId)
+  if (index < 0) return
+  alignItems.value.splice(index, 1)
+  if (activeVideoId.value === videoId) {
+    activeVideoId.value = alignItems.value.length > 0 ? alignItems.value[0].video.id : null
+  }
+}
+
+/**
+ * @description: 播放当前视频。已上传视频直接按 id 播放；本地待导入视频先临时导入到
+ * 用户目录以便流式播放（保存时复用该结果，不会重复导入）。
+ */
+async function playAlignVideo(item: AlignItem) {
+  // 已上传：直接播放
+  if (getVideoInfoById(item.video.id)) {
+    playVideoId.value = item.video.id
+    playVideoVisible.value = true
+    return
+  }
+  // 已在本弹窗内为播放导入过：直接播放
+  if (item.importedVideo) {
+    playVideoId.value = item.importedVideo.id
+    playVideoVisible.value = true
+    return
+  }
+  // 本地待导入：取源文件路径（本地添加项或上传模式待上传视频）
+  const localPath = item.localPath
+    || (props.pendingVideo?.id === item.video.id ? props.pendingVideo?.path : undefined)
+  if (!localPath) {
+    ElMessage.warning(i18n.global.t('align.videoNotReady'))
+    return
+  }
+  if (playingIds.value[item.video.id]) return
+  playingIds.value[item.video.id] = true
+  try {
+    const res = await API.video.importVideo({
+      id: item.video.id,
+      name: item.video.name || '',
+      path: localPath,
+    })
+    if (res.code !== 200) {
+      ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
+      return
+    }
+    item.importedVideo = res.data as IVideoInfo
+    // 保留用户在弹窗中设置的全景标记
+    item.importedVideo.isPanorama = item.video.isPanorama
+    playVideoId.value = item.importedVideo.id
+    playVideoVisible.value = true
+  } catch (e) {
+    console.error('播放前导入视频失败', e)
+    ElMessage.error(i18n.global.t('description.videoImportFailed'))
+  } finally {
+    playingIds.value[item.video.id] = false
+  }
+}
+
+async function loadData() {
+  loading.value = true
+  alignItems.value = []
+  activeVideoId.value = null
+  localVideos.value = []
+  localSelecting.value = false
+  localProgress.value = { processed: 0, total: 0 }
+  addLocalDirectly.value = false
+  try {
+    const pts = await fetchTrackPoints(props.trackId)
+    gpxPoints.value = pts || []
+    console.log('[TrackVideoAlign] loadData gpx', {
+      trackId: props.trackId,
+      count: gpxPoints.value.length,
+      firstTimeMs: gpxPoints.value[0]?.timeMs,
+      lastTimeMs: gpxPoints.value[gpxPoints.value.length - 1]?.timeMs,
+    })
+    if (gpxPoints.value.length >= 2) {
+      if (props.pendingVideo) {
+        // 上传模式：以该待上传视频为唯一对齐项
+        const pendingVideoInfo = {
+          id: props.pendingVideo.id,
+          name: props.pendingVideo.name,
+          durationMs: props.pendingVideo.durationMs,
+          startTimeMs: props.pendingVideo.startTimeMs,
+        } as IVideoInfo
+        const item: AlignItem = {
+          video: pendingVideoInfo,
+          timeOffsetMs: 0,
+          offsetText: msToHhmmss(0),
+          color: VIDEO_COLORS[0],
+        }
+        alignItems.value = [item]
+        assignAutoOffsets([item])
+        activeVideoId.value = props.pendingVideo.id
+      } else {
+        alignItems.value = loadTrackVideos()
+        if (alignItems.value.length > 0) {
+          activeVideoId.value = alignItems.value[0].video.id
+        }
+      }
+    }
+  } catch (e) {
+    console.error('加载轨迹点失败', e)
+    gpxPoints.value = []
+  } finally {
+    loading.value = false
+    nextTick(() => {
+      initPreviewMap()
+      refreshPreview()
+    })
+  }
+}
+
+watch(dialogVisible, (val) => {
+  if (val) {
+    loadData()
+  } else {
+    destroyPreviewMap()
+    // 关闭弹窗时释放本地选择上下文，避免上传面板持续忽略解析事件
+    if (videoSelectContext.owner === 'alignDialog') videoSelectContext.owner = ''
+  }
+})
+
+// 监听"从本地选择视频"的后端解析事件（仅在本弹窗主动选择时消费）
+onMounted(() => {
+  API.video.onVideosParsed((payload: any) => {
+    if (!localSelecting.value) return
+    const videos: ISelectedVideo[] = payload?.videos ?? []
+    videos.forEach(v => {
+      if (!localVideos.value.find(item => item.id === v.id)) {
+        localVideos.value.push(v)
+      }
+    })
+    // 主弹窗「添加本地视频」：每解析完一批即加入对齐列表，实现"边解析边上屏"
+    if (addLocalDirectly.value) addLocalVideosToAlign()
+  })
+  API.video.onVideosProgress((payload: any) => {
+    if (!localSelecting.value) return
+    localProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
+  })
+  API.video.onVideosDone(() => {
+    if (!localSelecting.value) return
+    localSelecting.value = false
+    videoSelectContext.owner = ''
+    // 主弹窗入口：解析完成后直接加入对齐列表
+    if (addLocalDirectly.value) {
+      addLocalVideosToAlign()
+      addLocalDirectly.value = false
+    }
+  })
+})
+
+onUnmounted(() => {
+  destroyPreviewMap()
+  // 若正在本地选择中卸载，释放选择上下文（事件监听由 UploadPanel 统一清理）
+  if (videoSelectContext.owner === 'alignDialog') videoSelectContext.owner = ''
+})
+
+// ---- 时间线条带样式 ----
+function barStyle(item: AlignItem): Record<string, string> {
+  const duration = trackDurationMs.value || 1
+  const width = Math.max(2, (item.video.durationMs || 0) / duration * 100)
+  const left = Math.max(0, item.timeOffsetMs / duration * 100)
+  return {
+    width: `${width}%`,
+    left: `${left}%`,
+    background: item.color,
+  }
+}
+
+/**
+ * @description: 视频是否超出轨道范围：起点早于轨迹起点，或终点晚于轨迹终点。
+ * 超出时不渲染滑块，仅在轨道上显示偏离时间。
+ */
+function isOutOfRange(item: AlignItem): boolean {
+  const total = trackDurationMs.value
+  if (total <= 0) return false
+  if (item.timeOffsetMs < 0) return true
+  return item.timeOffsetMs + (item.video.durationMs || 0) > total
+}
+
+// 超出方向：'before'（早于起点）/ 'after'（晚于终点）
+function outSide(item: AlignItem): 'before' | 'after' {
+  return item.timeOffsetMs < 0 ? 'before' : 'after'
+}
+
+// 偏离时间文本：早于轨迹起点 / 超出轨迹终点 的具体时长
+function outLabel(item: AlignItem): string {
+  const total = trackDurationMs.value
+  const dur = item.video.durationMs || 0
+  if (item.timeOffsetMs < 0) {
+    return i18n.global.t('align.beforeTrackStart', { time: formatMs(-item.timeOffsetMs) })
+  }
+  return i18n.global.t('align.beyondTrackEnd', { time: formatMs(item.timeOffsetMs + dur - total) })
+}
+
+// ---- 条带拖拽 ----
+let draggingItem: AlignItem | null = null
+let dragStartX = 0
+let dragStartOffset = 0
+// 时间线满量程对应的像素宽度（拖动换算用，避免与鼠标位移不成比例）
+let laneWidthPx = 0
+
+// 计算时间线轨道（.video-lane）的实际像素宽度，作为满量程比例基准
+function measureLaneWidth(): number {
+  if (timelineRef.value) {
+    const lane = timelineRef.value.querySelector('.video-lane')
+    if (lane) return lane.clientWidth || timelineRef.value.clientWidth
+  }
+  return timelineRef.value?.clientWidth || 100
+}
+
+function startDrag(e: MouseEvent, item: AlignItem) {
+  if (trackDurationMs.value <= 0) return
+  e.preventDefault()
+  draggingItem = item
+  dragStartX = e.clientX
+  dragStartOffset = item.timeOffsetMs
+  laneWidthPx = measureLaneWidth()
+  document.addEventListener('mousemove', onDragMove)
+  document.addEventListener('mouseup', onDragEnd)
+}
+
+function onDragMove(e: MouseEvent) {
+  if (!draggingItem) return
+  // 像素位移 / 轨道像素宽度 * 总时长 = 对应毫秒（保证与鼠标位移 1:1）
+  const deltaMs = (e.clientX - dragStartX) / laneWidthPx * trackDurationMs.value
+  const newOffset = Math.round(dragStartOffset + deltaMs)
+  // 起点允许为负（视频从轨迹起点之前开始）；超出轨道时不在时间线上渲染滑块，仅提示偏离时间
+  draggingItem.timeOffsetMs = newOffset
+  draggingItem.offsetText = msToHhmmss(newOffset)
+  // 实时联动地图预览（所有视频弧段一起刷新）
+  refreshAllSegments()
+}
+
+function onDragEnd() {
+  draggingItem = null
+  document.removeEventListener('mousemove', onDragMove)
+  document.removeEventListener('mouseup', onDragEnd)
+}
+
+// ---- 偏移文本输入 ----
+function handleOffsetTextChange(item: AlignItem) {
+  const ms = hhmmssToMs(item.offsetText)
+  // 允许负值（早于轨迹起点）；仅非法格式时回退
+  if (isNaN(ms)) {
+    item.offsetText = msToHhmmss(item.timeOffsetMs)
+    return
+  }
+  item.timeOffsetMs = ms
+  item.offsetText = msToHhmmss(ms)
+  refreshAllSegments()
+}
+
+function handleActiveOffsetChange() {
+  const item = alignItems.value.find(i => i.video.id === activeVideoId.value)
+  if (item) handleOffsetTextChange(item)
+}
+
+// ---- 激活项 ----
+const activeVideo = computed<AlignItem | null>(() =>
+  alignItems.value.find(i => i.video.id === activeVideoId.value) || null
+)
+const activeOffsetText = computed(() => activeVideo.value?.offsetText || '')
+const activeOffsetMs = computed(() => activeVideo.value?.timeOffsetMs || 0)
+const activeDurationMs = computed(() => activeVideo.value?.video.durationMs || 0)
+const activeVideoName = computed(() => activeVideo.value?.video.name || '')
+
+function selectVideo(videoId: string) {
+  activeVideoId.value = videoId
+  refreshAllSegments()
+}
+
+// ---- 地图预览 ----
+const timelineRef = ref<HTMLElement>()
+const previewMapRef = ref<HTMLElement>()
+let previewMap: maplibregl.Map | null = null
+const TRACK_SOURCE = 'align-track-src'
+const TRACK_LAYER = 'align-track-layer'
+const SEG_SOURCE = 'align-seg-src'
+const SEG_LAYER = 'align-seg-layer'
+
+function getPreviewTileUrl(): string {
+  const activeTiles = schemaStore.getSchema?.mapInfo?.activeTiles ?? []
+  const customTiles = appStore.getAppSchema?.mapInfo?.mapTiles ?? []
+  const defaultTileId = appStore.getAppSchema?.mapInfo?.defaultTileId ?? ''
+  const defaultTiles = getDefaultMapTile()
+  const allTiles = [...defaultTiles, ...customTiles]
+  if (defaultTileId && activeTiles.includes(defaultTileId)) {
+    const defaultTile = allTiles.find(tile => tile.id === defaultTileId)
+    if (defaultTile) return defaultTile.url as string
+  }
+  const currentTile = allTiles.find(tile => activeTiles.includes(tile.id))
+  return (currentTile?.url as string) || (defaultTiles[0]?.url as string)
+}
+
+function initPreviewMap() {
+  if (!previewMapRef.value || previewMap) return
+  previewMap = new maplibregl.Map({
+    container: previewMapRef.value,
+    style: { version: 8, sources: {}, layers: [] },
+    attributionControl: false,
+    center: [120.2, 30.2],
+    zoom: 10,
+    minZoom: 3,
+    maxZoom: 18,
+  })
+  previewMap.on('load', () => {
+    const tileUrl = getPreviewTileUrl()
+    if (tileUrl && !previewMap!.getSource('preview-tile')) {
+      previewMap!.addSource('preview-tile', { type: 'raster', tiles: [tileUrl], tileSize: 256 })
+      previewMap!.addLayer({ id: 'preview-tile-layer', type: 'raster', source: 'preview-tile' })
+    }
+    // 轨迹线
+    if (!previewMap!.getSource(TRACK_SOURCE)) {
+      previewMap!.addSource(TRACK_SOURCE, {
+        type: 'geojson',
+        data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } },
+      })
+      previewMap!.addLayer({
+        id: TRACK_LAYER, type: 'line', source: TRACK_SOURCE,
+        paint: { 'line-color': '#409eff', 'line-width': 3, 'line-opacity': 0.6 },
+      })
+    }
+    // 高亮弧段：所有已关联视频的弧段同时显示，颜色按各自视频配色（数据驱动）
+    if (!previewMap!.getSource(SEG_SOURCE)) {
+      previewMap!.addSource(SEG_SOURCE, {
+        type: 'geojson',
+        data: { type: 'FeatureCollection', features: [] },
+      })
+      previewMap!.addLayer({
+        id: SEG_LAYER, type: 'line', source: SEG_SOURCE,
+        paint: {
+          'line-color': ['get', 'color'],
+          'line-width': 7,
+          'line-opacity': 0.9,
+        },
+      })
+    }
+    refreshPreview()
+  })
+}
+
+function destroyPreviewMap() {
+  if (previewMap) {
+    previewMap.remove()
+    previewMap = null
+  }
+}
+
+// 刷新预览：画完整轨迹线 + 所有已关联视频的弧段
+function refreshPreview() {
+  if (!previewMap) return
+  const pts = gpxPoints.value
+  const coords = pts.map(p => [p.lng, p.lat] as [number, number])
+  if (coords.length >= 2) {
+    setLineData(TRACK_SOURCE, coords)
+    if (!previewMap.getBounds().getNorthWest()) {
+      try {
+        const bounds = coords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(coords[0], coords[0]))
+        previewMap.fitBounds(bounds, { padding: 30, duration: 200, maxZoom: 17 })
+      } catch { /* 忽略 */ }
+    }
+  }
+  refreshAllSegments()
+}
+
+// 刷新所有已关联视频的弧段（每个视频一段，各自颜色）
+function refreshAllSegments() {
+  if (!previewMap) return
+  const features = alignItems.value
+    .map(item => {
+      const coords = extractSegmentCoords(item)
+      if (coords.length < 2) return null
+      return {
+        type: 'Feature',
+        properties: { color: item.color },
+        geometry: { type: 'LineString', coordinates: coords },
+      }
+    })
+    .filter((f): f is NonNullable<typeof f> => !!f)
+  setSegmentsData(features)
+}
+
+function setSegmentsData(features: any[]) {
+  if (!previewMap) return
+  if (!previewMap.getSource(SEG_SOURCE)) return
+  ;(previewMap.getSource(SEG_SOURCE) as maplibregl.GeoJSONSource).setData({
+    type: 'FeatureCollection',
+    features,
+  })
+}
+
+function setLineData(sourceId: string, coords: [number, number][]) {
+  if (!previewMap) return
+  if (!previewMap.getSource(sourceId)) return
+  ;(previewMap.getSource(sourceId) as maplibregl.GeoJSONSource).setData({
+    type: 'Feature',
+    properties: {},
+    geometry: { type: 'LineString', coordinates: coords },
+  })
+}
+
+// 提取视频时间段 [startMs, startMs+duration] 对应的轨迹线坐标段（含首尾插值端点）
+function extractSegmentCoords(item: AlignItem): [number, number][] {
+  const pts = gpxPoints.value
+  if (pts.length < 2) return []
+  const gpxStart = pts[0].timeMs
+  if (!gpxStart) return []
+  const startAbs = gpxStart + item.timeOffsetMs
+  const endAbs = gpxStart + item.timeOffsetMs + (item.video.durationMs || 0)
+
+  // 在相邻两点上线性插值得到某时刻坐标
+  const interpolateAt = (timeMs: number): [number, number] | null => {
+    if (timeMs <= pts[0].timeMs) return [pts[0].lng, pts[0].lat]
+    if (timeMs >= pts[pts.length - 1].timeMs) return [pts[pts.length - 1].lng, pts[pts.length - 1].lat]
+    for (let i = 0; i < pts.length - 1; i++) {
+      const a = pts[i]
+      const b = pts[i + 1]
+      if (a.timeMs === 0 || b.timeMs === 0) continue
+      if (timeMs >= a.timeMs && timeMs <= b.timeMs) {
+        const ratio = (timeMs - a.timeMs) / (b.timeMs - a.timeMs)
+        return [a.lng + (b.lng - a.lng) * ratio, a.lat + (b.lat - a.lat) * ratio]
+      }
+    }
+    return null
+  }
+
+  const startCoord = interpolateAt(startAbs)
+  const endCoord = interpolateAt(endAbs)
+  if (!startCoord || !endCoord) return []
+
+  const coords: [number, number][] = [startCoord]
+  // 收集时间段内的所有采样点
+  for (let i = 0; i < pts.length; i++) {
+    const p = pts[i]
+    if (!p.timeMs) continue
+    if (p.timeMs > startAbs && p.timeMs < endAbs) {
+      coords.push([p.lng, p.lat])
+    }
+  }
+  // 去重：末点可能与内部最后一点重合
+  const last = coords[coords.length - 1]
+  if (Math.abs(last[0] - endCoord[0]) > 1e-9 || Math.abs(last[1] - endCoord[1]) > 1e-9) {
+    coords.push(endCoord)
+  }
+  return coords
+}
+
+function focusActiveSegment() {
+  if (!previewMap || !activeVideo.value) return
+  const segCoords = extractSegmentCoords(activeVideo.value)
+  if (segCoords.length < 2) return
+  try {
+    const bounds = segCoords.reduce((b, c) => b.extend(c), new maplibregl.LngLatBounds(segCoords[0], segCoords[0]))
+    previewMap.fitBounds(bounds, { padding: 40, duration: 300, maxZoom: 17 })
+  } catch { /* 忽略 */ }
+}
+
+// ---- 保存 ----
+// 并发映射（限制并发数）：批量导入本地视频时避免逐个串行等待
+async function mapWithConcurrency<T, R>(items: T[], limit: number, worker: (item: T, index: number) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length)
+  let cursor = 0
+  const runnerCount = Math.max(1, Math.min(limit, items.length))
+  const runners = new Array(runnerCount).fill(0).map(async () => {
+    while (cursor < items.length) {
+      const i = cursor++
+      results[i] = await worker(items[i], i)
+    }
+  })
+  await Promise.all(runners)
+  return results
+}
+
+async function handleSave() {
+  if (saving.value) return
+  const schema = schemaStore.getSchema
+  const track = schema.trackInfo?.find(t => t.id === props.trackId)
+  if (!track) {
+    ElMessage.error(i18n.global.t('description.trackNotExist'))
+    return
+  }
+
+  // 上传模式：先导入待上传视频到用户目录并写入 schema
+  if (props.pendingVideo) {
+    const item = alignItems.value[0]
+    if (!item) return
+    // 超出轨道的视频不上传
+    if (isOutOfRange(item)) {
+      ElMessage.warning(i18n.global.t('align.videoOutOfRange'))
+      return
+    }
+    saving.value = true
+    try {
+      let vi: IVideoInfo
+      // 播放时可能已临时导入，直接复用，避免重复复制
+      if (item.importedVideo) {
+        vi = item.importedVideo
+      } else {
+        const res = await API.video.importVideo({
+          id: props.pendingVideo.id,
+          name: props.pendingVideo.name,
+          path: props.pendingVideo.path,
+        })
+        if (res.code !== 200) {
+          ElMessage.error(res.msg || i18n.global.t('description.videoImportFailed'))
+          return
+        }
+        vi = res.data
+      }
+      // 保留用户在弹窗中设置的全景标记
+      vi.isPanorama = item.video.isPanorama
+      // 关联信息（轨迹 + 偏移）只存 trackInfo.videos，videoInfo 不存 trackId/timeOffsetMs
+      pushVideoToSchema(vi)
+      associateVideoToTrack(props.trackId, vi.id, item.timeOffsetMs)
+      await saveSchema()
+      ElMessage.success(i18n.global.t('description.videoLinkedAndUploaded'))
+      emit('aligned')
+      // 保存后不自动关闭弹窗，便于继续查看/调整
+    } finally {
+      saving.value = false
+    }
+    return
+  }
+
+  // 更新 trackInfo.videos（权威来源）；保存前按偏移时间排序，保证持久化顺序与时间线一致
+  alignItems.value.sort(compareAlignItems)
+  // 超出轨道（前/后）的视频不上传、不关联，仅在时间线上提示偏离时间
+  const savedItems = alignItems.value.filter(item => !isOutOfRange(item))
+  const skippedCount = alignItems.value.length - savedItems.length
+  const trackInfoList = [...(schema.trackInfo || [])]
+  const trackIndex = trackInfoList.findIndex(t => t.id === props.trackId)
+  const refs = new Array<IVideoRef>(savedItems.length)
+  // 本地选择的视频需先导入到用户目录并写入 schema.videoInfo（播放时已导入的除外）
+  const localTasks: { item: AlignItem; index: number }[] = []
+  savedItems.forEach((item, index) => {
+    if (item.localPath && !item.importedVideo) localTasks.push({ item, index })
+  })
+
+  saving.value = true
+  saveProgress.value = { processed: 0, total: localTasks.length }
+  try {
+    // 并发导入本地视频（限制并发），并实时刷新进度
+    await mapWithConcurrency(localTasks, SAVE_IMPORT_CONCURRENCY, async ({ item, index }) => {
+      const res = await API.video.importVideo({
+        id: item.video.id,
+        name: item.video.name || '',
+        path: item.localPath as string,
+      })
+      if (res.code !== 200) {
+        throw new Error(res.msg || i18n.global.t('description.videoImportFailedNamed', { name: item.video.name || item.video.id }))
+      }
+      const vi: IVideoInfo = res.data
+      // 保留用户在弹窗中设置的全景标记
+      vi.isPanorama = item.video.isPanorama
+      pushVideoToSchema(vi)
+      item.video = vi
+      item.localPath = undefined
+      refs[index] = { videoId: vi.id, timeOffsetMs: item.timeOffsetMs }
+      saveProgress.value = { processed: saveProgress.value.processed + 1, total: saveProgress.value.total }
+    })
+    // 已上传（无 localPath）的项直接写入 refs；播放时已导入的本地视频此处写入 schema 并复用
+    savedItems.forEach((item, index) => {
+      if (refs[index]) return
+      if (item.importedVideo) {
+        item.importedVideo.isPanorama = item.video.isPanorama
+        pushVideoToSchema(item.importedVideo)
+        refs[index] = { videoId: item.importedVideo.id, timeOffsetMs: item.timeOffsetMs }
+      } else {
+        refs[index] = { videoId: item.video.id, timeOffsetMs: item.timeOffsetMs }
+      }
+    })
+    trackInfoList[trackIndex] = { ...trackInfoList[trackIndex], videos: refs }
+    // editSchemaAttrAndSave 内部已 saveSchema，无需再保存一次
+    await editSchemaAttrAndSave('trackInfo', trackInfoList)
+    if (skippedCount > 0) {
+      ElMessage.warning(i18n.global.t('align.skippedOutOfRange', { count: skippedCount }))
+    }
+    ElMessage.success(i18n.global.t('description.alignSaved'))
+    // 保存后不自动关闭弹窗，便于继续查看/调整
+  } catch (e: any) {
+    ElMessage.error(String(e?.message || e))
+  } finally {
+    saving.value = false
+    saveProgress.value = { processed: 0, total: 0 }
+  }
+}
+
+// 解析中关闭弹窗：提示会丢失进度，确认后取消后端解析并丢弃本地选择
+async function confirmCancelIfParsing(): Promise<boolean> {
+  // 保存中禁止关闭，避免导入中断/状态不一致
+  if (saving.value) {
+    ElMessage.warning(i18n.global.t('align.savingPleaseWait'))
+    return false
+  }
+  if (!localSelecting.value) return true
+  try {
+    await ElMessageBox.confirm(
+      i18n.global.t('align.closeParsingConfirm'),
+      i18n.global.t('align.tip'),
+      { type: 'warning', confirmButtonText: i18n.global.t('align.confirmClose'), cancelButtonText: i18n.global.t('align.keepWaiting') }
+    )
+  } catch {
+    return false
+  }
+  try {
+    await API.video.cancelVideoParse()
+  } catch (e) {
+    console.error('取消视频解析失败', e)
+  }
+  // 丢弃本地选择并结束解析态
+  localVideos.value = []
+  localProgress.value = { processed: 0, total: 0 }
+  addLocalDirectly.value = false
+  localSelecting.value = false
+  // 保持"忽略"状态，避免后端收尾事件被上传面板误消费；下次选择时会重置 owner
+  videoSelectContext.owner = 'alignDialog-cancelled'
+  return true
+}
+
+async function handleBeforeClose(done: () => void) {
+  if (await confirmCancelIfParsing()) done()
+}
+
+// 底部"取消"按钮（不经过 before-close），同样先确认
+async function requestCloseMain() {
+  if (await confirmCancelIfParsing()) dialogVisible.value = false
+}
+
+async function requestCloseAddVideo() {
+  if (await confirmCancelIfParsing()) addVideoDialogVisible.value = false
+}
+
+// ---- 时间格式化 ----
+function msToHhmmss(ms: number): string {
+  if (!ms && ms !== 0) return ''
+  const sign = ms < 0 ? '-' : ''
+  const totalSec = Math.floor(Math.abs(ms) / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${sign}${pad(h)}:${pad(m)}:${pad(s)}`
+}
+
+function hhmmssToMs(str: string): number {
+  const s = (str || '').trim()
+  const neg = s.startsWith('-')
+  const body = neg ? s.slice(1) : s
+  const parts = body.split(':').map(Number)
+  if (parts.length !== 3 || parts.some(n => isNaN(n))) return NaN
+  return (neg ? -1 : 1) * ((parts[0] * 3600 + parts[1] * 60 + parts[2]) * 1000)
+}
+
+function formatMs(ms: number | undefined): string {
+  if (!ms) return '0:00:00'
+  const totalSec = Math.floor(ms / 1000)
+  const h = Math.floor(totalSec / 3600)
+  const m = Math.floor((totalSec % 3600) / 60)
+  const s = totalSec % 60
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${h}:${pad(m)}:${pad(s)}`
+}
+</script>
+
+<style scoped>
+.align-content {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.align-loading {
+  min-height: 200px;
+}
+
+.align-empty {
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-section {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.timeline-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 6px;
+}
+
+.track-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.track-range {
+  font-size: 12px;
+  color: #909399;
+}
+
+.timeline-legend {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #909399;
+  margin-bottom: 4px;
+}
+
+.timeline {
+  position: relative;
+  border: 1px solid #ebeef5;
+  border-radius: 6px;
+  background: #fafafa;
+  padding: 8px;
+  min-height: 60px;
+  /* 轨道区最高 200px，超出滚动显示 */
+  max-height: 180px;
+  overflow-y: auto;
+}
+
+.track-scale {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background: #409eff;
+  border-radius: 2px;
+  opacity: 0.5;
+}
+
+.video-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  cursor: pointer;
+  border-radius: 4px;
+}
+
+.video-row.active {
+  background: #f0f7ff;
+}
+
+.video-index {
+  width: 20px;
+  flex-shrink: 0;
+  text-align: center;
+  font-size: 12px;
+  font-weight: 600;
+  color: #909399;
+  font-variant-numeric: tabular-nums;
+}
+
+.video-name {
+  width: 120px;
+  flex-shrink: 0;
+  font-size: 12px;
+  color: #606266;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.video-status {
+  flex-shrink: 0;
+}
+
+/* 全景开关（360）：点击切换是否为全景视频 */
+.video-panorama {
+  flex-shrink: 0;
+  width: 30px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: #909399;
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.video-panorama:hover {
+  filter: brightness(1.08);
+}
+
+.video-panorama.active {
+  background: #409eff;
+}
+
+.video-panorama .panorama-text {
+  font-size: 11px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.video-lane {
+  position: relative;
+  flex: 1;
+  height: 26px;
+}
+
+.video-bar {
+  position: absolute;
+  height: 22px;
+  top: 2px;
+  border-radius: 4px;
+  cursor: grab;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2px;
+  user-select: none;
+  transition: filter 0.15s;
+}
+
+.video-bar:hover {
+  filter: brightness(1.1);
+}
+
+.bar-label {
+  font-size: 10px;
+  color: #fff;
+  white-space: nowrap;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.4);
+}
+
+/* 超出轨道：不渲染滑块，仅显示偏离时间 */
+.out-label {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 11px;
+  white-space: nowrap;
+  padding: 1px 6px;
+  border-radius: 3px;
+  border: 1px dashed #e6a23c;
+  background: rgba(230, 162, 60, 0.1);
+  color: #e6a23c;
+}
+
+.out-label.before {
+  color: #f56c6c;
+  border-color: #f56c6c;
+  background: rgba(245, 108, 108, 0.1);
+}
+
+.video-offset {
+  width: 96px;
+  flex-shrink: 0;
+}
+
+.offset-input {
+  width: 100%;
+}
+
+.no-video-tip {
+  padding: 10px 0;
+}
+
+.map-section {
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 12px;
+  background: #fff;
+}
+
+.map-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.map-hint {
+  font-size: 12px;
+  font-weight: 400;
+  color: #e6a23c;
+}
+
+.preview-map {
+  width: 100%;
+  height: 26vh;
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.detail-section {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #ebeef5;
+  border-radius: 8px;
+  padding: 10px 12px;
+  background: #fff;
+}
+
+.detail-label {
+  font-size: 13px;
+  color: #606266;
+}
+
+.detail-offset {
+  width: 140px;
+}
+
+.detail-duration {
+  font-size: 12px;
+  color: #909399;
+}
+
+.detail-focus {
+  margin-left: auto;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.video-remove {
+  flex-shrink: 0;
+}
+
+.add-video-content {
+  padding: 4px 8px;
+}
+
+.add-video-hint {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 8px;
+}
+
+.add-video-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.local-progress {
+  font-size: 12px;
+  color: #909399;
+}
+
+.local-progress-bar {
+  margin: 8px 0;
+}
+
+.opt-local {
+  margin-left: 6px;
+  padding: 0 4px;
+  font-size: 11px;
+  color: #409eff;
+  background: rgba(64, 158, 255, 0.12);
+  border-radius: 3px;
+}
+
+.opt-duration {
+  float: right;
+  color: #909399;
+  font-size: 12px;
+}
+
+</style>

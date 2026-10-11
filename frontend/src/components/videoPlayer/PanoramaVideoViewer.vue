@@ -1,0 +1,372 @@
+<!--
+ * @Description: 全景 360 视频查看器（基于 Photo Sphere Viewer 5.x EquirectangularVideoAdapter）
+ * - 通过 utils/videoBlob 分块读取视频并拼装成 objectURL，喂给 VideoAdapter
+ * - 支持拖拽视角 / 缩放
+ * - 隐藏 PSV 自带 navbar，底部使用与 VideoPlayer 一致的自制控制栏
+ *   （播放/静音/音量/当前时间/进度/总时长/全屏）
+-->
+<template>
+  <div class="panorama-video-viewer" ref="rootRef">
+    <div ref="container" class="pv-container"></div>
+    <!-- 加载遮罩（与普通视频播放器风格一致） -->
+    <div v-if="loading" class="pv-loading-mask">
+      <el-icon class="pv-loading-icon is-loading"><Loading /></el-icon>
+      <span class="pv-loading-text">{{ $t('videoLoading') }} {{ loadPercent }}%</span>
+    </div>
+    <!-- 控制栏：复用 VideoControls，保证与普通视频播放器样式/交互一致 -->
+    <VideoControls v-if="!hideControls && !loading" :is-playing="isPlaying" :current-time="currentTime" :duration="duration"
+      :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" :rate="rate" @toggle-play="togglePlay"
+      @toggle-mute="toggleMute" @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek"
+      @rate-change="onRateChange" />
+
+    <!-- 全屏时右上角退出全屏按钮（控制栏空闲隐藏后仍可用） -->
+    <FullscreenButton v-if="isFullscreen" :is-fullscreen="true" @click="toggleFullscreen" />
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { Loading } from '@element-plus/icons-vue'
+import { Viewer } from '@photo-sphere-viewer/core'
+import { EquirectangularVideoAdapter } from '@photo-sphere-viewer/equirectangular-video-adapter'
+import { VideoPlugin } from '@photo-sphere-viewer/video-plugin'
+import '@photo-sphere-viewer/core/index.css'
+import '@photo-sphere-viewer/video-plugin/index.css'
+import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
+import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
+import VideoControls from './VideoControls.vue'
+import FullscreenButton from '@/components/common/FullscreenButton.vue'
+
+const props = withDefaults(defineProps<{
+  videoId: string
+  // 隐藏内置控制栏（由外部共同进度条控制时使用，如轨迹视频播放）
+  hideControls?: boolean
+}>(), {
+  hideControls: false
+})
+
+const emit = defineEmits<{
+  (e: 'timeupdate', currentTime: number): void
+  (e: 'loadedmetadata', duration: number): void
+  (e: 'play'): void
+  (e: 'pause'): void
+  (e: 'ended'): void
+}>()
+
+const rootRef = ref<HTMLElement>()
+const container = ref<HTMLElement>()
+const loading = ref(false)
+const loadPercent = ref(0)
+
+const isPlaying = ref(false)
+const currentTime = ref(0)
+const duration = ref(0)
+// 音量跨弹窗记忆；其余参数每次打开弹窗重新初始化
+const volume = ref(getStoredVolume())
+const muted = ref(false)
+/** 静音前音量（取消静音时恢复） */
+const lastVolume = ref(volume.value > 0 ? volume.value : 1)
+const isFullscreen = ref(false)
+/** 播放倍速（每次打开重置为 1，不持久化） */
+const rate = ref(DEFAULT_PLAYBACK_RATE)
+
+let viewer: Viewer | null = null
+let videoPlugin: VideoPlugin | null = null
+
+// 元数据/结束事件去重标记
+let durationNotified = false
+let endedNotified = false
+
+// 首次拿到有效时长时对外发出 loadedmetadata（供外部控制栏/联动使用）
+function notifyLoadedMetadata() {
+  if (durationNotified) return
+  const dur = videoPlugin?.getDuration() || 0
+  if (dur > 0 && isFinite(dur)) {
+    duration.value = dur
+    durationNotified = true
+    emit('loadedmetadata', dur)
+  }
+}
+
+function togglePlay() {
+  videoPlugin?.playPause()
+}
+
+// 全景适配器的 video 元素未对外暴露，运行时通过插件私有字段获取
+function applyRate() {
+  const video = (videoPlugin as any)?.video as HTMLVideoElement | undefined
+  if (video && video.playbackRate !== rate.value) video.playbackRate = rate.value
+}
+function onRateChange(r: number) {
+  rate.value = r
+  applyRate()
+}
+
+function toggleMute() {
+  if (!videoPlugin) return
+  // 静音时音量归零，取消静音恢复静音前的值
+  if (muted.value) {
+    muted.value = false
+    const v = lastVolume.value > 0 ? lastVolume.value : 1
+    volume.value = v
+    videoPlugin.setVolume(v)
+    videoPlugin.setMute(false)
+  } else {
+    if (volume.value > 0) lastVolume.value = volume.value
+    muted.value = true
+    volume.value = 0
+    videoPlugin.setVolume(0)
+    videoPlugin.setMute(true)
+  }
+}
+
+function onVolumeChange(val: number | number[]) {
+  const v = Array.isArray(val) ? val[0] : val
+  volume.value = v
+  if (v > 0) {
+    lastVolume.value = v
+    setStoredVolume(v)
+  }
+  muted.value = v <= 0
+  videoPlugin?.setVolume(v)
+  videoPlugin?.setMute(v <= 0)
+}
+
+function onSeek(val: number | number[]) {
+  const sec = Array.isArray(val) ? val[0] : val
+  currentTime.value = sec
+  // 注意：setProgress 接收的是比例(0~1)，按秒跳转需用 setTime
+  videoPlugin?.setTime(sec)
+}
+
+function toggleFullscreen() {
+  const el = rootRef.value
+  if (!el) return
+  if (document.fullscreenElement) document.exitFullscreen?.()
+  else el.requestFullscreen?.()
+}
+
+let fullscreenResizeTimer: number | null = null
+
+function onFullscreenChange() {
+  // 仅当本查看器自身为全屏元素时才算全屏，避免外部容器全屏时误判
+  isFullscreen.value = document.fullscreenElement === rootRef.value
+  // 全屏尺寸变化后让 PSV 重新适配
+  if (fullscreenResizeTimer != null) clearTimeout(fullscreenResizeTimer)
+  fullscreenResizeTimer = window.setTimeout(() => {
+    fullscreenResizeTimer = null
+    viewer?.autoSize()
+  }, 100)
+}
+
+// 每次创建/销毁递增，用于丢弃过期的异步加载续体（卸载或快速切换 videoId 时避免创建孤儿 viewer）
+let createToken = 0
+
+async function createViewer() {
+  if (!container.value || !props.videoId) return
+  destroyViewer()
+  // 在销毁（其内部会递增 token）之后取本次 token，保证本次为最新一次创建
+  const token = ++createToken
+  loading.value = true
+  loadPercent.value = 0
+  // 优先使用本地 HTTP 流（支持 Range）；不可用时回退分块 blob
+  let source = await getVideoStreamUrl(props.videoId)
+  if (token !== createToken) return
+  if (!source) {
+    source = await loadVideoAsObjectUrl(props.videoId, (loaded, total) => {
+      if (token !== createToken) return
+      loadPercent.value = total > 0 ? Math.min(100, Math.round((loaded / total) * 100)) : 0
+    })
+  }
+  // 异步等待期间可能已卸载 / 切换视频 / 被新的创建请求取代
+  if (token !== createToken || !container.value) return
+  loading.value = false
+  if (!source) return
+
+  viewer = new Viewer({
+    container: container.value,
+    panorama: { source },
+    // autoplay/muted 属于 adapter 配置（VideoPlugin 没有该选项），否则点开不会自动播放
+    adapter: EquirectangularVideoAdapter.withConfig({ autoplay: true }),
+    // bigbutton：暂停时在画面中央显示播放按钮
+    plugins: [[VideoPlugin, { progressbar: false, bigbutton: true }]],
+    // 隐藏 PSV 自带 navbar，播放/音量/进度由自制控制栏提供
+    navbar: false,
+    loadingTxt: '',
+    mousewheel: true,
+    mousemove: true,
+  })
+
+  const plugin = viewer.getPlugin<VideoPlugin>(VideoPlugin)
+  videoPlugin = plugin
+  if (plugin) {
+    // 应用记忆的音量（插件默认音量为 1，直接读取会覆盖记忆值）
+    plugin.setVolume(volume.value)
+    plugin.setMute(muted.value)
+    duration.value = plugin.getDuration() || 0
+    notifyLoadedMetadata()
+    plugin.addEventListener('volume-change', ({ volume: v }: any) => {
+      volume.value = v
+      muted.value = v <= 0
+    })
+    plugin.addEventListener('play-pause', ({ playing }: any) => {
+      isPlaying.value = playing
+      if (playing) endedNotified = false
+      applyRate()
+      if (playing) emit('play')
+      else emit('pause')
+    })
+    plugin.addEventListener('progress', ({ time, duration: dur }: any) => {
+      currentTime.value = time
+      duration.value = dur
+      applyRate()
+      emit('timeupdate', time)
+      notifyLoadedMetadata()
+      // 播放到末尾且已暂停 → 视为播放结束（PSV 无独立 ended 事件）
+      if (dur > 0 && time >= dur - 0.1 && !plugin.isPlaying() && !endedNotified) {
+        endedNotified = true
+        emit('ended')
+      }
+    })
+    // 点击查看器（非拖拽）切换播放/暂停
+    viewer.addEventListener('click', () => {
+      videoPlugin?.playPause()
+    })
+    applyRate()
+    // ProgressEvent 仅在 timeupdate（播放时）触发，未播放时拿不到时长；
+    // 这里轮询兜底，直到拿到有效 duration（metadata 加载完成）或超时
+    startDurationPolling()
+  }
+}
+
+// 未播放时轮询获取总时长（VideoPlugin.getDuration 依赖 video 元数据就绪）
+let durationTimer: number | null = null
+function startDurationPolling() {
+  stopDurationPolling()
+  let tries = 0
+  durationTimer = window.setInterval(() => {
+    const dur = videoPlugin?.getDuration() || 0
+    if (dur > 0 && isFinite(dur)) {
+      duration.value = dur
+      notifyLoadedMetadata()
+      stopDurationPolling()
+      return
+    }
+    tries++
+    // 最多轮询约 30 秒（覆盖大视频加载元数据的时间）
+    if (tries > 60) stopDurationPolling()
+  }, 500)
+}
+
+function stopDurationPolling() {
+  if (durationTimer != null) {
+    clearInterval(durationTimer)
+    durationTimer = null
+  }
+}
+
+function destroyViewer() {
+  // 作废进行中的异步创建，避免其完成后创建孤儿 viewer
+  createToken++
+  stopDurationPolling()
+  videoPlugin = null
+  isPlaying.value = false
+  currentTime.value = 0
+  duration.value = 0
+  durationNotified = false
+  endedNotified = false
+  viewer?.destroy()
+  viewer = null
+}
+
+onMounted(() => {
+  createViewer()
+  document.addEventListener('fullscreenchange', onFullscreenChange)
+})
+
+onBeforeUnmount(() => {
+  document.removeEventListener('fullscreenchange', onFullscreenChange)
+  if (fullscreenResizeTimer != null) {
+    clearTimeout(fullscreenResizeTimer)
+    fullscreenResizeTimer = null
+  }
+  if (document.fullscreenElement && document.fullscreenElement === rootRef.value) {
+    document.exitFullscreen?.()
+  }
+  destroyViewer()
+})
+
+watch(() => props.videoId, () => {
+  createViewer()
+})
+
+// 暴露给父组件的播放控制接口（与 VideoPlayer 对齐，供外部共同进度条/联动复用）
+defineExpose({
+  play() {
+    videoPlugin?.play()
+  },
+  pause() {
+    videoPlugin?.pause()
+  },
+  seek(seconds: number) {
+    const sec = Math.max(0, seconds)
+    videoPlugin?.setTime(sec)
+    currentTime.value = sec
+  },
+  setVolume(v: number) {
+    const nv = Math.max(0, Math.min(1, v))
+    volume.value = nv
+    videoPlugin?.setVolume(nv)
+  },
+  setMuted(m: boolean) {
+    muted.value = m
+    videoPlugin?.setMute(m)
+  },
+  setPlaybackRate(r: number) {
+    rate.value = r
+    applyRate()
+  },
+  getCurrentTime() {
+    return currentTime.value
+  },
+  getDuration() {
+    return duration.value
+  },
+})
+</script>
+
+<style scoped>
+.panorama-video-viewer {
+  width: 100%;
+  height: 100%;
+  position: relative;
+}
+
+.pv-container {
+  width: 100%;
+  height: 100%;
+}
+
+.pv-loading-mask {
+  position: absolute;
+  inset: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 13px;
+}
+
+.pv-loading-icon {
+  font-size: 30px;
+  color: #409eff;
+}
+
+.pv-loading-text {
+  letter-spacing: 1px;
+}
+</style>

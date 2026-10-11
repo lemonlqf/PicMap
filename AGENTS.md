@@ -2,27 +2,40 @@
 
 ## Project Overview
 
-PicMap is an Electron-based image map application with Vue 3 + TypeScript frontend and Express backend.
+PicMap is a Wails-based image map application with Vue 3 + TypeScript frontend and Go backend (migrated from Electron + Express).
 
 **Tech Stack:**
 - Frontend: Vue 3, TypeScript, Vite, Pinia, Element Plus, Leaflet
-- Backend: Node.js, Express, Webpack
-- Desktop: Electron + electron-builder
+- Backend: Go (Wails bindings)
+- Desktop: Wails v2 + WebView2
 
 **Directory Structure:**
 ```
-PicMap/
-├── picMap_fontend/     # Vue 3 + TypeScript frontend (Vite)
-├── picMap_backend/     # Express backend (Webpack)
-├── dist/               # Build output
-└── doc/                # Documentation
+picmap-go/
+├── main.go / app.go          # Wails entry + app with 22 API bindings
+├── wails.json                # Wails project config
+├── internal/
+│   ├── handler/              # Go handlers (user, schema, image, track, backup)
+│   ├── service/              # Business logic (thumbnail, exif, convert)
+│   ├── model/                # Data models (schema.go, app_schema.go, result.go)
+│   ├── config/               # Path config + initialization
+│   └── util/                 # Utilities (coordinate, fileutil)
+├── tools/                    # External tools source (ImageMagick, libraw, ffmpeg)
+├── build/                    # Wails build config (appicon.png, windows/*) — not delivered
+│   └── bin/                  # Intermediate build output (gitignored)
+├── dist/                     # Final self-contained release (gitignored)
+├── build.ps1                 # One-click build: icon → wails build → assemble dist/
+├── frontend/                 # Vue 3 frontend (Wails convention)
+├── picMap_fontend/           # Original Vue frontend (legacy)
+├── picMap_backend/           # Original Express backend (legacy)
+└── doc/                      # Documentation
 ```
 
 ---
 
 ## Features Overview
 
-PicMap 是一款基于 Electron 的本地图片地图应用，将带有 GPS 坐标的照片展示在交互式地图上。
+PicMap 是一款基于 Wails（Go + Vue3）的本地图片地图应用，将带有 GPS 坐标的照片展示在交互式地图上。
 
 ### 1. 图片管理 (Image Management)
 - **上传**: 批量上传图片，自动解析 EXIF GPS 信息
@@ -139,42 +152,51 @@ D:\PicMap\
 └── [用户ID]\
     ├── images\
     │   ├── schema\
-    │   │   └── schema.json   # 用户的图片/分组/轨迹元数据
-    │   └── *.jpg              # 用户的图片文件
-    └── tracks\               # 用户的 GPX 轨迹文件
+    │   │   └── schema.json   # 用户的图片/分组/轨迹/视频元数据
+    │   ├── _THUMBNAIL_PM*.jpg # 自动生成的缩略图
+    │   └── PM*.jpg            # 用户的图片文件
+    ├── tracks\               # 用户的 GPX 轨迹文件
+    ├── videos\               # 用户的轨迹视频文件
+    └── icons\                # 用户自定义图标
 ```
+
+> 存储目录位置记录在用户主目录的 `.picmap-config.json`。
 
 ---
 
 ## Build Commands
 
-### Root (Electron App)
+### Go Backend
 ```bash
-npm run dev              # Start both frontend + backend concurrently
-npm run build:auto       # Full build: frontend + backend + electron-builder
-npm start                # Run Electron with nodemon
+go build ./...                    # Build all packages
+go vet ./...                      # Lint Go code
+go mod tidy                       # Clean up go.mod
 ```
 
-### Frontend (picMap_fontend/)
+### Wails
 ```bash
-npm run dev              # Vite dev server (port 5173)
-npm run build            # Production build with Vite
-npm run preview          # Preview production build
+wails dev                            # Dev server with hot reload
+wails build -platform windows/amd64  # Raw build (output in build/bin/)
 ```
 
-### Backend (picMap_backend/)
-```bash
-npm start                # Start with nodemon (port 5120)
-npm run build            # Webpack production build
+### Release (Windows, recommended)
+```powershell
+powershell -ExecutionPolicy Bypass -File .\build.ps1
+# 生成图标 → wails build → 组装自包含产物到 dist/（picmap.exe + tools/）
+# build/ 仅存 Wails 配置与中间产物；交付只发 dist/
+# 换图标：替换 build/appicon.png 后重新构建
 ```
 
-### Single Component/Module Build Test
+### Frontend
 ```bash
-# Frontend - type-check a specific file
-npx vue-tsc --noEmit src/views/picMap/Map.vue
+cd frontend && npm run dev        # Vite dev server
+cd frontend && npm run build      # Production build with Vite
+cd frontend && npm run typecheck  # vue-tsc type check
+```
 
-# Backend - run webpack on specific entry
-npx webpack --entry ./bin/www
+### Frontend Type Check
+```bash
+cd frontend && npx vue-tsc --noEmit --skipLibCheck
 ```
 
 ---
@@ -253,52 +275,29 @@ const isFullscreen = ref(false)
 const markers: L.Marker[] = []
 ```
 
-### JavaScript (Backend)
+### Go (Backend)
 
-**Imports:**
-- Use CommonJS `require()` for backend modules
-- Use `const` for imports
-
-```javascript
-// Good
-const express = require('express')
-const Result = require('./resultCode/result.js')
-const { getImageFileById } = require('../utils/image/image.js')
-
-// Bad
-let express = require('express')
-```
+**Package Structure:**
+- `handler/` - Wails binding methods (match Express routes)
+- `service/` - Business logic (image processing, conversion)
+- `model/` - Data structures with JSON tags
+- `config/` - Path resolution and initialization
+- `util/` - Coordinate conversion, file utilities
 
 **Error Handling:**
-- Backend routes: use try-catch and return `Result.fail()`
-- Async handlers: catch errors and pass to `next()`
-- Frontend: use `Promise.reject(error)` in interceptors
-
-```javascript
-// Backend route error handling
-router.post('/getJPGImage', async function (req, res, next) {
-  const form = new IncomingForm({ multiples: false })
-  
-  form.parse(req, async (err, fields, files) => {
-    if (err) {
-      console.error('解析上传文件失败:', err)
-      res.send(Result.fail('解析上传文件失败'))
-      return
-    }
-    // ...
-  })
-})
-
-// Frontend interceptor
-function (error) {
-  ElMessage.error(error.msg ?? error.message)
-  return Promise.reject(error)
-}
-```
+- Return `model.Result` with `Code: 200` (success) or `Code: 500` (failure)
+- Use `model.NewSuccessResult(data)` and `model.NewFailResult(msg)`
+- Schema writes use atomic `.tmp` → `os.Rename` strategy
 
 **Result Pattern:**
-- Backend uses `Result.success(data)` and `Result.fail(message)`
-- Frontend expects response in `result.data` format
+```go
+type Result struct {
+    Code int         `json:"code"`   // 200 = success, 500 = fail
+    Msg  string      `json:"msg"`
+    Data interface{} `json:"data"`
+    Time int64       `json:"time"`
+}
+```
 
 ### File Headers
 
@@ -341,10 +340,10 @@ Files use comment headers for authorship tracking:
 
 ```bash
 # Frontend type check (vue-tsc)
-cd picMap_fontend && npx vue-tsc --noEmit
+cd frontend && npx vue-tsc --noEmit
 
 # Full type check with vue-tsc
-cd picMap_fontend && npx vue-tsc --noEmit --skipLibCheck
+cd frontend && npx vue-tsc --noEmit --skipLibCheck
 ```
 
 ---
@@ -360,26 +359,39 @@ cd picMap_fontend && npx vue-tsc --noEmit --skipLibCheck
 
 ## API Conventions
 
-Backend runs on port 5120. All API responses follow:
-```javascript
+Backend uses Wails Go bindings (no HTTP layer). All API responses follow:
+```go
 {
-  code: number,    // 0 = success, -1 = fail
-  msg: string,
-  data: any,
-  time: number     // timestamp
+  code: 200,    // 200 = success, 500 = fail
+  msg: "成功",   // status message
+  data: <any>,  // response payload
+  time: <int64> // millisecond timestamp
 }
 ```
 
-User context passed via `currentUserId` in request body/params.
+User context passed via `userId` parameter in binding calls.
+
+### 本地媒体流服务
+
+除绑定外，后端另起一个**本地 HTTP 服务**用于媒体流式访问（`internal/handler/media_stream.go`）：
+
+- 仅监听 `127.0.0.1`，端口用 `:0` 由系统随机分配（不占用固定端口，不影响其他程序）
+- 支持 HTTP Range：`GET /video?userId=&videoId=`、`GET /image?userId=&imageId=&kind=thumb|marker|full`
+- 前端通过 `GetVideoStreamUrl` / `GetImageStreamUrl` 获取地址，供 `<video>` / `<img>` 直接加载
+- 应用退出（`OnShutdown`）时关闭服务
 
 ---
 
 ## Notes for Agents
 
-- Do NOT modify the `dist/` directory directly (it's build output)
+- Do NOT modify the `dist/` or `build/bin/` directories directly (they are build output)
+- 交付产物通过 `build.ps1` 生成到 `dist/`（自包含 `picmap.exe` + `tools/`）；`build/` 仅存 Wails 配置与中间产物
+- 更换应用图标：替换 `build/appicon.png`，构建脚本会自动生成 `build/windows/icon.ico`
 - All data is stored locally - no cloud/backend persistence
 - GPX tracks auto-convert from WGS84 to GCJ02 for Chinese map providers
 - Images require EXIF GPS data for auto-location
-- Use `npm run install:all` for fresh dependency installation
 - **性能优化**: 遵循 `PERFORMANCE.md` 中的规范，避免同步阻塞、无限制并发、大文件无限制等问题
-- **Schema 保存规范**: 任何保存 schema 的操作都必须使用 `saveSchema()` 函数，不要直接调用 `schemaHttp.setSchema()` 接口。`saveSchema()` 会自动清理图片的 `url`、`blobUrl`、`thumbnailUrl` 字段，减小数据体积
+- **Schema 保存规范**: 任何保存 schema 的操作都必须使用 `saveSchema()` 函数，不要直接调用 `API.schema.setSchema()` 接口。`saveSchema()` 会自动清理图片的 `url`、`blobUrl`、`thumbnailUrl` 字段，减小数据体积
+- **Go 网络**: Go 模块下载需设置 `GOPROXY=https://goproxy.cn,direct`（国内网络环境）
+- **Wails 绑定**: 前端通过 `@/wails/api` 调用 Go 方法，自动注入 `currentUserId`
+- **代码生成**: `go build ./...` 验证所有 Go 包可编译，`go vet ./...` 检查代码质量

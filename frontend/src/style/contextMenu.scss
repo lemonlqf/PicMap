@@ -1,0 +1,49 @@
+// 统一右键菜单风格（主地图内容菜单、小地图 marker 菜单等复用）
+.pm-context-menu {
+  display: inline-block;
+  min-width: 96px;
+  padding: 4px 0;
+  background-color: #fff;
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.16);
+  user-select: none;
+  overflow: hidden;
+
+  .menu-item {
+    padding: 6px 16px;
+    font-size: 14px;
+    line-height: 22px;
+    color: rgb(96, 98, 102);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+
+  .menu-item:hover {
+    background-color: rgb(226, 226, 226);
+    color: rgb(64, 158, 255);
+  }
+}
+
+// 右键菜单出现/消失过渡（配合 <Transition name="pm-context-menu"> 使用）
+.pm-context-menu-enter-active {
+  transition: opacity 0.15s ease, transform 0.25s ease;
+}
+
+.pm-context-menu-leave-active {
+  transition: opacity 0.1s ease, transform 0.1s ease;
+}
+
+.pm-context-menu-enter-from,
+.pm-context-menu-leave-to {
+  opacity: 0;
+  transform: scale(0.7);
+}
+
+.pm-context-menu-enter-to,
+.pm-context-menu-leave-from {
+  opacity: 1;
+  transform: scale(1);
+}

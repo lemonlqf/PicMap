@@ -1,0 +1,276 @@
+/*
+ * @Author: Do not edit
+ * @Date: 2025-01-26 18:21:16
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2026-03-12 17:01:50
+ * @FilePath: \PicMap\picMap_fontend\src\utils\schema.ts
+ * @Description:
+ */
+import { useSchemaStore } from '@/store/schema'
+import { cloneDeep, set } from 'lodash-es'
+import API from '@/wails/api'
+import type { IGroupInfo, IGPSInfo, IImageInfo, ISchema, IVideoInfo } from '@/type/schema'
+
+type IGroupList = IGroupInfo & {
+  showType: 'group'
+}
+
+type IImageList = IImageInfo & {
+  showType: 'image'
+}
+
+type IGroupAndImageList = (IGroupList | IImageList)[]
+
+/**
+ * @description: 获取图片组和图片列表，用于直接在地图上展示
+ * @return {*}
+ */
+export function getGroupAndImageList(): IGroupAndImageList {
+  const schemaStore = useSchemaStore()
+  console.log('-----------', schemaStore.getSchema)
+  const imageInfo = cloneDeep(schemaStore.getSchema.imageInfo) as IImageList[]
+  const groupInfo = cloneDeep(schemaStore.getSchema.groupInfo) as IGroupList[]
+  const imageIdInGroup: string[] = []
+  const res: IGroupAndImageList = []
+  // 将分组的信息放到res中
+  groupInfo?.forEach?.(item => {
+    // 将本来在放到imageIdInGroup，后续剩余的照片就不放到返回的结果中
+    item.groupNumbers && imageIdInGroup.push(...item.groupNumbers)
+    item.showType = 'group'
+    res.push(item)
+  })
+  // 将不在分组内的照片放到res中
+  imageInfo?.forEach?.(item => {
+    if (!imageIdInGroup.includes(item.id)) {
+      item.showType = 'image'
+      res.push(item)
+    }
+  })
+  return res
+}
+
+/**
+ * @description: 获取图片或者分组中schema的信息
+ * @param {*} id
+ * @return {*}
+ */
+export function getSchemaInfoById(id: string) {
+  const schemaStore = useSchemaStore()
+  const groupInfo = schemaStore.getSchema.groupInfo
+  const imageInfo = schemaStore.getSchema.imageInfo
+  const filterGroupInfo = groupInfo.find(item => {
+    return item.id === id
+  })
+  const filterImageInfo = imageInfo.find(item => {
+    return item.id === id
+  })
+  if (filterGroupInfo) {
+    return {...filterGroupInfo, showType: 'group'}
+  }
+  if (filterImageInfo) {
+    return {...filterImageInfo, showType: 'image'}
+  }
+  else {
+    return null
+  }
+}
+
+/**
+ * @description: 判断图片是否已经上传了
+ * @param {*} id
+ * @return {*}
+ */
+export function judgeHadUploadImage(id: string) {
+  const schemaStore = useSchemaStore()
+  return schemaStore.getUploadedImageIds.some(item => {
+    return item === id
+  })
+}
+
+/**
+ * @description: 获取schema中imageInfo的所有id
+ * @return {*}
+ */
+export function getAllImageIdInSchema() {
+  const schemaStore = useSchemaStore()
+  const res = schemaStore?.getSchema?.imageInfo?.map(item => item.id)
+  return res
+}
+
+export function getAllGroupIdInSchema() {
+  const schemaStore = useSchemaStore()
+  const res = schemaStore?.getSchema?.groupInfo?.map(item => item.id)
+  return res
+}
+
+export function getAllVideoIdInSchema() {
+  const schemaStore = useSchemaStore()
+  const res = schemaStore?.getSchema?.videoInfo?.map(item => item.id)
+  return res
+}
+
+/**
+ * @description: 图片信息遍历器，调用这个来单次遍历schema中所有的图片信息，避免重复遍历，影响性能
+ * @param {ISchema} schema
+ * @param {function} callback
+ * @return {*}
+ */
+export function schemaImageInfoTraverse(schema: ISchema, callback: (item: IImageInfo) => void) {
+  if (!schema) return
+  const { imageInfo } = schema
+  imageInfo?.forEach?.((item: IImageInfo) => {
+    callback(item)
+  })
+}
+
+/**
+ * @description: 分组信息遍历器，调用这个来单次遍历schema中所有的分组信息，避免重复遍历，影响性能
+ * @param {ISchema} schema
+ * @param {function} callback
+ * @return {*}
+ */
+export function schemaGroupInfoTraverse(schema: ISchema, callback: (item: IGroupInfo) => void) {
+  if (!schema) return
+  const { groupInfo } = schema
+  groupInfo?.forEach?.((item: IGroupInfo) => {
+    callback(item)
+  })
+}
+
+
+/**
+ * @description: 保存schema
+ * @return {*}
+ */
+export async function saveSchema() {
+  const schemaStore = useSchemaStore()
+  const schema = cloneDeep(schemaStore.getSchema)
+  const updateImages = schemaStore.getUploadedImageIds
+  // 只保留已经上传的图片信息（剔除未上传的）
+  schema.imageInfo = schema.imageInfo.filter(item => {
+    return updateImages.includes(item.id)
+  })
+  schema?.imageInfo?.forEach?.(item => {
+    // 删除url，精简schema
+    delete item.url
+    // 删除blobUrl
+    delete item.blobUrl
+    // 删除缩略图url
+    delete item.thumbnailUrl
+    // 删除预览图base64（路径方案新增，体积大，不应入库）
+    delete item.preview
+    // 删除源文件路径（临时值，不应入库）
+    delete item.path
+  })
+  const res = await API.schema.setSchema({ schema: JSON.stringify(schema) })
+  return res
+}
+
+/**
+ * @description: 
+ * @param {string} id
+ * @param {string} attr
+ * @param {any} value
+ * @return {*}
+ */
+export async function editSchemaAndSave(id: string, attr: string, value: any) {
+  const schemaStore = useSchemaStore()
+  const groupInfos = schemaStore.getSchema.groupInfo
+  const imageInfos = schemaStore.getSchema.imageInfo
+  const groupOrImageInfo = [...groupInfos, ...imageInfos].find(item => {
+    return item.id === id
+  })
+  set(groupOrImageInfo, attr, value)
+  await saveSchema()
+}
+
+/**
+ * @description: 统一获取视频 GPS（存储为平铺字段，这里归一化为与图片一致的 IGPSInfo 结构）。
+ * 优先读取平铺的 GPSLatitude/GPSLongitude，兼容未来可能迁移的嵌套 GPSInfo。
+ * @param {IVideoInfo} [video]
+ * @return {IGPSInfo | null} 无有效坐标返回 null
+ */
+export function getVideoGPSInfo(video: IVideoInfo | undefined): IGPSInfo | null {
+  if (!video) return null
+  const nested = (video as any).GPSInfo
+  const lat = video.GPSLatitude ?? nested?.GPSLatitude
+  const lng = video.GPSLongitude ?? nested?.GPSLongitude
+  const alt = nested?.GPSAltitude
+  if (!lat || !lng) return null
+  return { GPSLatitude: lat, GPSLongitude: lng, GPSAltitude: alt }
+}
+
+/**
+ * @description: 判断视频是否已有有效定位坐标（类型守卫，可窄化参数为非空 IVideoInfo）
+ * @param {IVideoInfo} [video]
+ * @return {video is IVideoInfo}
+ */
+export function videoHasGPS(video: IVideoInfo | undefined): video is IVideoInfo {
+  return getVideoGPSInfo(video) !== null
+}
+
+/**
+ * @description: 更新视频节点的 GPS 坐标（视频 GPS 存储为平铺字段，非嵌套 GPSInfo）
+ * @param {string} videoId
+ * @param {number} lat
+ * @param {number} lng
+ * @return {*}
+ */
+export async function editVideoGpsAndSave(videoId: string, lat: number, lng: number) {
+  const schemaStore = useSchemaStore()
+  const videoInfo = schemaStore.getSchema.videoInfo?.find(item => item.id === videoId)
+  if (!videoInfo) return
+  set(videoInfo, 'GPSLatitude', lat)
+  set(videoInfo, 'GPSLongitude', lng)
+  await saveSchema()
+}
+
+/**
+ * @description: 按 id 查找已上传视频信息（schema.videoInfo）
+ * @param {string} videoId
+ * @return {IVideoInfo | undefined}
+ */
+export function getVideoInfoById(videoId: string): IVideoInfo | undefined {
+  const schemaStore = useSchemaStore()
+  return schemaStore.getSchema.videoInfo?.find(item => item.id === videoId)
+}
+
+/**
+ * @description: 设置视频是否为全景并保存（右键菜单切换用）
+ * @param {string} videoId
+ * @param {boolean} isPanorama
+ * @return {*}
+ */
+export async function setVideoPanoramaAndSave(videoId: string, isPanorama: boolean) {
+  const schemaStore = useSchemaStore()
+  const videoInfo = schemaStore.getSchema.videoInfo?.find(item => item.id === videoId)
+  if (!videoInfo) return
+  set(videoInfo, 'isPanorama', isPanorama)
+  await saveSchema()
+}
+
+/**
+ * @description: 编辑schema属性
+ * @param {string} attr
+ * @param {any} value
+ * @return {*}
+ */
+export async function editSchemaAttrAndSave(attr: string, value: any) {
+  const schemaStore = useSchemaStore()
+  const schema = schemaStore.getSchema
+  set(schema, attr, value)
+  await saveSchema()
+}
+
+/**
+ * @description: 将图片的"2024:06:09 16:15:43"格式的日期转化为时间戳
+ * @param {string} str
+ * @return {*}
+ */
+export function exifDateToTimestamp(str: string) {
+  // str: "2024:06:09 16:15:43"
+  if (!str) return null;
+  // 替换冒号为横杠，只替换前两个
+  const norm = str.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
+  return new Date(norm).getTime();
+}

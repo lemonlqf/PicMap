@@ -1,0 +1,91 @@
+<!--
+ * @Author: Do not edit
+ * @Date: 2025-02-02 14:15:43
+ * @LastEditors: lemonlqf lemonlqf@outlook.com
+ * @LastEditTime: 2025-07-20 10:43:00
+ * @FilePath: \Code\picMap_fontend\src\components\contentMenu\component\TemporaryMarkerContentMenu.vue
+ * @Description: 鼠标右件菜单，点击marker时出现
+-->
+<template>
+  <div class="pm-context-menu">
+    <div class="menu-item" v-for="item in menuList" @click="item.clickEvent">
+      <span>{{ item.label }}</span>
+    </div>
+  </div>
+</template>
+
+<script lang="ts" setup>
+import { nextTick, onMounted, onUnmounted, ref } from 'vue'
+import eventBus from '@/utils/eventBus'
+import API from '@/wails/api'
+import { useSchemaStore } from '@/store/schema'
+import { ElMessage } from 'element-plus'
+import { deleteImageById } from '@/utils/Image'
+import { editSchemaAndSave, editVideoGpsAndSave, saveSchema } from '@/utils/schema'
+import { useI18n } from 'vue-i18n'
+import markerService from '@/services/marker'
+const { t } = useI18n()
+const props = defineProps({
+  markerId: {
+    type: String,
+    default: () => ''
+  },
+})
+const schemaStore = useSchemaStore()
+const marker = ref({})
+const postionInfo = ref({
+  left: '10px',
+  top: '0px'
+})
+const menuList = ref([
+  {
+    label: t('fixPosition'),
+    clickEvent: async () => {
+      // 让marker变为不可以移动
+      temporaryMarkerToPermanent(props.markerId)
+    }
+  }
+])
+
+/**
+ * @description: 
+ * @param {*} markerId
+ * @return {*}
+ */
+function temporaryMarkerToPermanent(markerId: string) {
+  const marker = markerService.getMarkerById(markerId)
+  if (!marker) return
+  const markerType = marker.options.type
+  const markerClusters = markerService.getMarkerClusters()
+  markerClusters.addLayer(marker)
+  // 改变marker类型
+  marker.options.type = markerService.getPermanentType(markerType)
+  // 变为不可拖拽
+  marker.dragging.disable();
+  // 这里的配置也要变，不然从聚合组里再出来还会变成可拖动状态
+  marker.options.draggable = false
+  // 固定后
+  const GPSInfo = markerService.getGPSInfoByMarkerInstance(marker)
+  // 同步聚合索引中的坐标：schema 虽已更新，但聚合索引仍持旧坐标，
+  // 不同步的话重渲染/聚合时会按旧坐标把节点拉回，表现为"不刷新不生效"
+  const { lat, lng } = marker.getLatLng()
+  markerService.updateMarkerPointById(markerId, lng, lat)
+  // 更新schema中的GPSInfo数据
+  if (markerType === 'temporary-video') {
+    // 视频 GPS 存储为平铺字段
+    editVideoGpsAndSave(marker.options.id, GPSInfo.GPSLatitude, GPSInfo.GPSLongitude)
+  } else {
+    editSchemaAndSave(marker.options.id, "GPSInfo", GPSInfo)
+  }
+  // 按新坐标重建聚合索引并重渲染，使定位立即生效
+  markerService.refreshClusters()
+}
+
+
+function menuHidden() {
+  eventBus.emit('hidden-content-menu')
+}
+
+
+</script>
+

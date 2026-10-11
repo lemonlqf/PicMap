@@ -1,0 +1,10 @@
+{
+  "openspec_proposal": "docs/openspec/changes/go-wails-migration/proposal.md",
+  "openspec_design": "docs/openspec/changes/go-wails-migration/design.md",
+  "openspec_tasks": "docs/openspec/changes/go-wails-migration/tasks.md",
+  "openspec_delta_spec": "docs/openspec/changes/go-wails-migration/specs/image-path-upload/spec.md",
+  "design_document": "docs/superpowers/specs/2026-08-13-go-wails-migration-design.md",
+  "build_plan": "docs/superpowers/plans/2026-08-13-go-wails-migration.md",
+  "build_tasks_complete": "docs/openspec/changes/go-wails-migration/tasks.md",
+  "archive_directory": "docs/openspec/changes/archive/2026-08-14-go-wails-migration"
+}
