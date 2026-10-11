@@ -18,6 +18,10 @@ dist-ssr
 package-lock.json
 pnpm-lock.yaml
 package.json.md5
+yarn.lock
+
+# Wails 自动生成的 Go 绑定与前端运行时（wails dev/build 会重新生成，前端直接读 window.go）
+frontend/wailsjs/
 
 # 构建产物（构建配置如 build/appicon.png、build/windows/* 仍入库）
 /build/bin/
