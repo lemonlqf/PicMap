@@ -15,6 +15,9 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { FullScreen, Close } from '@element-plus/icons-vue'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 const props = withDefaults(defineProps<{
   // 是否处于全屏：全屏显示退出图标，否则显示进入全屏图标
@@ -28,7 +31,7 @@ const props = withDefaults(defineProps<{
 
 const emit = defineEmits<{ (e: 'click'): void }>()
 
-const buttonTitle = computed(() => props.title || (props.isFullscreen ? '退出全屏' : '全屏'))
+const buttonTitle = computed(() => props.title || t(props.isFullscreen ? 'exitFullscreen' : 'fullscreen'))
 </script>
 
 <style scoped>

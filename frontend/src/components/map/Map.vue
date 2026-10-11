@@ -28,6 +28,7 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, watch, type PropType, nextTick } from 'vue';
 import * as maplibregl from 'maplibre-gl';
+import i18n from '@/i18n/index';
 import { ElIcon } from 'element-plus';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getVideoInfoById, getVideoGPSInfo } from '@/utils/schema';
@@ -552,7 +553,7 @@ async function updateMarkers() {
     const imageUrl = await getMarkerImageUrlById(img.id)
     const imageInfoDetail = getSchemaInfoById(img.id) as any
     const icon = createImageMarkerIcon(
-      { id: img.id, name: imageInfoDetail?.name || '无', type: '', GPSInfo: {} as any } as any,
+      { id: img.id, name: imageInfoDetail?.name || i18n.global.t('noName'), type: '', GPSInfo: {} as any } as any,
       imageUrl || undefined
     )
 

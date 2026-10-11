@@ -11,7 +11,7 @@
     <!-- 加载遮罩（与普通视频播放器风格一致） -->
     <div v-if="loading" class="pv-loading-mask">
       <el-icon class="pv-loading-icon is-loading"><Loading /></el-icon>
-      <span class="pv-loading-text">视频加载中 {{ loadPercent }}%</span>
+      <span class="pv-loading-text">{{ $t('videoLoading') }} {{ loadPercent }}%</span>
     </div>
     <!-- 控制栏：复用 VideoControls，保证与普通视频播放器样式/交互一致 -->
     <VideoControls v-if="!hideControls && !loading" :is-playing="isPlaying" :current-time="currentTime" :duration="duration"

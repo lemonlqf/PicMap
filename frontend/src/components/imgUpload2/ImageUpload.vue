@@ -45,6 +45,9 @@ import { useAppStore } from '@/store/appSchema'
 import { changeUsreAvatar } from '@/utils/user'
 import { changeMapTileAndSave } from '@/utils/appSchema'
 import defaultIcon from '@/assets/icon/默认图片.svg?svg'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 defineOptions({
   name: 'BackgroundImageSetting'
@@ -122,12 +125,12 @@ function handleAvatarChangeUpload(file: UploadFile, uploadFileList: UploadFile[]
   let message = ''
   // 验证文件类型
   if (!fileAccept.value.split(',').includes(fileType)) {
-    message = `文件类型需要为${fileAccept.value}`
+    message = t('fileTypeRequired', { type: fileAccept.value })
     fileList.value = uploadFileList.filter((item) => item.name !== file.name)
   }
   // 验证文件大小
   if (fileSize > fileSizeLimit.value) {
-    message = `请上传小于${fileSizeLimit.value}MB的文件`
+    message = t('fileSizeLimitTip', { size: fileSizeLimit.value })
     fileList.value = uploadFileList.filter((item) => item.name !== file.name)
   }
   // 是否有错误信息

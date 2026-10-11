@@ -20,6 +20,7 @@ import img8 from '@/assets/avatar/鸡腿.png'
 import defaultTile from '@/assets/map/defaultTile.png'
 import { saveAppSchema } from "./appSchema";
 import { ElMessage } from "element-plus";
+import i18n from '@/i18n/index';
 import { cloneDeep } from 'lodash-es';
 import { ref } from 'vue';
 import { resolveIconUrl } from '@/utils/icon';
@@ -125,7 +126,7 @@ export async function changeUsreAvatar(userId: string, imgId: any) {
   appStore.setUserInfos(newUserInfos)
   const res = await saveAppSchema()
   if (res.code === 200) {
-    ElMessage.success('头像更新成功')
+    ElMessage.success(i18n.global.t('avatarUpdateSuccess'))
   }
 }
 
@@ -166,7 +167,7 @@ export async function createUser(userInfo: IUserInfo) {
   const appStore = useAppStore()
   const userInfos = cloneDeep(appStore.getUserInfos)
   if (isUserNameExist(userInfo.userName)) {
-    ElMessage.warning('用户已存在， 请重新编辑')
+    ElMessage.warning(i18n.global.t('userExist'))
   } else {
     userInfos.push(userInfo)
   }
@@ -175,7 +176,7 @@ export async function createUser(userInfo: IUserInfo) {
   await createUserDir(userInfo.userId)
   const res = await saveAppSchema()
   if (res.code === 200) {
-    ElMessage.success('用户添加成功')
+    ElMessage.success(i18n.global.t('userAddSuccess'))
   }
 }
 
@@ -202,7 +203,7 @@ export async function deleteUser(userInfo: IUserInfo) {
     return userInfo.userId !== item.userId
   })
   if (userInfos.length === 0) {
-    ElMessage.warning('请至少保留一个用户！')
+    ElMessage.warning(i18n.global.t('keepAtLeastOneUser'))
     return
   }
   appStore.setUserInfos(userInfos)
@@ -216,7 +217,7 @@ export async function deleteUser(userInfo: IUserInfo) {
     if (currentUserInfo.userId === userInfo.userId) {
       appStore.setCurrentUserInfo(userInfos[Math.max(userIndex - 1, 0)])
     }
-    ElMessage.success('用户删除成功！')
+    ElMessage.success(i18n.global.t('userDeleteSuccess'))
   }
 }
 

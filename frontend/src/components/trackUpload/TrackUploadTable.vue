@@ -72,14 +72,14 @@
       <template #default="{ row }">
         <el-button v-if="props.restricted" size="small" type="primary" :disabled="!row.uploaded"
           @click="emit('align-video-row', row)">
-          对齐视频
+          {{ $t('alignVideo') }}
         </el-button>
         <el-button v-else-if="!row.uploaded" type="primary" size="small" @click="emit('upload-row', row)">
           {{ $t('upload') }}
         </el-button>
         <template v-else>
           <el-button size="small" @click="emit('align-video-row', row)">
-            对齐视频
+            {{ $t('alignVideo') }}
           </el-button>
           <el-button type="danger" size="small" @click="emit('delete-row', row)">
             {{ $t('delete') }}
@@ -108,6 +108,9 @@ import 'vue3-colorpicker/style.css'
 import IconSelector from '@/components/iconSelector/IconSelector.vue'
 import { getIconItemById, resolveIconUrl } from '@/utils/icon'
 import type { IIconItem } from '@/type/appSchema'
+import { useI18n } from 'vue-i18n'
+
+const { t } = useI18n()
 
 type TrackData = {
   id: string
@@ -161,7 +164,7 @@ const iconUrlCache = ref<Record<string, string>>({})
 
 function openIconSelect(row: TrackData, type: 'start' | 'end') {
   iconTarget.value = { row, type }
-  iconSelectorTitle.value = type === 'start' ? '起点图标' : '终点图标'
+  iconSelectorTitle.value = type === 'start' ? t('icon.startIcon') : t('icon.endIcon')
   const iconId = type === 'start' ? row.setting?.startIconId : row.setting?.endIconId
   iconSelectorCurrentId.value = iconId || ''
   iconSelectorVisible.value = true

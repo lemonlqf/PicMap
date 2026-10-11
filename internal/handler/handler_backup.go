@@ -109,10 +109,12 @@ func (h *Handler) CreateBackup(name string) model.Result {
 	util.EnsureDir(backupDir)
 
 	timestamp := time.Now().Format("20060102_150405")
+	// 用户提供的名称直接作为文件名（不再额外加 PicMap_Backup_ 前缀，避免出现重复前缀）；
+	// 未提供名称时才用默认名。
+	cleanName := strings.TrimSuffix(strings.TrimSpace(name), ".zip")
 	var fileName string
-	if name != "" {
-		sanitized := sanitizeFilename(name)
-		fileName = "PicMap_Backup_" + sanitized + ".zip"
+	if cleanName != "" {
+		fileName = sanitizeFilename(cleanName) + ".zip"
 	} else {
 		fileName = "PicMap_Backup_" + timestamp + ".zip"
 	}

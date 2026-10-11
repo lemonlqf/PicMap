@@ -9,12 +9,12 @@
     <!-- 上一项（扩展插槽，默认无） -->
     <slot name="prev"></slot>
     <!-- 播放/暂停：纯图形图标（无圆框），三角形播放 / 双竖条暂停 -->
-    <el-icon class="vp-icon vp-play" :title="isPlaying ? '暂停' : '播放'" @click="emit('toggle-play')">
+    <el-icon class="vp-icon vp-play" :title="isPlaying ? $t('pause') : $t('play')" @click="emit('toggle-play')">
       <PauseIcon v-if="isPlaying" />
       <PlayIcon v-else />
     </el-icon>
     <!-- 音量：纯喇叭图标（无圆框） -->
-    <el-icon class="vp-icon" :title="muted ? '取消静音' : '静音'" @click="emit('toggle-mute')">
+    <el-icon class="vp-icon" :title="muted ? $t('unmute') : $t('mute')" @click="emit('toggle-mute')">
       <MuteIcon v-if="muted || volume <= 0" />
       <VolumeIcon v-else />
     </el-icon>
@@ -26,7 +26,7 @@
     <span class="vp-time">{{ formatTime(duration) }}</span>
     <!-- 播放倍速：自绘内联菜单，避免 teleport 弹层被高 z-index 弹框遮挡 -->
     <div class="vp-rate-wrap" ref="rateWrapRef">
-      <span class="vp-rate" :title="`播放倍速 ${formatPlaybackRate(rate)}`" @click.stop="toggleRateMenu">
+      <span class="vp-rate" :title="`${$t('playbackRate')} ${formatPlaybackRate(rate)}`" @click.stop="toggleRateMenu">
         {{ formatPlaybackRate(rate) }}
       </span>
       <div v-if="rateMenuOpen" class="vp-rate-list">
@@ -38,7 +38,7 @@
     </div>
     <!-- 附加控件（如自动播放下一个开关），位于全屏按钮左侧 -->
     <slot name="extra"></slot>
-    <el-icon class="vp-icon" :title="isFullscreen ? '退出全屏' : '全屏'" @click="emit('toggle-fullscreen')">
+    <el-icon class="vp-icon" :title="isFullscreen ? $t('exitFullscreen') : $t('fullscreen')" @click="emit('toggle-fullscreen')">
       <Close v-if="isFullscreen" />
       <FullScreen v-else />
     </el-icon>

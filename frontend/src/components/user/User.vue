@@ -29,7 +29,7 @@
     <el-dialog class="el-dialog-change" width="fit-content" top="300px" :append-to-body="true" v-model="userDialog">
       <div class="user-dialog">
         <template v-for="item in userInfos">
-          <div @click="changeUser(item.userId)"
+          <div @click="changeUser(item.userId)" :data-label="$t('currentUserMark')"
             :class="['users-item', { 'active': item.userId === currentUserInfo.userId }]">
             <div class="user-img">
               <img class="pm-avatar" width="60" :src="getAvatarUrl(item.userAvatar as string)" alt="">
@@ -269,7 +269,7 @@ function toSettingPage() {
 
   .users-item.active::before {
     cursor: unset;
-    content: '当前用户';
+    content: attr(data-label);
     display: block;
     position: absolute;
     top: -28px;

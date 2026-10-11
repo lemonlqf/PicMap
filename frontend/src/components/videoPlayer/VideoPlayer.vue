@@ -20,7 +20,7 @@
     <!-- 加载进度遮罩 -->
     <div v-if="loading" class="video-loading-mask">
       <el-icon class="video-loading-icon is-loading"><Loading /></el-icon>
-      <span class="video-loading-text">视频加载中 {{ loadPercent }}%</span>
+      <span class="video-loading-text">{{ $t('videoLoading') }} {{ loadPercent }}%</span>
     </div>
 
     <!-- 自定义控制栏（与全景播放器共用 VideoControls） -->

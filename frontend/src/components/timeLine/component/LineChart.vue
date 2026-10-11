@@ -27,7 +27,7 @@
 
     <!-- 无数据提示 -->
     <div v-else class="no-data">
-      暂无数据
+      {{ $t('noData') }}
     </div>
   </div>
 </template>

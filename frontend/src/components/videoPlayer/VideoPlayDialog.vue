@@ -10,8 +10,8 @@
     @update:model-value="onVisibleChange" @close="handleClose">
     <template #header>
       <div class="video-play-header">
-        <span class="video-play-title" :title="videoName">{{ videoName || '视频预览' }}</span>
-        <span class="video-play-subtitle">{{ isPanoramaVideo ? '全景视频' : '视频' }}</span>
+        <span class="video-play-title" :title="videoName">{{ videoName || $t('videoPreview') }}</span>
+        <span class="video-play-subtitle">{{ isPanoramaVideo ? $t('panoramaVideo') : $t('videoLabel') }}</span>
         <el-icon class="video-close-btn" @click="closeDialog">
           <Close />
         </el-icon>

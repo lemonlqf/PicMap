@@ -1,6 +1,6 @@
 <template>
   <div>
-    图片管理
+    {{ $t('pictureManagement') }}
   </div>
 </template>
 

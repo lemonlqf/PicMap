@@ -6,34 +6,34 @@
  * - 地图预览：在轨迹线上叠加高亮子线，范围 = 视频起止时间对应坐标
 -->
 <template>
-  <el-dialog :append-to-body="true" :z-index="1100" v-model="dialogVisible" :title="`轨迹视频对齐${trackName ? ' - ' + trackName : ''}`"
+  <el-dialog :append-to-body="true" :z-index="1100" v-model="dialogVisible" :title="`${$t('align.title')}${trackName ? ' - ' + trackName : ''}`"
     width="80vw" :before-close="handleBeforeClose">
     <div v-if="loading" class="align-loading">
       <el-skeleton :rows="6" animated />
     </div>
     <div v-else-if="gpxPoints.length < 2" class="align-empty">
-      <el-empty description="该轨迹缺少逐点坐标或时间信息，无法进行时间线对齐" :image-size="80" />
+      <el-empty :description="$t('align.missingData')" :image-size="80" />
     </div>
     <div v-else class="align-content">
       <!-- 时间线 -->
       <div class="timeline-section">
         <div class="timeline-header">
-          <span class="track-label">GPX 主轨</span>
+          <span class="track-label">{{ $t('align.mainTrack') }}</span>
           <div class="header-right">
             <span class="track-range">{{ formatMs(trackDurationMs) }}</span>
-            <el-button size="small" @click="addVideoDialogVisible = true">添加视频</el-button>
+            <el-button size="small" @click="addVideoDialogVisible = true">{{ $t('align.addVideo') }}</el-button>
             <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectAndAddLocalVideos">
-              添加本地视频
+              {{ $t('align.addLocalVideo') }}
             </el-button>
           </div>
         </div>
         <div v-if="localSelecting" class="local-progress-bar">
           <el-progress :percentage="localProgressPercent" :stroke-width="8"
-            :format="() => `解析本地视频 ${localProgress.processed}/${localProgress.total}`" />
+            :format="() => `${$t('align.parsingLocalVideo')} ${localProgress.processed}/${localProgress.total}`" />
         </div>
         <div class="timeline-legend">
-          <span>起点 0:00:00</span>
-          <span>终点 {{ formatMs(trackDurationMs) }}</span>
+          <span>{{ $t('align.startPoint') }} 0:00:00</span>
+          <span>{{ $t('align.endPoint') }} {{ formatMs(trackDurationMs) }}</span>
         </div>
         <div class="timeline" ref="timelineRef">
           <!-- 主轨刻度线 -->
@@ -66,13 +66,13 @@
                 @change="handleOffsetTextChange(item)" @blur="handleOffsetTextChange(item)" />
             </div>
             <el-button size="small" type="danger" class="video-remove" @click.stop="removeVideo(item.video.id)">
-              移除
+              {{ $t('align.remove') }}
             </el-button>
-            <el-button size="small" type="primary" circle title="播放" :icon="VideoPlay"
+            <el-button size="small" type="primary" circle :title="$t('align.play')" :icon="VideoPlay"
               :loading="!!playingIds[item.video.id]" @click.stop="playAlignVideo(item)" />
           </div>
           <div v-if="alignItems.length === 0" class="no-video-tip">
-            <el-empty description="该轨迹尚未关联视频，点击「添加视频」选择已上传视频，或「添加本地视频」从磁盘选择" :image-size="60" />
+            <el-empty :description="$t('align.noLinkedVideo')" :image-size="60" />
           </div>
         </div>
       </div>
@@ -80,7 +80,7 @@
       <!-- 地图预览：轨迹线 + 高亮弧段 -->
       <div class="map-section">
         <div class="map-header">
-          <span>地图预览</span>
+          <span>{{ $t('align.mapPreview') }}</span>
           <span v-if="activeVideoId" class="map-hint">
             {{ activeVideoName }}：{{ formatMs(activeOffsetMs) }} - {{ formatMs(activeOffsetMs + activeDurationMs) }}
           </span>
@@ -90,49 +90,49 @@
 
       <!-- 选中视频详情 -->
       <div v-if="activeVideo" class="detail-section">
-        <span class="detail-label">起点偏移</span>
+        <span class="detail-label">{{ $t('align.startOffset') }}</span>
         <el-input v-model="activeOffsetText" size="small" class="detail-offset" placeholder="HH:mm:ss"
           @change="handleActiveOffsetChange" />
-        <span class="detail-duration">时长 {{ formatMs(activeDurationMs) }}</span>
-        <el-button size="small" type="primary" class="detail-focus" @click="focusActiveSegment">聚焦弧段</el-button>
+        <span class="detail-duration">{{ $t('align.duration') }} {{ formatMs(activeDurationMs) }}</span>
+        <el-button size="small" type="primary" class="detail-focus" @click="focusActiveSegment">{{ $t('align.focusSegment') }}</el-button>
       </div>
     </div>
 
     <template #footer>
-      <el-button @click="requestCloseMain">取消</el-button>
+      <el-button @click="requestCloseMain">{{ $t('cancel') }}</el-button>
       <!-- 上传模式必须至少保留一个视频；普通模式允许清空（保存后即取消该轨迹的全部视频关联） -->
       <el-button type="primary" :loading="saving" :disabled="!!props.pendingVideo && alignItems.length === 0" @click="handleSave">
-        {{ saving && saveProgress.total > 0 ? `导入中 ${saveProgress.processed}/${saveProgress.total}` : '保存' }}
+        {{ saving && saveProgress.total > 0 ? `${$t('align.importing')} ${saveProgress.processed}/${saveProgress.total}` : $t('save') }}
       </el-button>
     </template>
   </el-dialog>
 
   <!-- 添加视频弹窗 -->
-  <el-dialog v-model="addVideoDialogVisible" title="添加视频到该轨迹" width="600px" append-to-body
+  <el-dialog v-model="addVideoDialogVisible" :title="$t('align.addVideoToTrack')" width="600px" append-to-body
     :before-close="handleBeforeClose">
     <div class="add-video-content">
-      <div class="add-video-hint">选择要添加到该轨迹的视频（已上传，或从本地磁盘选择）</div>
+      <div class="add-video-hint">{{ $t('align.addVideoHint') }}</div>
       <div class="add-video-toolbar">
         <el-button size="small" type="primary" plain :loading="localSelecting" @click="selectLocalForDialog">
-          从本地选择视频
+          {{ $t('align.selectLocalVideo') }}
         </el-button>
       </div>
       <div v-if="localSelecting" class="local-progress-bar">
         <el-progress :percentage="localProgressPercent" :stroke-width="8"
-          :format="() => `解析中 ${localProgress.processed}/${localProgress.total}`" />
+          :format="() => `${$t('align.parsing')} ${localProgress.processed}/${localProgress.total}`" />
       </div>
-      <el-select v-model="selectedVideoIds" multiple filterable placeholder="选择视频" style="width: 100%">
-        <el-option v-for="v in selectableVideos" :key="v.id" :label="v.local ? `${v.name}（本地）` : v.name"
+      <el-select v-model="selectedVideoIds" multiple filterable :placeholder="$t('align.selectVideo')" style="width: 100%">
+        <el-option v-for="v in selectableVideos" :key="v.id" :label="v.local ? `${v.name}（${$t('align.local')}）` : v.name"
           :value="v.id">
-          <span>{{ v.name }}<span v-if="v.local" class="opt-local">本地</span></span>
+          <span>{{ v.name }}<span v-if="v.local" class="opt-local">{{ $t('align.local') }}</span></span>
           <span class="opt-duration">{{ formatMs(v.durationMs) }}</span>
         </el-option>
       </el-select>
-      <el-empty v-if="selectableVideos.length === 0" description="暂无可添加的视频，可点击上方「从本地选择视频」" :image-size="60" />
+      <el-empty v-if="selectableVideos.length === 0" :description="$t('align.noSelectableVideo')" :image-size="60" />
     </div>
     <template #footer>
-      <el-button @click="requestCloseAddVideo">取消</el-button>
-      <el-button type="primary" :disabled="selectedVideoIds.length === 0" @click="confirmAddVideos">添加</el-button>
+      <el-button @click="requestCloseAddVideo">{{ $t('cancel') }}</el-button>
+      <el-button type="primary" :disabled="selectedVideoIds.length === 0" @click="confirmAddVideos">{{ $t('align.add') }}</el-button>
     </template>
   </el-dialog>
 
@@ -430,7 +430,7 @@ async function selectLocalVideos() {
     localProgress.value = { processed: 0, total }
     // 本地视频解析较重（ffmpeg 探测），数量多时明显变慢，提前提示用户
     if (total >= LOCAL_VIDEO_WARN_THRESHOLD) {
-      ElMessage.warning(`已选择 ${total} 个本地视频，解析较慢，请耐心等待；解析期间请勿关闭弹窗`)
+      ElMessage.warning(i18n.global.t('align.localVideoSlowWarning', { total }))
     }
     // 取消选择框时不会触发 videos-done 事件，需手动结束加载态
     if (total === 0) {
@@ -527,7 +527,7 @@ async function playAlignVideo(item: AlignItem) {
   const localPath = item.localPath
     || (props.pendingVideo?.id === item.video.id ? props.pendingVideo?.path : undefined)
   if (!localPath) {
-    ElMessage.warning('视频尚未就绪，无法播放')
+    ElMessage.warning(i18n.global.t('align.videoNotReady'))
     return
   }
   if (playingIds.value[item.video.id]) return
@@ -687,9 +687,9 @@ function outLabel(item: AlignItem): string {
   const total = trackDurationMs.value
   const dur = item.video.durationMs || 0
   if (item.timeOffsetMs < 0) {
-    return `早于轨迹起点 ${formatMs(-item.timeOffsetMs)}`
+    return i18n.global.t('align.beforeTrackStart', { time: formatMs(-item.timeOffsetMs) })
   }
-  return `超出轨迹终点 ${formatMs(item.timeOffsetMs + dur - total)}`
+  return i18n.global.t('align.beyondTrackEnd', { time: formatMs(item.timeOffsetMs + dur - total) })
 }
 
 // ---- 条带拖拽 ----
@@ -986,7 +986,7 @@ async function handleSave() {
     if (!item) return
     // 超出轨道的视频不上传
     if (isOutOfRange(item)) {
-      ElMessage.warning('视频超出轨迹范围，未上传。请调整偏移后再保存')
+      ElMessage.warning(i18n.global.t('align.videoOutOfRange'))
       return
     }
     saving.value = true
@@ -1073,7 +1073,7 @@ async function handleSave() {
     // editSchemaAttrAndSave 内部已 saveSchema，无需再保存一次
     await editSchemaAttrAndSave('trackInfo', trackInfoList)
     if (skippedCount > 0) {
-      ElMessage.warning(`已跳过 ${skippedCount} 个超出轨迹范围的视频（未上传/未关联）`)
+      ElMessage.warning(i18n.global.t('align.skippedOutOfRange', { count: skippedCount }))
     }
     ElMessage.success(i18n.global.t('description.alignSaved'))
     // 保存后不自动关闭弹窗，便于继续查看/调整
@@ -1089,15 +1089,15 @@ async function handleSave() {
 async function confirmCancelIfParsing(): Promise<boolean> {
   // 保存中禁止关闭，避免导入中断/状态不一致
   if (saving.value) {
-    ElMessage.warning('正在保存，请稍候')
+    ElMessage.warning(i18n.global.t('align.savingPleaseWait'))
     return false
   }
   if (!localSelecting.value) return true
   try {
     await ElMessageBox.confirm(
-      '正在解析本地视频，关闭将丢失当前进度并取消已选择的本地视频，确定关闭吗？',
-      '提示',
-      { type: 'warning', confirmButtonText: '确定关闭', cancelButtonText: '继续等待' }
+      i18n.global.t('align.closeParsingConfirm'),
+      i18n.global.t('align.tip'),
+      { type: 'warning', confirmButtonText: i18n.global.t('align.confirmClose'), cancelButtonText: i18n.global.t('align.keepWaiting') }
     )
   } catch {
     return false

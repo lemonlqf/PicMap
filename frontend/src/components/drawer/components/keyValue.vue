@@ -16,7 +16,7 @@
 -->
 <template>
   <div class="image-info-item">
-    <h1>{{ props.title }}</h1>
+    <h1>{{ props.title || $t('title') }}</h1>
     <div v-for="key in keys" class="key-value">
       <span class="key" v-if="needShow(key)">{{ getLabels(key) }}:</span>
       <template v-if="key === 'DateTime'">
@@ -49,7 +49,7 @@ const props = defineProps({
     default: {}
   },
   title: {
-    default: '标题'
+    default: ''
   }
 })
 

@@ -9,6 +9,7 @@
 import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
 import { Viewer, EquirectangularAdapter, type PanoData } from '@photo-sphere-viewer/core'
 import '@photo-sphere-viewer/core/index.css'
+import i18n from '@/i18n/index'
 
 const props = defineProps<{
   // 全景图片 URL（equirectangular，data URL 或 http）
@@ -79,7 +80,7 @@ function createViewer() {
       'zoom',
       {
         id: 'fullscreen',
-        title: isFullscreen.value ? '退出全屏' : '全屏',
+        title: i18n.global.t(isFullscreen.value ? 'exitFullscreen' : 'fullscreen'),
         content: FULLSCREEN_ICON,
         className: 'psv-fullscreen-btn',
         onClick: () => {
