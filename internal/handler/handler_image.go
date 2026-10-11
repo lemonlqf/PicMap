@@ -376,6 +376,25 @@ func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, er
 	return item, nil
 }
 
+// GetLocalPanoramaPreview 为「尚未导入用户目录」的全景图生成预览（base64 JPEG，宽 ≤ 4096）。
+//
+// 待上传的图片不在用户图片目录里，无法通过媒体流服务按 imageId 取降采样后的全景图，
+// 只能按本地路径现算。上传列表里的预览图只有 800px 宽，直接拿它当全景查看器的纹理会非常模糊，
+// 因此这里单独按 PanoramaPreviewWidth 生成一张更大的预览（前端只在打开查看器时才请求）。
+func (h *Handler) GetLocalPanoramaPreview(path string) model.Result {
+	if path == "" {
+		return model.NewFailResult("图片来源路径为空")
+	}
+	if _, err := os.Stat(path); err != nil {
+		return model.NewFailResult("图片来源文件不存在")
+	}
+	preview, err := service.GeneratePreviewBase64WithWidth(path, service.PanoramaPreviewWidth)
+	if err != nil {
+		return model.NewFailResult("全景预览生成失败: " + err.Error())
+	}
+	return model.NewSuccessResult(map[string]interface{}{"file": preview})
+}
+
 // ImportImages 将选中的图片文件复制到用户图片目录
 func (h *Handler) ImportImages(userId string, files []model.ImportFile) model.Result {
 	imageDir := h.cfg.ImageDirPath(userId)

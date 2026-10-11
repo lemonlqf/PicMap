@@ -13,9 +13,21 @@ import (
 
 const PreviewWidth = 800
 
+// PanoramaPreviewWidth 待上传全景图的预览宽度。
+// 全景图（等距柱状投影）在查看器里是整颗球面的纹理，用上传列表的 800px 缩略图会被拉伸得
+// 非常模糊；而已上传的全景走媒体流服务按 8192 降采样，待上传图片还不在用户目录里、只能走
+// base64 回传，这里取 4096 作为折中：像素量是 800px 的 25 倍，全屏观看足够清晰，桥接体积仍可控。
+const PanoramaPreviewWidth = 4096
+
 // GeneratePreviewBase64 生成图片预览图（JPEG base64）
 // 标准格式直接用 imaging 缩略；HEIC/RAW 先经外部工具转 JPEG 再缩略
 func GeneratePreviewBase64(inputPath string) (string, error) {
+	return GeneratePreviewBase64WithWidth(inputPath, PreviewWidth)
+}
+
+// GeneratePreviewBase64WithWidth 按指定宽度上限生成图片预览（JPEG base64）
+// 仅当原图更宽时缩小，不做放大
+func GeneratePreviewBase64WithWidth(inputPath string, width int) (string, error) {
 	name := filepath.Base(inputPath)
 
 	if NeedsThumbnail(name) {
@@ -25,10 +37,10 @@ func GeneratePreviewBase64(inputPath string) (string, error) {
 			return "", err
 		}
 		defer os.Remove(jpegPath)
-		return resizeToBase64(jpegPath)
+		return resizeToBase64(jpegPath, width)
 	}
 
-	return resizeToBase64(inputPath)
+	return resizeToBase64(inputPath, width)
 }
 
 // ConvertToTempJPEG 将 HEIC/RAW 转换为临时 JPEG 文件，返回临时文件路径（调用方负责删除）
@@ -69,13 +81,16 @@ func convertToTempJPEG(inputPath string) (string, error) {
 	return "", fmt.Errorf("不支持的图片格式: %s", name)
 }
 
-func resizeToBase64(inputPath string) (string, error) {
+func resizeToBase64(inputPath string, width int) (string, error) {
 	src, err := imaging.Open(inputPath, imaging.AutoOrientation(true))
 	if err != nil {
 		return "", err
 	}
 
-	resized := imaging.Resize(src, PreviewWidth, 0, imaging.Lanczos)
+	resized := src
+	if width > 0 && src.Bounds().Dx() > width {
+		resized = imaging.Resize(src, width, 0, imaging.Lanczos)
+	}
 
 	tmpFile, err := os.CreateTemp("", "picmap-resize-*.jpg")
 	if err != nil {

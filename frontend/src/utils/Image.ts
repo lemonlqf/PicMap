@@ -293,6 +293,37 @@ export async function getFullImageUrlById(imageId: string) {
   })
 }
 
+/**
+ * @description: 获取「待上传（尚未导入用户目录）」全景图的预览地址
+ * 待上传图片不在用户目录，无法走媒体流服务按 imageId 取降采样全景图，只能按本地路径现算
+ * 一张 4096 宽的预览（base64 data URL）；若沿用上传列表的 800px 缩略图，全景查看器会把纹理
+ * 拉伸得非常模糊。失败返回空串，调用方回退到上传列表缩略图。
+ * 内部按路径做 in-flight 去重 + 结果缓存，避免重复解码大图。
+ * @param {string} path - 本地图片绝对路径
+ * @return {Promise<string>} base64 data URL，失败为空串
+ */
+export async function getLocalPanoramaPreviewUrl(path: string): Promise<string> {
+  if (!path) return ''
+  const cache = ImageCacheManager.getInstance()
+  const key = `local-pano:${path}`
+  const cached = cache.getFullImageUrl(key)
+  if (cached) return cached
+  return cache.fetchDedup(key, async () => {
+    try {
+      const res = await API.image.getLocalPanoramaPreview({ path }) as any
+      if (res?.code !== 200 || !res.data?.file) {
+        return ''
+      }
+      const url = fileToBase64(res.data.file)
+      cache.addFullImageUrl(key, url)
+      return url
+    } catch (e) {
+      console.error('待上传全景预览生成失败', e)
+      return ''
+    }
+  })
+}
+
 // 计算MB大小
 export function calcMBSize(size: number) {
   return size ? (size / (1024 * 1000)).toFixed(2) + 'MB' : ''

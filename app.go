@@ -53,6 +53,11 @@ func (a *App) GetThumbnails(userId string, imageIds []string) model.Result {
 func (a *App) GetFullImage(userId, imageId string) model.Result {
 	return a.handler.GetFullImage(userId, imageId)
 }
+
+// GetLocalPanoramaPreview 生成「待上传」全景图的预览（本地路径，宽 ≤ 4096 的 JPEG base64）
+func (a *App) GetLocalPanoramaPreview(path string) model.Result {
+	return a.handler.GetLocalPanoramaPreview(path)
+}
 func (a *App) DeleteImages(userId string, imageIds []string) model.Result {
 	return a.handler.DeleteImages(userId, imageIds)
 }

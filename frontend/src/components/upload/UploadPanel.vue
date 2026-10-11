@@ -183,7 +183,7 @@ import eventBus from '@/utils/eventBus'
 import { useSchemaStore } from '@/store/schema'
 import { useMapStore } from '@/store/map'
 import { saveSchema, getVideoInfoById, judgeHadUploadImage } from '@/utils/schema'
-import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById } from '@/utils/Image'
+import { uploadImages as UploadImages, addImageUrl, getFullImageUrlById, getLocalPanoramaPreviewUrl } from '@/utils/Image'
 import { pushVideoToSchema, getVideoFramePreviewUrl, getVideoThumbnailUrl, videoSelectContext } from '@/utils/video'
 import { mapCoordToSchema } from '@/utils/coordinate'
 import LocateDialog from '@/components/imgUpload/LocateDialog.vue'
@@ -593,10 +593,15 @@ async function previewImage(item: any) {
     panoramaShow.value = true
     panoramaLoading.value = true
     try {
-      // 待上传图片未导入用户目录，服务端的全景图不存在，回退到解析预览（内存 base64）作为全景源
-      const url = judgeHadUploadImage(item.id)
-        ? await getFullImageUrlById(item.id)
-        : (item.blobUrl ?? item.url ?? '')
+      // 待上传图片未导入用户目录，服务端的全景图不存在：按本地路径现算一张大尺寸预览（4096 宽）
+      // 作为全景源，避免用 800px 的上传列表缩略图铺满球面导致模糊；失败再回退到解析预览（内存 base64）
+      let url = ''
+      if (judgeHadUploadImage(item.id)) {
+        url = await getFullImageUrlById(item.id)
+      } else {
+        url = await getLocalPanoramaPreviewUrl(item.path)
+        if (!url) url = item.blobUrl ?? item.url ?? ''
+      }
       if (url) panoramaSrc.value = url
     } catch (e) {
       console.error('加载全景原图失败', e)

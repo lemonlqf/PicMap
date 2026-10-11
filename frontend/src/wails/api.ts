@@ -127,6 +127,16 @@ export async function getFullImage(data: { imageId: string }) {
   throw new Error('Wails bindings not available')
 }
 
+// 生成「待上传」全景图的预览（本地路径，宽 ≤ 4096 的 JPEG base64），返回 { file: base64 }
+export async function getLocalPanoramaPreview(data: { path: string }) {
+  const binding = getGoBinding()
+  if (binding) {
+    const result = await binding.GetLocalPanoramaPreview(data.path)
+    return unwrapResult(result)
+  }
+  throw new Error('Wails bindings not available')
+}
+
 // 图片本地流地址（支持 Range，供 <img> 直接加载，替代 base64）
 // kind: thumb（1000px 缩略图，默认）| marker（120px 小图）| full（原图）| pano（全景降采样图）
 export async function getImageStreamUrl(data: { imageId: string; kind?: 'thumb' | 'marker' | 'full' | 'pano' }) {
@@ -532,6 +542,7 @@ const image = {
   updateImages,
   downloadImage,
   getFullImage,
+  getLocalPanoramaPreview,
   getImageStreamUrl,
   onImagesParsed,
   onImagesProgress,
