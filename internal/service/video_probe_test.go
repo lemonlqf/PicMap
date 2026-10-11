@@ -8,6 +8,9 @@ import (
 
 func TestProbeVideo(t *testing.T) {
 	path := `C:\Users\450282\Documents\视频\20260820_171710.mp4`
+	if !fileExists(path) {
+		t.Skip("测试文件不存在")
+	}
 	info, err := ProbeVideo(path)
 	if err != nil {
 		t.Fatalf("ProbeVideo 失败: %v", err)

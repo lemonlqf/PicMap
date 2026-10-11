@@ -1,0 +1,13 @@
+//go:build !windows
+
+package util
+
+import "os/exec"
+
+// HideConsole 非 Windows 平台无需处理（空实现，保持调用点跨平台可编译）
+func HideConsole(cmd *exec.Cmd) {}
+
+// Command 创建外部命令（非 Windows 平台无窗口概念，等价于 os/exec.Command）
+func Command(name string, args ...string) *exec.Cmd {
+	return exec.Command(name, args...)
+}

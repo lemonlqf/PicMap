@@ -4,10 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/disintegration/imaging"
+
+	"picmap-go/internal/util"
 )
 
 const PreviewWidth = 800
@@ -55,7 +56,7 @@ func convertToTempJPEG(inputPath string) (string, error) {
 		if err := ConvertRAWToJPEG(inputPath, outputPath); err != nil {
 			// 兜底：ImageMagick
 			magickPath := filepath.Join(getToolsDir(), "imagemagick", "magick.exe")
-			cmd := exec.Command(magickPath, inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
+			cmd := util.Command(magickPath, inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
 			if output, err := cmd.CombinedOutput(); err != nil {
 				os.RemoveAll(tmpDir)
 				return "", fmt.Errorf("RAW兜底转换失败: %v, output: %s", err, string(output))

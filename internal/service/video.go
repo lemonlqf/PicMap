@@ -6,12 +6,13 @@ import (
 	"encoding/xml"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
+
+	"picmap-go/internal/util"
 )
 
 // VideoProbeInfo 视频探测结果（时长、尺寸、绝对开始时间、GPS 单点）
@@ -166,7 +167,7 @@ func ProbeVideo(inputPath string) (*VideoProbeInfo, error) {
 	if _, err := os.Stat(ffprobePath); err != nil {
 		return nil, fmt.Errorf("找不到 ffprobe: %w", err)
 	}
-	cmd := exec.Command(ffprobePath,
+	cmd := util.Command(ffprobePath,
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format",
@@ -231,7 +232,7 @@ func ExtractVideoFrame(inputPath string, timeMs int64, maxWidth int) ([]byte, er
 	}
 	args = append(args, "-frames:v", "1", "-q:v", "4", "-f", "image2pipe", "-vcodec", "mjpeg", "-")
 
-	cmd := exec.Command(ffmpegPath, args...)
+	cmd := util.Command(ffmpegPath, args...)
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout
