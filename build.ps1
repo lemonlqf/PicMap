@@ -49,6 +49,17 @@ foreach ($d in $needDirs) {
 }
 
 Write-Host "==> [4/4] 校验产物完整性" -ForegroundColor Cyan
+
+# 前端产物必须带上 maplibre 的 worker 及其依赖（frontend/vite.config.js 的 maplibreWorkerAssets 插件产出）。
+# 缺失时 exe 表面正常，但凡是走 worker 的图层（轨迹线、marker 聚合）都会静默失效，
+# 所以在这里显式拦一道，避免再次出现"底图在、轨迹和节点不见了"。
+$feAssets = Join-Path $root "frontend\dist\assets"
+foreach ($f in @("maplibre-gl-worker.mjs", "maplibre-gl-shared.mjs")) {
+    if (-not (Test-Path (Join-Path $feAssets $f))) {
+        throw "前端产物缺少 assets\$f（请检查 frontend/vite.config.js 的 maplibreWorkerAssets 插件）"
+    }
+}
+
 $required = @(
     "picmap.exe",
     "tools\imagemagick\magick.exe",
