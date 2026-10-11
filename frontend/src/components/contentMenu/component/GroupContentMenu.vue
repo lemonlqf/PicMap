@@ -7,7 +7,7 @@
  * @Description: 鼠标右件菜单，点击marker时出现
 -->
 <template>
-  <div class="image-menu">
+  <div class="pm-context-menu">
     <!-- 没定位信息的分组允许定位 -->
     <div class="menu-item" v-if="!GPSInfoExist" @click="addManualLocateGroup">
       <span>{{ $t('positioningGroup') }}</span>
@@ -139,44 +139,3 @@ async function addManualLocateGroup() {
 
 </script>
 
-<style lang="scss" scoped>
-* {
-  user-select: none;
-}
-.image-menu {
-  background-color: rgba(255, 255, 255, 1);
-
-  .menu-item {
-    border-color: rgb(104, 104, 228);
-    padding: 2px 13px 5px 13px;
-    cursor: pointer;
-    // pointer-events: none;
-
-    span {
-      font-size: 14px;
-      position: relative;
-      text-overflow: ellipsis;
-      color: rgb(96, 98, 102);
-      height: 25px;
-      box-sizing: border-box;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-  }
-
-  .menu-item:hover {
-    background-color: rgb(226, 226, 226);
-  }
-
-  .menu-item:last-child {
-    border-bottom: 0px;
-  }
-}
-
-.is-show {
-  .menu-item {
-    pointer-events: all;
-  }
-}
-</style>

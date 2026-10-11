@@ -267,6 +267,14 @@ function bindTrackInteractions(instance: any, mainMap: maplibregl.Map) {
     }
   })
   instance.setContextMenuCallback(mainMap, (_info: any, e: any) => {
+    // 右键选中的轨迹高亮（与点击选中保持一致）
+    const normalizedId = trackId.replace(/\.gpx$/i, '')
+    if (currentSelectedInstance && currentSelectedInstance !== instance) {
+      currentSelectedInstance.unhighlight()
+    }
+    instance.highlight(mainMap, `${normalizedId}_main`)
+    currentSelectedInstance = instance
+
     // 构造兼容 contentMenu 的事件结构
     const menuEvent = {
       target: { options: { id: trackId, type: 'track' } },

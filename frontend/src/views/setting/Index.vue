@@ -31,7 +31,7 @@
           <TimezoneChange></TimezoneChange>
           <span class="user-name">{{ currentUserInfo.userName }}</span>
           <div class="user-img">
-            <img width="35" :src="getAvatarUrl(currentUserInfo.userAvatar as string)" alt="">
+            <img class="pm-avatar" width="35" :src="getAvatarUrl(currentUserInfo.userAvatar as string)" alt="">
           </div>
         </div>
       </div>

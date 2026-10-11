@@ -1,6 +1,6 @@
 <template>
   <div :style="{ width: width, height: height }" class="avatar-box">
-    <img class="avatar-img" :src="displayAvatarUrl" alt="">
+    <img class="avatar-img pm-avatar" :src="displayAvatarUrl" alt="">
     <div class="upload-button" @click="editAvatar">
       <UploadIcon width="20px"></UploadIcon>
     </div>
@@ -11,7 +11,7 @@
     <div class="avatar-list">
       <template v-for="[name, item] in Object.entries(DEFAULT_AVATAR)" :key="name">
         <div class="img-card" v-if="name !== 'default_0'" @click="selectAvatar(userId, name)">
-          <img :src="item as string" alt="name">
+          <img class="pm-avatar" :src="item as string" alt="name">
         </div>
       </template>
     </div>
@@ -21,7 +21,7 @@
       <div class="avatar-list">
         <div v-for="item in customAvatars" :key="item.id" class="img-card"
           @click="selectAvatar(userId, item.id)">
-          <img :src="item.url" :alt="item.name">
+          <img class="pm-avatar" :src="item.url" :alt="item.name">
         </div>
       </div>
     </template>

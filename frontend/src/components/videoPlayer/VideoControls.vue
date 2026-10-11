@@ -39,7 +39,8 @@
     <!-- 附加控件（如自动播放下一个开关），位于全屏按钮左侧 -->
     <slot name="extra"></slot>
     <el-icon class="vp-icon" :title="isFullscreen ? '退出全屏' : '全屏'" @click="emit('toggle-fullscreen')">
-      <FullScreen />
+      <Close v-if="isFullscreen" />
+      <FullScreen v-else />
     </el-icon>
     <!-- 下一项（扩展插槽，默认无） -->
     <slot name="next"></slot>
@@ -48,7 +49,7 @@
 
 <script lang="ts" setup>
 import { ref, onMounted, onUnmounted } from 'vue'
-import { FullScreen } from '@element-plus/icons-vue'
+import { FullScreen, Close } from '@element-plus/icons-vue'
 import PlayIcon from '@/assets/icon/视频播放.svg?component'
 import PauseIcon from '@/assets/icon/视频暂停.svg?component'
 import VolumeIcon from '@/assets/icon/音量.svg?component'

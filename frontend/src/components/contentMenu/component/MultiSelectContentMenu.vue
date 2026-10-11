@@ -2,7 +2,7 @@
  * @Description: 框选批量操作的右键菜单
 -->
 <template>
-  <div class="multi-menu">
+  <div class="pm-context-menu">
     <div class="menu-item" v-for="item in menuList" :key="item.label" @click="item.clickEvent()">
       <span>{{ item.label }}</span>
     </div>
@@ -96,37 +96,3 @@ function handleGroupSetupComplete() {
 }
 </script>
 
-<style lang="scss" scoped>
-* {
-  user-select: none;
-}
-
-.multi-menu {
-  display: inline-block;
-  background-color: rgba(255, 255, 255, 1);
-  border-radius: 4px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.15);
-
-  .menu-item {
-    padding: 2px 13px 5px 13px;
-    cursor: pointer;
-
-    span {
-      font-size: 14px;
-      color: rgb(96, 98, 102);
-      height: 25px;
-      box-sizing: border-box;
-      cursor: pointer;
-      white-space: nowrap;
-    }
-  }
-
-  .menu-item:hover {
-    background-color: rgb(226, 226, 226);
-  }
-
-  .menu-item:last-child {
-    border-bottom: 0;
-  }
-}
-</style>

@@ -6,3 +6,13 @@ h3 {
 
 span, p, h1, h2, h3, h4, h5, h6, div {
 }
+
+// 头像图片：填充圆形容器并居中裁剪，避免非正方形头像偏移/变形
+.pm-avatar {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
+  border-radius: inherit;
+}

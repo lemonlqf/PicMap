@@ -10,10 +10,14 @@
   <div class="card">
     <!-- 预览，允许操作 -->
     <div class="preview" ref="mapRef">
-      <el-switch class="active-button" v-model="active"></el-switch>
-      <div class="default-button" :class="{ 'is-default': isDefault }" @click.stop="setAsDefault(props.tileId)">
-        <MapLocation />
-      </div>
+      <el-tooltip :content="$t('description.enableTileTip')" placement="top">
+        <el-switch class="active-button" v-model="active"></el-switch>
+      </el-tooltip>
+      <el-tooltip :content="$t('description.setDefaultTileTip')" placement="top">
+        <div class="default-button" :class="{ 'is-default': isDefault }" @click.stop="setAsDefault(props.tileId)">
+          <MapLocation />
+        </div>
+      </el-tooltip>
       <span class="tips">{{ $t('description.setUrlToPreview') }}</span>
     </div>
     <div class="content">

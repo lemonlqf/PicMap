@@ -177,11 +177,9 @@ export default {
   restoreData: 'Restore Data',
   restoreFromFile: 'Restore from File',
   backupFile: 'Backup File',
-  restoreWarning: 'Restoring will overwrite current data (in Cover Mode). Make sure you have created a backup first.',
-  coverMode: 'Cover Mode',
-  mergeMode: 'Merge Mode',
+  restoreWarning: 'Restoring will overwrite current data. Make sure you have created a backup first.',
+  restoreBackgroundTip: 'Data restore is in progress. It will keep running in the background after you close this, and the app will refresh automatically when finished. Close anyway?',
   coverModeTip: 'Replace existing data with backup data, existing data will be lost',
-  mergeModeTip: 'Merge backup data with existing data, keep all existing data',
   backupSuccess: 'Backup success',
   backupFailed: 'Backup failed',
   backupCancelled: 'Backup cancelled',
@@ -253,7 +251,7 @@ export default {
     saveSuccess: 'Storage directory saved. Restart to apply.',
     saveFailed: 'Failed to save storage directory',
     selectBackupFirst: 'Please select a backup file first',
-    coverWarning: 'Restoring will overwrite current data (in Cover Mode). Please confirm you have created a backup first. Continue?'
+    coverWarning: 'Restoring will overwrite current data. Please confirm you have created a backup first. Continue?'
   },
 
   description: {
@@ -286,6 +284,8 @@ export default {
     confirmDeleteUser: 'Are you sure you want to delete the user? All the images and videos of this user will also be deleted and cannot be restored!',
     setUrlToPreview: 'Please add a valid tile url to preview here',
     setAsDefault: 'Set as default tile',
+    setDefaultTileTip: 'Set as the default tile, used first when the map opens',
+    enableTileTip: 'Enable or disable this tile; only enabled tiles can be chosen in the tile selector',
     largeSize: 'pictrue is too big, Over ',
     uploadFailed: 'Upload filed!',
     selectFileFirst: 'Please select a file first!',

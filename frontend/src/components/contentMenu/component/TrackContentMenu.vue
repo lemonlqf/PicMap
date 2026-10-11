@@ -1,5 +1,5 @@
 <template>
-  <div class="track-menu">
+  <div class="pm-context-menu">
     <div class="menu-item" @click="removeFromMap">
       <span>{{ $t('track.removeFromMap') }}</span>
     </div>
@@ -51,30 +51,3 @@ async function removeFromMap() {
 }
 </script>
 
-<style lang="scss" scoped>
-* {
-  user-select: none;
-}
-.track-menu {
-  background-color: rgba(255, 255, 255, 1);
-
-  .menu-item {
-    padding: 2px 13px 5px 13px;
-    cursor: pointer;
-
-    span {
-      font-size: 14px;
-      color: rgb(96, 98, 102);
-      height: 25px;
-      box-sizing: border-box;
-      cursor: pointer;
-      white-space: nowrap;
-      overflow: hidden;
-    }
-  }
-
-  .menu-item:hover {
-    background-color: rgb(226, 226, 226);
-  }
-}
-</style>

@@ -12,12 +12,7 @@
 <template>
   <div class="map" ref="mapContainer" :class="{ 'is-fullscreen': isFullscreen }" @mousemove="handleMouseMove">
     <!-- 全屏按钮 -->
-    <button v-if="showFullscreenButton" class="fullscreen-btn" @click="toggleFullscreen" :title="isFullscreen ? '退出全屏' : '全屏'">
-      <el-icon :size="16">
-        <Close v-if="isFullscreen"></Close>
-        <FullScreen v-else></FullScreen>
-      </el-icon>
-    </button>
+    <FullscreenButton v-if="showFullscreenButton" :is-fullscreen="isFullscreen" @click="toggleFullscreen" />
 
     <!-- 悬浮卡片 -->
     <TrackHoverCard :visible="hoverCardVisible" :trackInfo="hoverTrackInfo" :position="hoverCardPosition" />
@@ -34,12 +29,11 @@
 import { ref, onMounted, onUnmounted, watch, type PropType, nextTick } from 'vue';
 import * as maplibregl from 'maplibre-gl';
 import { ElIcon } from 'element-plus';
-import { FullScreen, Close } from '@element-plus/icons-vue';
 import { getSchemaInfoById } from '@/utils/schema';
 import { getVideoInfoById, getVideoGPSInfo } from '@/utils/schema';
 import { getMarkerImageUrlById } from '@/utils/Image';
 import { getVideoThumbnailUrl } from '@/utils/video';
-import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, MAP_CONSTANT } from '@/utils/constant'
+import { DEFAULT_CENTER, DEFAULT_ZOOM, MARKER_CONSTANT, MARKER_OVERLAP_THRESHOLD, MAP_CONSTANT } from '@/utils/constant'
 import { createImageMarkerIcon, createVideoMarkerIcon, MapMarkerAdapter } from '@/services/markerAdapter';
 import { toMapLibreLngLat } from '@/utils/mapLibre';
 import { useAppStore } from '@/store/appSchema';
@@ -52,6 +46,7 @@ import { fetchTrackPoints, extractSegmentCoords, getVideoColor, resolveVideoSegm
 import eventBus from '@/utils/eventBus'
 import TrackHoverCard from '@/components/trackHoverCard/TrackHoverCard.vue';
 import TrackDetailPanel from '@/components/trackDetail/TrackDetailPanel.vue';
+import FullscreenButton from '@/components/common/FullscreenButton.vue';
 
 /**
  * 组件props：图片ID列表
@@ -84,6 +79,7 @@ const props = defineProps({
  */
 const emit = defineEmits<{
   (e: 'markerClick', imageId: string): void
+  (e: 'markerContextMenu', markerId: string, event: MouseEvent): void
 }>()
 
 const appStore = useAppStore()
@@ -94,6 +90,11 @@ let map: maplibregl.Map | null = null
 let styleLoaded = false
 const markers: MapMarkerAdapter[] = []
 let normalViewState: { center: { lng: number; lat: number }; zoom: number } | null = null
+
+// spiderfy 展开状态：记录已展开的 marker 及其原始经纬度
+const spiderfiedMarkers: { marker: MapMarkerAdapter; original: [number, number] }[] = []
+// 刚触发展开的标记：忽略紧随其后的地图 click（避免刚展开就被收回）
+let spiderfyJustTriggered = false
 
 const hoverCardVisible = ref(false)
 const hoverCardPosition = ref({ x: 0, y: 0 })
@@ -331,6 +332,13 @@ async function initMap() {
     await updateTracks()
     invalidateMapSize()
   })
+
+  // 点击地图空白处收回展开的节点（marker 点击会 stopPropagation，不会触发）
+  map.on('click', (e: any) => {
+    if (spiderfyJustTriggered) return
+    if (e?.originalEvent?.defaultPrevented || e?.defaultPrevented) return
+    unspiderfy()
+  })
 }
 
 /**
@@ -394,6 +402,8 @@ function fitAllBounds() {
  * 遍历markers数组，从地图上移除每个标记
  */
 function clearMarkers() {
+  // 节点整体重建时直接清空展开状态（元素会被移除，无需收回动画）
+  spiderfiedMarkers.length = 0
   markers.forEach(marker => {
     marker.remove()
   })
@@ -407,21 +417,10 @@ function clearMarkers() {
 function highlightMarker(marker: MapMarkerAdapter) {
   marker.setZIndexOffset(1000)
 
-  const markerElement = marker.getElement();
+  // 缩放作用在内层图标（.image-icon 带 transition），与外层定位 translate 分离，hover 才有过渡动画
+  const markerElement = marker.getInnerElement();
   if (markerElement) {
-    const oldTransformCss = markerElement.style.transform;
-    let newTransformCss = "";
-    if (oldTransformCss.includes("scale")) {
-      newTransformCss = oldTransformCss
-        .replace(
-          /scale\([^)]*\)/,
-          `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`
-        )
-        .trim();
-    } else {
-      newTransformCss = `${oldTransformCss} scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`;
-    }
-    markerElement.style.transform = newTransformCss;
+    markerElement.style.transform = `scale(${MARKER_CONSTANT.MARKER_HOVER_SHOW_RADIO})`;
   }
 }
 
@@ -432,16 +431,91 @@ function highlightMarker(marker: MapMarkerAdapter) {
 function resetMarker(marker: MapMarkerAdapter) {
   marker.setZIndexOffset(0)
 
-  const markerElement = marker.getElement();
+  const markerElement = marker.getInnerElement();
   if (markerElement) {
-    const oldTransformCss = markerElement.style.transform;
-    const newTransformCss = oldTransformCss
-      .replace(
-        /scale\([^)]*\)/,
-        `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`
-      )
-      .trim();
-    markerElement.style.transform = newTransformCss;
+    markerElement.style.transform = `scale(${MARKER_CONSTANT.MARKER_SHOW_RADIO})`;
+  }
+}
+
+/**
+ * 找出与指定 marker 同位置（极近）的节点，用于重叠检测（已展开的节点跳过）
+ */
+function getOverlappingMarkers(marker: MapMarkerAdapter): MapMarkerAdapter[] {
+  const { lat, lng } = marker.getLatLng()
+  const result: MapMarkerAdapter[] = []
+  markers.forEach((m) => {
+    if (spiderfiedMarkers.some(s => s.marker === m)) return
+    const ll = m.getLatLng()
+    if (Math.abs(ll.lat - lat) < MARKER_OVERLAP_THRESHOLD && Math.abs(ll.lng - lng) < MARKER_OVERLAP_THRESHOLD) {
+      result.push(m)
+    }
+  })
+  return result
+}
+
+/**
+ * 蜘蛛网展开：把重叠的节点沿圆周展开，临时偏移位置（带过渡动画）
+ */
+function spiderfy(overlapping: MapMarkerAdapter[]) {
+  if (!map || overlapping.length <= 1) return
+  const center = overlapping[0].getLatLng()
+  const centerPoint = map.project([center.lng, center.lat])
+  const n = overlapping.length
+  // 展开半径：按约 1 米实际地理距离计算，但至少保证节点能分开（不小于 marker 尺寸）
+  const metersPerPixel = 40075016.686 * Math.cos((center.lat * Math.PI) / 180) / (256 * Math.pow(2, map.getZoom()))
+  const radiusPx = Math.max(1 / metersPerPixel, 36)
+
+  spiderfyJustTriggered = true
+  setTimeout(() => { spiderfyJustTriggered = false }, 300)
+  overlapping.forEach((m, i) => {
+    const angle = (i * 2 * Math.PI) / n
+    const px = centerPoint.x + radiusPx * Math.cos(angle)
+    const py = centerPoint.y + radiusPx * Math.sin(angle)
+    const ll = map!.unproject(new maplibregl.Point(px, py))
+    const cur = m.getLatLng()
+    spiderfiedMarkers.push({ marker: m, original: [cur.lng, cur.lat] })
+    const el = m.getElement()
+    // 展开动画：临时加 transform 过渡，让节点平滑移动到新位置
+    el.style.transition = 'transform 0.3s cubic-bezier(0.22, 1.2, 0.36, 1)'
+    m.setLatLng(ll.lat, ll.lng)
+    setTimeout(() => { el.style.transition = '' }, 320)
+    // 标记展开节点（红色尖角）
+    el.classList.add('spiderfied-marker')
+    m.setZIndexOffset(2000 + i)
+  })
+}
+
+/**
+ * 收回展开的 marker，恢复原始位置
+ */
+function unspiderfy() {
+  if (spiderfiedMarkers.length === 0) return
+  const list = spiderfiedMarkers.splice(0, spiderfiedMarkers.length)
+  list.forEach(({ marker, original }) => {
+    const el = marker.getElement()
+    el.classList.remove('spiderfied-marker')
+    // 合并动画：临时加 transform 过渡，让节点平滑回到原位置
+    el.style.transition = 'transform 0.3s cubic-bezier(0.22, 1.2, 0.36, 1)'
+    marker.setLatLng(original[1], original[0])
+    setTimeout(() => { el.style.transition = '' }, 320)
+    marker.setZIndexOffset(0)
+  })
+}
+
+/**
+ * 处理 marker 点击：重叠时蜘蛛网展开，否则触发点击回调
+ */
+function handleMarkerClick(marker: MapMarkerAdapter, id: string) {
+  // 已展开状态下点击某张：直接显示该节点详情
+  if (spiderfiedMarkers.length > 0) {
+    emit('markerClick', id)
+    return
+  }
+  const overlapping = getOverlappingMarkers(marker)
+  if (overlapping.length > 1) {
+    spiderfy(overlapping)
+  } else {
+    emit('markerClick', id)
   }
 }
 
@@ -489,7 +563,11 @@ async function updateMarkers() {
     )
 
     marker.on('click', () => {
-      emit('markerClick', img.id)
+      handleMarkerClick(marker, img.id)
+    })
+
+    marker.on('contextmenu', (ev: any) => {
+      emit('markerContextMenu', img.id, ev?.originalEvent ?? ev)
     })
 
     marker.on('mouseover', () => {
@@ -516,7 +594,10 @@ async function updateMarkers() {
       { id: videoId, type: 'video', name: videoInfo.name, iconUrl: coverUrl || '' }
     )
     marker.on('click', () => {
-      emit('markerClick', videoId)
+      handleMarkerClick(marker, videoId)
+    })
+    marker.on('contextmenu', (ev: any) => {
+      emit('markerContextMenu', videoId, ev?.originalEvent ?? ev)
     })
     marker.on('mouseover', () => {
       highlightMarker(marker)
@@ -736,33 +817,5 @@ defineExpose({
   width: 100vw;
   height: 100vh;
   z-index: 9999;
-}
-
-.fullscreen-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 1000;
-  width: 28px;
-  height: 28px;
-  border: none;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.9);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
-}
-
-.fullscreen-btn:hover {
-  background: #fff;
-  transform: scale(1.1);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-}
-
-.fullscreen-btn:active {
-  transform: scale(0.95);
 }
 </style>

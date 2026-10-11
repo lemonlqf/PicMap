@@ -62,9 +62,7 @@
       </div>
 
       <!-- 全屏时右上角退出全屏按钮 -->
-      <button v-if="isFullscreen" class="fullscreen-exit" :title="t('exitFullscreen')" @click="toggleFullscreen">
-        <el-icon><Close /></el-icon>
-      </button>
+      <FullscreenButton v-if="isFullscreen" :is-fullscreen="true" :title="t('exitFullscreen')" @click="toggleFullscreen" />
 
       <!-- 上一个 / 下一个视频（仅当该轨迹有多个视频时显示） -->
       <button v-if="hasPrev" class="video-nav video-nav-prev" :title="t('track.prevVideo')" @click="goPrev">
@@ -96,10 +94,11 @@ import { useI18n } from 'vue-i18n'
 import * as maplibregl from 'maplibre-gl'
 import 'maplibre-gl/dist/maplibre-gl.css'
 import { ElMessage } from 'element-plus'
-import { MapLocation, ArrowDown, ArrowUp, ArrowLeft, ArrowRight, Close } from '@element-plus/icons-vue'
+import { MapLocation, ArrowDown, ArrowUp, ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import VideoPlayer from '@/components/videoPlayer/VideoPlayer.vue'
 import PanoramaVideoViewer from '@/components/videoPlayer/PanoramaVideoViewer.vue'
 import VideoControls from '@/components/videoPlayer/VideoControls.vue'
+import FullscreenButton from '@/components/common/FullscreenButton.vue'
 import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getDefaultMapTile } from '@/components/mapSelector/defaultMap'
@@ -771,33 +770,6 @@ onUnmounted(() => {
 
 .video-nav-next {
   right: 24px;
-}
-
-/* 全屏时右上角退出全屏按钮 */
-.fullscreen-exit {
-  position: absolute;
-  top: 16px;
-  right: 16px;
-  z-index: 12;
-  width: 40px;
-  height: 40px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(255, 255, 255, 0.5);
-  border-radius: 50%;
-  background: rgba(0, 0, 0, 0.35);
-  color: #fff;
-  font-size: 20px;
-  cursor: pointer;
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-
-.fullscreen-exit:hover {
-  background: rgba(245, 108, 108, 0.85);
-  transform: scale(1.05);
 }
 
 .mini-map-wrap {

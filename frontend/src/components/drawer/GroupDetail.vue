@@ -14,7 +14,7 @@
     <!-- 小地图：使用与主地图相同的瓦片 -->
     <div class="img-map">
       <MapComponent :image-ids="groupNumbers" :track-ids="trackNumbers" :video-ids="videoNumbers"
-        @marker-click="handleMarkerClick" />
+        @marker-click="handleMarkerClick" @marker-context-menu="handleMarkerContextMenu" />
     </div>
     <!-- 图片列表 -->
     <el-scrollbar style="width: 100%" :max-height="height">
@@ -32,16 +32,24 @@
     </el-dialog>
     <!-- 视频播放弹框（分组详情内不挂到 body，保持在抽屉层叠上下文内，避免被抽屉遮挡） -->
     <VideoPlayDialog v-model:visible="videoPlayShow" :video-id="videoPlayId" :append-to-body="false" />
+    <!-- 小地图 marker 右键菜单：将对应图片/节点剔除出分组 -->
+    <Transition name="pm-context-menu">
+      <div v-if="contextMenu.visible" class="pm-context-menu marker-context-menu"
+        :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @mousedown.stop>
+        <div class="menu-item" @click="handleRemoveFromGroup">{{ $t('exitGroup') }}</div>
+      </div>
+    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, reactive, ref, onMounted, onBeforeUnmount } from 'vue';
 import GroupLayout from './components/GroupLayout.vue';
 import MapComponent from '@/components/map/Map.vue'
 import { getSchemaInfoById } from '@/utils/schema';
 import { DRAWER_HEIGHT } from '@/utils/constant'
-import { getGroupInfoByGroupId } from '@/utils/group';
+import { getGroupInfoByGroupId, removeGroupImage } from '@/utils/group';
+import { removeVideoFromGroup } from '@/utils/video';
 import eventBus from '@/utils/eventBus'
 import { useI18n } from 'vue-i18n'
 import Image from './components/Image.vue';
@@ -138,6 +146,55 @@ async function setImageInfo(imageId: string) {
   const imageInfoDetail = getSchemaInfoById(imageId) as any
   imageInfo.value = imageInfoDetail
 }
+
+// ---- 小地图 marker 右键菜单 ----
+const contextMenu = reactive({
+  visible: false,
+  x: 0,
+  y: 0,
+  markerId: ''
+})
+
+/**
+ * 小地图 marker 右键：在鼠标位置弹出菜单
+ */
+function handleMarkerContextMenu(markerId: string, event: MouseEvent) {
+  event.preventDefault()
+  contextMenu.markerId = markerId
+  // 与主地图右键菜单一致：相对鼠标位置偏移 15px（过渡用 transform，故偏移在坐标上）
+  contextMenu.x = event.clientX + 15
+  contextMenu.y = event.clientY + 15
+  contextMenu.visible = true
+}
+
+function closeContextMenu() {
+  contextMenu.visible = false
+}
+
+/**
+ * 将右键对应的图片/视频剔除出当前分组
+ */
+function handleRemoveFromGroup() {
+  const id = contextMenu.markerId
+  if (!id) return
+  if (videoNumbers.value.includes(id)) {
+    removeVideoFromGroup(props.groupId, id)
+  } else {
+    removeGroupImage(props.groupId, id)
+  }
+  // 若详情弹框展示的正是被剔除的图片，一并关闭
+  if (imageInfoDialogShow.value && imageId.value === id) {
+    imageInfoDialogShow.value = false
+  }
+  closeContextMenu()
+}
+
+function onDocMouseDown() {
+  if (contextMenu.visible) closeContextMenu()
+}
+
+onMounted(() => document.addEventListener('mousedown', onDocMouseDown))
+onBeforeUnmount(() => document.removeEventListener('mousedown', onDocMouseDown))
 </script>
 
 <style scoped lang="scss">
@@ -188,6 +245,11 @@ async function setImageInfo(imageId: string) {
     margin-top: 10px;
     margin-left: 10px;
   }
+}
+
+.marker-context-menu {
+  position: fixed;
+  z-index: 999999;
 }
 </style>
 

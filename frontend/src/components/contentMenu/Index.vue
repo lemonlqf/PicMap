@@ -118,28 +118,28 @@ onUnmounted(() => {
   left: v-bind('postionInfo.left');
   top: v-bind('postionInfo.top');
   opacity: 0;
+  // visibility 隐藏时子树不拦截点击（pointer-events 不会级联，故用 visibility）
+  visibility: hidden;
   // z-index: -1;
   z-index: 999999;
-  // 隐藏时不拦截点击（否则会挡住其上方弹框内的控件）
-  pointer-events: none;
 }
 
 .is-show {
   opacity: 1;
+  visibility: visible;
   transform: translate(15px, 15px) scale(1);
-  pointer-events: auto;
 }
 
 // 分别设置进入和离开动画时长
 .menu {
-  transition: opacity 0.15s, transform 0.253s;
+  transition: opacity 0.15s, transform 0.253s, visibility 0.15s;
 }
 
 .menu.is-show {
-  transition: opacity 0.15s, transform 0.25s;
+  transition: opacity 0.15s, transform 0.25s, visibility 0.15s;
 }
 
 .menu:not(.is-show) {
-  transition: opacity 0.1s, transform 0.1s;
+  transition: opacity 0.1s, transform 0.1s, visibility 0.1s;
 }
 </style>

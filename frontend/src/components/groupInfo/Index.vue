@@ -77,7 +77,7 @@ function showCreateDialog() {
   showCreateGroupDialog.value = true
 }
 
-const isExpand = ref(true)
+const isExpand = ref(false)
 
 function changeIsExpand() {
   isExpand.value = !isExpand.value

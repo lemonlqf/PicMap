@@ -171,6 +171,12 @@ function loadTableDataFromSchema() {
       }
     } as TrackData
   })
+  // 按开始时间倒序排列（最新的轨迹排在最前）
+  tableData.value.sort((a, b) => {
+    const ta = a.startTime && a.startTime !== '-' ? a.startTime : ''
+    const tb = b.startTime && b.startTime !== '-' ? b.startTime : ''
+    return tb.localeCompare(ta)
+  })
   // 如果有数据，自动选中第一行并加载轨迹到地图
   if (tableData.value.length > 0) {
     nextTick(() => {

@@ -32,6 +32,9 @@
       <template #prev><slot name="prev"></slot></template>
       <template #next><slot name="next"></slot></template>
     </VideoControls>
+
+    <!-- 全屏时右上角退出全屏按钮（控制栏空闲隐藏后仍可用） -->
+    <FullscreenButton v-if="isFullscreen" :is-fullscreen="true" @click="toggleFullscreen" />
   </div>
 </template>
 
@@ -46,6 +49,7 @@ import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
 import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
 import PlayIcon from '@/assets/icon/视频播放.svg?component'
 import VideoControls from './VideoControls.vue'
+import FullscreenButton from '@/components/common/FullscreenButton.vue'
 
 const props = defineProps({
   videoId: { type: String, required: true },
@@ -143,7 +147,8 @@ function toggleFullscreen() {
   else rootRef.value.requestFullscreen?.()
 }
 function onFullscreenChange() {
-  isFullscreen.value = !!document.fullscreenElement
+  // 仅当本播放器自身为全屏元素时才算全屏，避免外部容器（如轨迹视频弹框）全屏时误判
+  isFullscreen.value = document.fullscreenElement === rootRef.value
 }
 
 // ---- 全屏下空闲自动隐藏控制栏 ----

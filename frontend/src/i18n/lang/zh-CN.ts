@@ -176,11 +176,9 @@ export default {
   restoreData: '恢复数据',
   restoreFromFile: '从文件恢复',
   backupFile: '备份文件',
-  restoreWarning: '恢复将覆盖当前数据（覆盖模式下），请确认已提前创建备份',
-  coverMode: '覆盖模式',
-  mergeMode: '合并模式',
+  restoreWarning: '恢复将覆盖当前数据，请确认已提前创建备份',
+  restoreBackgroundTip: '数据恢复正在进行，关闭后将在后台继续，恢复成功后应用会自动刷新。确定要关闭吗？',
   coverModeTip: '用备份数据完全替换现有数据，现有数据将丢失',
-  mergeModeTip: '将备份数据与现有数据合并，保留所有现有数据',
   backupSuccess: '备份成功',
   backupFailed: '备份失败',
   backupCancelled: '已取消备份',
@@ -252,7 +250,7 @@ export default {
     saveSuccess: '存储目录保存成功，重启后生效',
     saveFailed: '存储目录保存失败',
     selectBackupFirst: '请先选择备份文件',
-    coverWarning: '恢复备份会覆盖当前数据（覆盖模式下），请确认已提前创建备份。确定继续吗？'
+    coverWarning: '恢复备份会覆盖当前数据，请确认已提前创建备份。确定继续吗？'
   },
 
   description: {
@@ -285,6 +283,8 @@ export default {
     confirmDeleteUser: '确定要删除用户吗？该用户的所有的图片和视频也会被删除，不可恢复！',
     setUrlToPreview: '请添加有效瓦片地址,在此处预览',
     setAsDefault: '设为默认瓦片',
+    setDefaultTileTip: '设为默认瓦片，打开地图时优先使用',
+    enableTileTip: '开启/关闭该瓦片，仅开启的瓦片可在图源选择器中使用',
     largeSize: '图片尺寸过大, 超过 ',
     uploadFailed: '上传失败!',
     selectFileFirst: '请先选择文件！',

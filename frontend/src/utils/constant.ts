@@ -1,7 +1,7 @@
 /*
  * @Author: your name
  * @Date: 2025-07-17 18:40:56
- * @LastEditTime: 2026-08-16 20:02:38
+ * @LastEditTime: 2026-10-11 10:56:15
  * @LastEditors: lemonlqf lemonlqf@outlook.com
  * @Description: In User Settings Edit
  * @FilePath: \picmap-go\frontend\src\utils\constant.ts
@@ -47,7 +47,7 @@ export const imageMarkerTranslateY = MARKER_CONSTANT.IMAGE_MARKER_SIZE[1]
 export const groupMarkerTranslateY = MARKER_CONSTANT.GROUP_MARKER_SIZE[1]
 
 // 节点重叠判定阈值（经纬度差小于该值视为同一位置，用于点击展开蛛网）
-export const MARKER_OVERLAP_THRESHOLD = 0.000005
+export const MARKER_OVERLAP_THRESHOLD = 0.00001
 
 // 瓦片叠加层图层 / 源 的 id 前缀（Map.vue 内按序号生成 overlay-layer-<i> / overlay-src-<i>）
 export const OVERLAY_LAYER_PREFIX = 'overlay-layer-'

@@ -6,7 +6,7 @@
  * 功能说明:
  * - 创建备份: 将所有用户数据和配置打包成zip文件
  * - 备份历史: 显示所有已创建的备份文件列表
- * - 恢复数据: 从备份文件恢复数据，支持覆盖/合并两种模式
+ * - 恢复数据: 从备份文件恢复数据（覆盖模式，完全替换现有数据）
  * - 删除备份: 删除不需要的备份文件
 -->
 <template>
@@ -86,19 +86,14 @@
       </template>
     </el-dialog>
 
-    <el-dialog v-model="restoreDialogVisible" :title="$t('restoreData')" width="460px">
+    <el-dialog v-model="restoreDialogVisible" :title="$t('restoreData')" width="460px"
+      :before-close="handleRestoreDialogClose">
       <div class="restore-file" v-if="selectedBackupPath">
         <span class="label">{{ $t('backupFile') }}:</span>
         <span class="path">{{ selectedBackupPath }}</span>
       </div>
       <div class="restore-mode">
-        <el-radio-group v-model="restoreMode">
-          <el-radio value="cover">{{ $t('coverMode') }}</el-radio>
-          <el-radio value="merge">{{ $t('mergeMode') }}</el-radio>
-        </el-radio-group>
-        <div class="mode-tip">
-          {{ restoreMode === 'cover' ? $t('coverModeTip') : $t('mergeModeTip') }}
-        </div>
+        <div class="mode-tip">{{ $t('coverModeTip') }}</div>
         <div class="mode-tip restore-warning">{{ $t('restoreWarning') }}</div>
       </div>
       <div v-if="restoreLoading" class="restore-progress">
@@ -108,7 +103,7 @@
         </div>
       </div>
       <template #footer>
-        <el-button @click="restoreDialogVisible = false" :disabled="restoreLoading">{{ $t('cancel') }}</el-button>
+        <el-button @click="handleCancelRestoreDialog">{{ $t('cancel') }}</el-button>
         <el-button type="primary" @click="confirmRestore" :loading="restoreLoading">{{ $t('confirm') }}</el-button>
       </template>
     </el-dialog>
@@ -134,8 +129,6 @@ const backupDialogVisible = ref(false)
 const restoreDialogVisible = ref(false)
 // 恢复按钮loading状态
 const restoreLoading = ref(false)
-// 恢复模式: 'cover'(覆盖) 或 'merge'(合并)
-const restoreMode = ref<'cover' | 'merge'>('cover')
 // 当前选中的备份文件
 const selectedBackup = ref<any>(null)
 // 当前选中的备份文件路径（列表或手动选择）
@@ -394,8 +387,48 @@ async function restoreFromFile() {
 }
 
 /**
+ * 恢复进行中关闭弹框时提示：恢复将在后台继续，成功后应用自动刷新
+ * @returns 用户是否确认关闭
+ */
+async function confirmCloseRestoreDialog(): Promise<boolean> {
+  if (!restoreLoading.value) return true
+  try {
+    await ElMessageBox.confirm(
+      t('restoreBackgroundTip'),
+      t('warning'),
+      {
+        confirmButtonText: t('confirm'),
+        cancelButtonText: t('cancel'),
+        type: 'warning'
+      }
+    )
+    return true
+  } catch {
+    return false // 用户取消，保持弹框
+  }
+}
+
+/**
+ * el-dialog 的 before-close 回调（点关闭按钮/蒙层/ESC）
+ */
+function handleRestoreDialogClose(done: () => void) {
+  confirmCloseRestoreDialog().then((ok) => {
+    if (ok) done()
+  })
+}
+
+/**
+ * 底部取消按钮：与关闭弹框走同一套提示
+ */
+async function handleCancelRestoreDialog() {
+  if (await confirmCloseRestoreDialog()) {
+    restoreDialogVisible.value = false
+  }
+}
+
+/**
  * 确认恢复数据
- * 根据选择的模式恢复数据，恢复前提示覆盖风险
+ * 覆盖模式恢复：完全替换现有数据，恢复前提示覆盖风险
  */
 async function confirmRestore() {
   if (!selectedBackupPath.value) {
@@ -403,21 +436,19 @@ async function confirmRestore() {
     return
   }
 
-  // 覆盖模式恢复前明确警告：会覆盖当前数据，请提前备份
-  if (restoreMode.value === 'cover') {
-    try {
-      await ElMessageBox.confirm(
-        t('storage.coverWarning'),
-        t('warning'),
-        {
-          confirmButtonText: t('confirm'),
-          cancelButtonText: t('cancel'),
-          type: 'warning'
-        }
-      )
-    } catch {
-      return // 用户取消
-    }
+  // 恢复前明确警告：会覆盖当前数据，请提前备份
+  try {
+    await ElMessageBox.confirm(
+      t('storage.coverWarning'),
+      t('warning'),
+      {
+        confirmButtonText: t('confirm'),
+        cancelButtonText: t('cancel'),
+        type: 'warning'
+      }
+    )
+  } catch {
+    return // 用户取消
   }
 
   restoreLoading.value = true
@@ -425,7 +456,7 @@ async function confirmRestore() {
   try {
     const res = await API.backup.import({
       filePath: selectedBackupPath.value,
-      mode: restoreMode.value
+      mode: 'cover'
     })
     if (res.code === 200) {
       ElMessage.success(t('restoreSuccess'))

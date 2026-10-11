@@ -2,20 +2,22 @@
  * @Author: Do not edit
  * @Date: 2024-12-13 10:02:23
  * @LastEditors: lemonlqf lemonlqf@outlook.com
- * @LastEditTime: 2026-03-27 18:46:40
- * @FilePath: \PicMap\picMap_fontend\src\views\picMap\Index.vue
+ * @LastEditTime: 2026-10-11 10:38:05
+ * @FilePath: \picmap-go\frontend\src\views\picMap\Index.vue
  * @Description: 首页
 -->
 <template>
   <div class="home-page">
     <!-- 地图 -->
-    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" :mapPitch="mapPitch" :mapBearing="mapBearing"
-      :tileOverlays="currentOverlays" :showTileOverlays="mapShowOverlay" ref="mapRef"></Map>
+    <Map :tileLayer="currentMapTile" :mapCenter="mapCenter" :mapZoom="mapZoom" :mapPitch="mapPitch"
+      :mapBearing="mapBearing" :tileOverlays="currentOverlays" :showTileOverlays="mapShowOverlay" ref="mapRef"></Map>
     <div :class="['fix-group switch-group', getAnimateClass('switch')]">
       <!-- 瓦片选择器（内含叠加层/路网开关） -->
-      <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile" v-model:overlay-on="mapShowOverlay"></MapSelector>
+      <MapSelector @changeMapTile="changeMapTile" v-model="currentMapTile" v-model:overlay-on="mapShowOverlay">
+      </MapSelector>
     </div>
-    <div class="buttons">
+    <!-- 纯净，定位，缩放 -->
+    <div class="fix-buttons">
       <el-button :icon="Reading" @click="switcPureMode" :title="$t('pureMode')" circle></el-button>
       <el-button :class="['button', getAnimateClass('location')]" :icon="MapLocation" @click="setMapCenter"
         :title="$t('initializationCenter')" circle></el-button>
@@ -23,6 +25,8 @@
         <el-button type="" :title="$t('zoomUpMap')" @click="zoomUp" :icon="Plus" round />
         <el-button type="" :title="$t('zoomDownMap')" @click="zoomDown" :icon="Minus" round />
       </el-button-group>
+      <!-- 轨迹上传按钮（位于缩放按钮与用户按钮之间） -->
+      <TrackUpload :class="['track-upload-inline', getAnimateClass('upload')]"></TrackUpload>
     </div>
     <!-- 用户 -->
     <User @changeUser="init" :class="['user', getAnimateClass('user')]"></User>
@@ -31,8 +35,6 @@
       <div :class="['fix-group upload-group', getAnimateClass('upload')]">
         <!-- 图片/视频共用上传面板 -->
         <UploadPanel ref="imageUploadRef" :map="map" @uploadSuccess="handleImageUploadSuccess"></UploadPanel>
-        <!-- 轨迹上传组件 -->
-        <TrackUpload class="track-upload"></TrackUpload>
       </div>
     <!-- 图片详情抽屉 -->
     <Drawer ref="drawerRef"></Drawer>
@@ -47,10 +49,18 @@
     <div :class="['time-line', getAnimateClass('timeline')]">
       <TimeLine ref="timeLineRef" @change="timeChange" :mode="TimeType.DAY" :data="timeLineData"></TimeLine>
     </div>
-    <!-- 俯仰角调节（与时间轴同级展示，随纯净模式淡入淡出） -->
+    <!-- 俯仰角调节（与时间轴同级展示，随纯净模式淡入淡出，默认收起） -->
     <div :class="['pitch-control', getAnimateClass('pitch')]">
-      <span class="pitch-label">{{ $t('pitchAngle') }}: {{ pitch }}°</span>
-      <input type="range" min="0" max="60" v-model.number="pitch" @input="setPitch" />
+      <div class="pitch-title" @click="pitchExpand = !pitchExpand">
+        <el-icon :class="['expand-button', { 'fold-up': !pitchExpand }]">
+          <DArrowRight />
+        </el-icon>
+        <span class="pitch-label">{{ $t('pitchAngle') }}: {{ pitch }}°</span>
+      </div>
+      <Transition name="pitch-slide">
+        <input v-show="pitchExpand" class="pitch-slider" type="range" min="0" max="60" v-model.number="pitch"
+          @input="setPitch" />
+      </Transition>
     </div>
   </div>
 </template>
@@ -74,7 +84,7 @@ import { useSchemaStore } from '@/store/schema'
 import { useAppStore } from '@/store/appSchema'
 import { getGroupAndImageList, getAllImageIdInSchema, saveSchema, getAllGroupIdInSchema, getAllVideoIdInSchema } from '@/utils/schema'
 import { getVideoStartMs } from '@/utils/video'
-import { Plus, Minus, MapLocation, Reading } from '@element-plus/icons-vue'
+import { Plus, Minus, MapLocation, Reading, DArrowRight } from '@element-plus/icons-vue'
 import Map from './Map.vue'
 import TimeLine from '@/components/timeLine/TimeLine.vue'
 import markerService from '@/services/marker'
@@ -89,6 +99,8 @@ const mapZoom = ref(DEFAULT_ZOOM)
 const mapPitch = ref(0)
 // 俯仰角滑块（与地图实时同步）
 const pitch = ref(0)
+// 俯仰角控件是否展开（默认收起）
+const pitchExpand = ref(false)
 // pitch 事件只需绑定一次（切换用户会重复调用 initMapInstance）
 let pitchListenerBound = false
 const mapBearing = ref(0)
@@ -220,7 +232,7 @@ function getAllImageTimeTimeLineData(): TimeLineDataPoint[] {
  * @return {*}
  */
 async function initSchema() {
-    const res = await API.schema.getSchema()
+  const res = await API.schema.getSchema()
   if (res.code === 200) {
     const schema = JSON.parse(res.data)
     // 将schema信息保存到store中
@@ -332,11 +344,13 @@ onMounted(() => {
   width: 100vw;
 }
 
-.buttons {
+.fix-buttons {
   position: absolute;
   left: 20px;
   top: 20px;
   z-index: 1000;
+  display: flex;
+  align-items: center;
 }
 
 .fix-group {
@@ -369,7 +383,7 @@ onMounted(() => {
 .user {
   position: absolute;
   top: 17px;
-  left: 225px;
+  left: 280px;
   z-index: 1000;
 }
 
@@ -397,6 +411,48 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
+.pitch-title {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.pitch-title .expand-button {
+  transition: all 0.3s;
+}
+
+.pitch-title .expand-button:hover {
+  color: rgb(64, 158, 255);
+}
+
+.pitch-title .fold-up {
+  transform: rotate(180deg);
+}
+
+.pitch-slider {
+  width: 120px;
+}
+
+.pitch-slide-enter-active,
+.pitch-slide-leave-active {
+  transition: all 0.3s ease-in-out;
+  overflow: hidden;
+}
+
+.pitch-slide-enter-from,
+.pitch-slide-leave-to {
+  max-height: 0;
+  opacity: 0;
+}
+
+.pitch-slide-enter-to,
+.pitch-slide-leave-from {
+  max-height: 40px;
+  opacity: 1;
+}
+
 .pitch-label {
   font-size: 12px;
   color: #333;
@@ -406,8 +462,9 @@ onMounted(() => {
   pointer-events: none;
 }
 
-.track-upload {
-  margin-top: 10px;
+.track-upload-inline {
+  display: inline-flex;
+  align-items: center;
   margin-left: 5px;
 }
 </style>

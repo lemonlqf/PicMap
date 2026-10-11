@@ -18,6 +18,9 @@
       :volume="volume" :muted="muted" :is-fullscreen="isFullscreen" :rate="rate" @toggle-play="togglePlay"
       @toggle-mute="toggleMute" @toggle-fullscreen="toggleFullscreen" @volume-change="onVolumeChange" @seek="onSeek"
       @rate-change="onRateChange" />
+
+    <!-- 全屏时右上角退出全屏按钮（控制栏空闲隐藏后仍可用） -->
+    <FullscreenButton v-if="isFullscreen" :is-fullscreen="true" @click="toggleFullscreen" />
   </div>
 </template>
 
@@ -32,6 +35,7 @@ import '@photo-sphere-viewer/video-plugin/index.css'
 import { loadVideoAsObjectUrl, getVideoStreamUrl } from '@/utils/videoBlob'
 import { DEFAULT_PLAYBACK_RATE, getStoredVolume, setStoredVolume } from '@/utils/playback'
 import VideoControls from './VideoControls.vue'
+import FullscreenButton from '@/components/common/FullscreenButton.vue'
 
 const props = withDefaults(defineProps<{
   videoId: string
@@ -145,7 +149,8 @@ function toggleFullscreen() {
 let fullscreenResizeTimer: number | null = null
 
 function onFullscreenChange() {
-  isFullscreen.value = !!document.fullscreenElement
+  // 仅当本查看器自身为全屏元素时才算全屏，避免外部容器全屏时误判
+  isFullscreen.value = document.fullscreenElement === rootRef.value
   // 全屏尺寸变化后让 PSV 重新适配
   if (fullscreenResizeTimer != null) clearTimeout(fullscreenResizeTimer)
   fullscreenResizeTimer = window.setTimeout(() => {

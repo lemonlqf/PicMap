@@ -11,7 +11,7 @@
     :class="['card', 'div-gradient-border', { 'active': active }]">
     <div class="content">
       <div class="user-img">
-        <img width="60" :src="getAvatarUrl(userInfo?.userAvatar as string)" alt="">
+        <img class="pm-avatar" width="60" :src="getAvatarUrl(userInfo?.userAvatar as string)" alt="">
       </div>
       <div class="user-info">
         <el-tooltip class="box-item" :content="userInfo?.userName || $t('notSet')" placement="top-start">

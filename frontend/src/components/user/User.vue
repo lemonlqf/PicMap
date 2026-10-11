@@ -1,7 +1,7 @@
 <template>
   <div class="user">
     <div class="img">
-      <img :src="getAvatarUrl(currentUserInfo.userAvatar)" width="100%" alt="">
+      <img class="pm-avatar" :src="getAvatarUrl(currentUserInfo.userAvatar)" width="100%" alt="">
     </div>
     <div class="hover-info">
       <div class="user-name">
@@ -32,7 +32,7 @@
           <div @click="changeUser(item.userId)"
             :class="['users-item', { 'active': item.userId === currentUserInfo.userId }]">
             <div class="user-img">
-              <img width="60" :src="getAvatarUrl(item.userAvatar as string)" alt="">
+              <img class="pm-avatar" width="60" :src="getAvatarUrl(item.userAvatar as string)" alt="">
             </div>
             <span>{{ item.userName }}</span>
           </div>
@@ -305,5 +305,9 @@ function toSettingPage() {
 .el-dialog-change {
   border-radius: 30px !important;
   background-color: rgba(255, 255, 255, 0.95) !important;
+}
+
+.pm-avatar {
+  min-height: 35px;
 }
 </style>

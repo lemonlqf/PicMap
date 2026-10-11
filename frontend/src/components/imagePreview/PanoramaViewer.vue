@@ -22,6 +22,10 @@ const container = ref<HTMLElement>()
 const isFullscreen = ref(false)
 let viewer: Viewer | null = null
 
+// 全屏按钮图标：与视频播放器一致，采用 Element Plus 的 FullScreen 图标
+const FULLSCREEN_ICON =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024"><path fill="currentColor" d="m160 96.064 192 .192a32 32 0 0 1 0 64l-192-.192V352a32 32 0 0 1-64 0V96h64zm0 831.872V928H96V672a32 32 0 1 1 64 0v191.936l192-.192a32 32 0 1 1 0 64zM864 96.064V96h64v256a32 32 0 1 1-64 0V160.064l-192 .192a32 32 0 1 1 0-64zm0 831.872-192-.192a32 32 0 0 1 0-64l192 .192V672a32 32 0 1 1 64 0v256h-64z"/></svg>'
+
 onMounted(() => {
   createViewer()
 })
@@ -76,7 +80,7 @@ function createViewer() {
       {
         id: 'fullscreen',
         title: isFullscreen.value ? '退出全屏' : '全屏',
-        content: '⤢',
+        content: FULLSCREEN_ICON,
         className: 'psv-fullscreen-btn',
         onClick: () => {
           isFullscreen.value = !isFullscreen.value
@@ -121,7 +125,20 @@ function destroyViewer() {
 
 <style>
 .psv-fullscreen-btn {
-  font-size: 14px;
-  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.psv-fullscreen-btn svg {
+  width: 18px;
+  height: 18px;
+  display: block;
+  fill: currentColor;
+  transition: transform 0.15s ease;
+}
+
+.psv-fullscreen-btn:hover svg {
+  transform: scale(1.2);
 }
 </style>
