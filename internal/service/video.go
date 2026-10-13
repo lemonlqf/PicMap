@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"picmap-go/internal/util"
 )
 
 // VideoProbeInfo 视频探测结果（时长、尺寸、绝对开始时间、GPS 单点）
@@ -42,11 +40,12 @@ type GpxPoint struct {
 //   - 2026-08-20_17-17-10.mp4 / 2026-08-20 17-17-10.mp4
 //   - IMG_20260820_171710.mp4
 //
+// 文件名中的日期时间是「不带时区信息」的墙钟时间，按调用方传入的时区偏移解释：
+// utcOffsetMinutes 为相对 UTC 的偏移分钟数（东八区 = 480）。
 // 返回 epoch 毫秒，无法解析返回 0。
-// 文件名中的日期时间：20260820_171710 / 2026-08-20_17-17-10 等
 var startTimeFromNameRe = regexp.MustCompile(`(\d{4})[-_]?(\d{2})[-_]?(\d{2})[\s_\-]?(\d{2})[-_]?(\d{2})[-_]?(\d{2})`)
 
-func ParseStartTimeFromName(name string) int64 {
+func ParseStartTimeFromName(name string, utcOffsetMinutes int) int64 {
 	base := strings.TrimSuffix(name, filepathExt(name))
 	m := startTimeFromNameRe.FindStringSubmatch(base)
 	if m == nil {
@@ -65,7 +64,7 @@ func ParseStartTimeFromName(name string) int64 {
 		return 0
 	}
 
-	t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.Local)
+	t := time.Date(year, time.Month(month), day, hour, minute, second, 0, time.FixedZone("", utcOffsetMinutes*60))
 	return t.UnixMilli()
 }
 
@@ -96,8 +95,12 @@ type gpxTrkpt struct {
 }
 
 // ParseGpxPoints 解析 GPX 文件，返回逐点 [lat, lng, timeMs, ele]。
-// 时间戳缺失的点 TimeMs 为 0。坐标保持原始 WGS84（不转 GCJ02，由调用方决定）。
-func ParseGpxPoints(data []byte) ([]GpxPoint, error) {
+// 时间戳缺失或解析失败的点 TimeMs 为 0。坐标保持原始 WGS84（不转 GCJ02，由调用方决定）。
+//
+// 时间戳语义与前端 parseGpxTimeToMs 对齐：
+//   - 带时区（Z / ±HH:MM / ±HHMM）严格按该时区解析
+//   - 不带时区时按 utcOffsetMinutes（用户设置的时区，东八区 = 480）解释墙钟时间
+func ParseGpxPoints(data []byte, utcOffsetMinutes int) ([]GpxPoint, error) {
 	var g gpxXML
 	if err := xml.Unmarshal(data, &g); err != nil {
 		return nil, err
@@ -108,9 +111,7 @@ func ParseGpxPoints(data []byte) ([]GpxPoint, error) {
 			for _, p := range seg.Trkpt {
 				pt := GpxPoint{Lat: p.Lat, Lng: p.Lon}
 				if p.Time != "" {
-					if t, err := time.Parse(time.RFC3339, p.Time); err == nil {
-						pt.TimeMs = t.UnixMilli()
-					}
+					pt.TimeMs = parseGpxTimeToMillis(p.Time, utcOffsetMinutes)
 				}
 				if p.Ele != "" {
 					pt.Ele, _ = strconv.ParseFloat(p.Ele, 64)
@@ -120,6 +121,64 @@ func ParseGpxPoints(data []byte) ([]GpxPoint, error) {
 		}
 	}
 	return pts, nil
+}
+
+// gpxTimeRe 匹配 GPX 时间：日期 + T/空格 + 时间 + 可选小数秒 + 可选时区（Z / ±HH:MM / ±HHMM）
+var gpxTimeRe = regexp.MustCompile(
+	`^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})(?:\.(\d+))?(Z|[+-]\d{2}:?\d{2})?$`)
+
+// parseGpxTimeToMillis 解析单条 GPX 时间为 epoch 毫秒，与前端 parseGpxTimeToMs 语义一致。
+// 无法解析返回 0。
+func parseGpxTimeToMillis(s string, utcOffsetMinutes int) int64 {
+	m := gpxTimeRe.FindStringSubmatch(strings.TrimSpace(s))
+	if m == nil {
+		// 兜底：尝试标准 RFC3339（覆盖非标准但可被 Go 解析的写法）
+		if t, err := time.Parse(time.RFC3339, s); err == nil {
+			return t.UnixMilli()
+		}
+		return 0
+	}
+	year, _ := strconv.Atoi(m[1])
+	month, _ := strconv.Atoi(m[2])
+	day, _ := strconv.Atoi(m[3])
+	hour, _ := strconv.Atoi(m[4])
+	minute, _ := strconv.Atoi(m[5])
+	second, _ := strconv.Atoi(m[6])
+	// 小数秒 → 毫秒
+	var fracMs int
+	if m[7] != "" {
+		frac := m[7]
+		if len(frac) > 3 {
+			frac = frac[:3]
+		}
+		for len(frac) < 3 {
+			frac += "0"
+		}
+		fracMs, _ = strconv.Atoi(frac)
+	}
+
+	tz := m[8]
+	var loc *time.Location
+	switch {
+	case tz == "":
+		// 无时区信息：按用户设置的时区解释墙钟时间
+		loc = time.FixedZone("", utcOffsetMinutes*60)
+	case tz == "Z":
+		loc = time.UTC
+	default:
+		// ±HH:MM / ±HHMM
+		sign := 1
+		if tz[0] == '-' {
+			sign = -1
+		}
+		digits := strings.Replace(tz[1:], ":", "", 1)
+		oh, _ := strconv.Atoi(digits[:2])
+		om, _ := strconv.Atoi(digits[2:])
+		loc = time.FixedZone("", sign*(oh*60+om)*60)
+	}
+
+	t := time.Date(year, time.Month(month), day, hour, minute, second, fracMs*int(time.Millisecond), loc)
+	return t.UnixMilli()
 }
 
 // ---- ffprobe 探测 ----
@@ -167,13 +226,14 @@ func ProbeVideo(inputPath string) (*VideoProbeInfo, error) {
 	if _, err := os.Stat(ffprobePath); err != nil {
 		return nil, fmt.Errorf("找不到 ffprobe: %w", err)
 	}
-	cmd := util.Command(ffprobePath,
+	cmd, cancel := newCommand(probeCommandTimeout, ffprobePath,
 		"-v", "error",
 		"-print_format", "json",
 		"-show_format",
 		"-show_streams",
 		inputPath,
 	)
+	defer cancel()
 	output, err := cmd.Output()
 	if err != nil {
 		return nil, fmt.Errorf("ffprobe 执行失败: %w", err)
@@ -232,7 +292,8 @@ func ExtractVideoFrame(inputPath string, timeMs int64, maxWidth int) ([]byte, er
 	}
 	args = append(args, "-frames:v", "1", "-q:v", "4", "-f", "image2pipe", "-vcodec", "mjpeg", "-")
 
-	cmd := util.Command(ffmpegPath, args...)
+	cmd, cancel := newCommand(convertCommandTimeout, ffmpegPath, args...)
+	defer cancel()
 	var stdout bytes.Buffer
 	var stderr bytes.Buffer
 	cmd.Stdout = &stdout

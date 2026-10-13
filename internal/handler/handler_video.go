@@ -30,8 +30,9 @@ var videoDialogFilters = []runtime.FileFilter{
 	{DisplayName: "所有文件 (*.*)", Pattern: "*.*"},
 }
 
-// SelectVideos 打开原生文件选择框，立即返回文件路径列表，后台分批解析并推送事件
-func (h *Handler) SelectVideos() model.Result {
+// SelectVideos 打开原生文件选择框，立即返回文件路径列表，后台分批解析并推送事件。
+// utcOffsetMinutes 为用户设置的时区偏移（分钟，东八区 = 480），用于解释文件名中不带时区的墙钟时间。
+func (h *Handler) SelectVideos(utcOffsetMinutes int) model.Result {
 	if h.ctx == nil {
 		return model.NewFailResult("应用上下文未初始化")
 	}
@@ -54,7 +55,7 @@ func (h *Handler) SelectVideos() model.Result {
 
 	h.parsing.Store(true)
 	h.videoParseCancel.Store(false)
-	go h.parseVideosInBatches(selection)
+	go h.parseVideosInBatches(selection, utcOffsetMinutes)
 
 	return model.NewSuccessResult(map[string]interface{}{
 		"filePaths": selection,
@@ -69,7 +70,7 @@ func (h *Handler) CancelVideoParse() model.Result {
 }
 
 // parseVideosInBatches 分批解析视频，每批完成后通过事件推送给前端
-func (h *Handler) parseVideosInBatches(filePaths []string) {
+func (h *Handler) parseVideosInBatches(filePaths []string, utcOffsetMinutes int) {
 	defer h.parsing.Store(false)
 	defer func() { _ = recover() }()
 	// 无论正常结束还是被取消，都以一次 done 事件收尾，让前端释放选择上下文
@@ -107,7 +108,7 @@ func (h *Handler) parseVideosInBatches(filePaths []string) {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				item, err := h.processSelectedVideo(path)
+				item, err := h.processSelectedVideo(path, utcOffsetMinutes)
 				if err != nil {
 					mu.Lock()
 					errors = append(errors, fmt.Sprintf("解析 %s 失败: %v", filepath.Base(path), err))
@@ -143,8 +144,46 @@ func (h *Handler) parseVideosInBatches(filePaths []string) {
 	}
 }
 
+// videoProbeFields 视频探测后需要回填的字段（duration/startTime/gps），
+// 供 processSelectedVideo（选择预览）与 ImportVideo（落库）共用，避免两处逻辑重复。
+type videoProbeFields struct {
+	DurationMS    int64
+	StartTimeMS   int64
+	HasGpsData    bool
+	GPSLatitude   float64
+	GPSLongitude  float64
+}
+
+// applyVideoProbeFields 解析单个视频并回填到 target。
+// name 用于文件名时间兜底，utcOffsetMinutes 用于解释文件名中不带时区的墙钟时间。
+// 优先级：ffprobe 的 creation_time > 文件名时间。
+func applyVideoProbeFields(target *videoProbeFields, filePath, name string, utcOffsetMinutes int) {
+	// 文件名起点时间（作为兜底，ffprobe 的 creation_time 更优先）
+	if startMs := service.ParseStartTimeFromName(name, utcOffsetMinutes); startMs != 0 {
+		target.StartTimeMS = startMs
+	}
+
+	// 时长、绝对开始时间、内嵌 GPS（ffprobe 就绪时才有；失败不阻断）
+	pinfo, err := service.ProbeVideo(filePath)
+	if err != nil {
+		return
+	}
+	target.DurationMS = pinfo.DurationMS
+	// creation_time 优先于文件名时间
+	if pinfo.CreationTime != 0 {
+		target.StartTimeMS = pinfo.CreationTime
+	}
+	// 内嵌 GPS 单点（WGS84 → GCJ02，与图片一致）
+	if pinfo.HasGPS {
+		target.HasGpsData = true
+		gcLat, gcLon := util.WGS84toGCJ02(pinfo.GPSLatitude, pinfo.GPSLongitude)
+		target.GPSLatitude = gcLat
+		target.GPSLongitude = gcLon
+	}
+}
+
 // processSelectedVideo 解析单个视频：时长、文件名起点时间、是否有内嵌 GPS
-func (h *Handler) processSelectedVideo(filePath string) (model.SelectedVideo, error) {
+func (h *Handler) processSelectedVideo(filePath string, utcOffsetMinutes int) (model.SelectedVideo, error) {
 	name := filepath.Base(filePath)
 	info, err := os.Stat(filePath)
 	if err != nil {
@@ -159,35 +198,23 @@ func (h *Handler) processSelectedVideo(filePath string) (model.SelectedVideo, er
 		LastModified: info.ModTime().UnixMilli(),
 	}
 
-	// 文件名起点时间（作为兜底，后面 ffprobe 的 creation_time 更优先）
-	startMs := service.ParseStartTimeFromName(name)
-	if startMs != 0 {
-		item.StartTimeMS = startMs
-		item.ParsedTimeText = time.UnixMilli(startMs).Format("2006-01-02 15:04:05")
-	}
-
-	// 时长、绝对开始时间、内嵌 GPS（ffprobe 就绪时才有；失败不阻断）
-	if pinfo, err := service.ProbeVideo(filePath); err == nil {
-		item.DurationMS = pinfo.DurationMS
-		// creation_time 优先于文件名时间
-		if pinfo.CreationTime != 0 {
-			item.StartTimeMS = pinfo.CreationTime
-			item.ParsedTimeText = time.UnixMilli(pinfo.CreationTime).Format("2006-01-02 15:04:05")
-		}
-		// 内嵌 GPS 单点（WGS84 → GCJ02，与图片一致）
-		if pinfo.HasGPS {
-			item.HasGpsData = true
-			gcLat, gcLon := util.WGS84toGCJ02(pinfo.GPSLatitude, pinfo.GPSLongitude)
-			item.GPSLatitude = gcLat
-			item.GPSLongitude = gcLon
-		}
+	fields := videoProbeFields{}
+	applyVideoProbeFields(&fields, filePath, name, utcOffsetMinutes)
+	item.DurationMS = fields.DurationMS
+	item.StartTimeMS = fields.StartTimeMS
+	item.HasGpsData = fields.HasGpsData
+	item.GPSLatitude = fields.GPSLatitude
+	item.GPSLongitude = fields.GPSLongitude
+	if fields.StartTimeMS != 0 {
+		item.ParsedTimeText = time.UnixMilli(fields.StartTimeMS).Format("2006-01-02 15:04:05")
 	}
 
 	return item, nil
 }
 
-// ImportVideo 将选中的视频复制到用户视频目录，生成 VideoInfo 并返回
-func (h *Handler) ImportVideo(userId string, file model.ImportVideoFile) model.Result {
+// ImportVideo 将选中的视频复制到用户视频目录，生成 VideoInfo 并返回。
+// utcOffsetMinutes 为用户设置的时区偏移（分钟，东八区 = 480），用于文件名时间兜底解析。
+func (h *Handler) ImportVideo(userId string, file model.ImportVideoFile, utcOffsetMinutes int) model.Result {
 	if file.Path == "" {
 		return model.NewFailResult("视频路径为空")
 	}
@@ -217,24 +244,13 @@ func (h *Handler) ImportVideo(userId string, file model.ImportVideoFile) model.R
 		Size:         info.Size(),
 		LastModified: info.ModTime().UnixMilli(),
 	}
-	// 时长、绝对开始时间、内嵌 GPS
-	if p, err := service.ProbeVideo(targetPath); err == nil {
-		vi.DurationMS = p.DurationMS
-		if p.CreationTime != 0 {
-			vi.StartTimeMS = p.CreationTime
-		}
-		if p.HasGPS {
-			gcLat, gcLon := util.WGS84toGCJ02(p.GPSLatitude, p.GPSLongitude)
-			vi.GPSLatitude = gcLat
-			vi.GPSLongitude = gcLon
-		}
-	}
-	// 文件名起点时间兜底（若 creation_time 缺失）
-	if vi.StartTimeMS == 0 {
-		if start := service.ParseStartTimeFromName(file.Name); start != 0 {
-			vi.StartTimeMS = start
-		}
-	}
+	// 时长、绝对开始时间、内嵌 GPS（与选择预览同一套逻辑）
+	fields := videoProbeFields{}
+	applyVideoProbeFields(&fields, targetPath, file.Name, utcOffsetMinutes)
+	vi.DurationMS = fields.DurationMS
+	vi.StartTimeMS = fields.StartTimeMS
+	vi.GPSLatitude = fields.GPSLatitude
+	vi.GPSLongitude = fields.GPSLongitude
 
 	return model.NewSuccessResult(vi)
 }

@@ -37,7 +37,8 @@ type ExifData struct {
 }
 
 type exifWalker struct {
-	data *ExifData
+	data             *ExifData
+	utcOffsetMinutes int
 }
 
 func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
@@ -49,7 +50,7 @@ func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
 	case "DateTime", "DateTimeOriginal":
 		if w.data.DateTime == 0 {
 			if str, err := tag.StringVal(); err == nil {
-				w.data.DateTime = exifDateToMillis(str)
+				w.data.DateTime = exifDateToMillis(str, w.utcOffsetMinutes)
 			}
 		}
 	case "Make":
@@ -120,7 +121,7 @@ func (w exifWalker) Walk(name exif.FieldName, tag *tiff.Tag) error {
 	return nil
 }
 
-func ExtractExif(filePath string) (*ExifData, error) {
+func ExtractExif(filePath string, utcOffsetMinutes int) (*ExifData, error) {
 	name := filepath.Base(filePath)
 	// HEIC/HEIF 必须先转 JPEG（goexif 不支持 ISO BMFF 容器）
 	if IsHEICFormat(name) {
@@ -129,11 +130,11 @@ func ExtractExif(filePath string) (*ExifData, error) {
 			return nil, fmt.Errorf("转换图片格式失败: %w", err)
 		}
 		defer os.Remove(jpegPath)
-		return extractExifFromFile(jpegPath)
+		return extractExifFromFile(jpegPath, utcOffsetMinutes)
 	}
 
 	// 标准格式与多数 RAW（TIFF 容器）直接解析，避免转码丢失 EXIF
-	if data, err := extractExifFromFile(filePath); err == nil {
+	if data, err := extractExifFromFile(filePath, utcOffsetMinutes); err == nil {
 		return data, nil
 	}
 
@@ -144,13 +145,13 @@ func ExtractExif(filePath string) (*ExifData, error) {
 			return nil, fmt.Errorf("转换图片格式失败: %w", err)
 		}
 		defer os.Remove(jpegPath)
-		return extractExifFromFile(jpegPath)
+		return extractExifFromFile(jpegPath, utcOffsetMinutes)
 	}
 
 	return nil, fmt.Errorf("解析EXIF失败")
 }
 
-func extractExifFromFile(filePath string) (*ExifData, error) {
+func extractExifFromFile(filePath string, utcOffsetMinutes int) (*ExifData, error) {
 	f, err := os.Open(filePath)
 	if err != nil {
 		return nil, fmt.Errorf("打开文件失败: %w", err)
@@ -173,7 +174,7 @@ func extractExifFromFile(filePath string) (*ExifData, error) {
 	}
 
 	// 遍历所有 EXIF 字段
-	x.Walk(exifWalker{data: data})
+	x.Walk(exifWalker{data: data, utcOffsetMinutes: utcOffsetMinutes})
 
 	// 拍摄时间兜底
 	if data.DateTime == 0 {
@@ -185,11 +186,21 @@ func extractExifFromFile(filePath string) (*ExifData, error) {
 	return data, nil
 }
 
-func exifDateToMillis(str string) int64 {
-	// str: "2024:06:09 16:15:43" 或 "2024-06-09 16:15:43"
+// exifDateToMillis 将 EXIF 拍摄时间（不带时区的墙钟时间）按传入的时区偏移转为 epoch 毫秒。
+// utcOffsetMinutes 为相对 UTC 的偏移分钟数（东八区 = 480）。
+// 兼容 "2024:06:09 16:15:43"（EXIF 标准）与 "2024-06-09 16:15:43"（部分软件导出）两种日期分隔符；
+// 时间部分始终为 ":" 分隔。
+func exifDateToMillis(str string, utcOffsetMinutes int) int64 {
 	norm := strings.TrimSpace(str)
-	norm = strings.Replace(norm, ":", "-", 2)
-	t, err := time.ParseInLocation("2006-01-02 15:04:05", norm, time.Local)
+	// 只归一化日期部分的冒号（时间部分保持 ":"），先按空格拆出日期、时间两段
+	fields := strings.Fields(norm)
+	if len(fields) >= 2 {
+		datePart := strings.ReplaceAll(fields[0], ":", "-")
+		norm = datePart + " " + fields[1]
+	} else {
+		norm = strings.ReplaceAll(norm, ":", "-")
+	}
+	t, err := time.ParseInLocation("2006-01-02 15:04:05", norm, time.FixedZone("", utcOffsetMinutes*60))
 	if err != nil {
 		return 0
 	}

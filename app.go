@@ -69,8 +69,8 @@ func (a *App) DownloadImage(userId, imageId string) model.Result {
 }
 
 // 路径方案：选择图片（原生对话框 + EXIF 解析 + 预览图）
-func (a *App) SelectImages() model.Result {
-	return a.handler.SelectImages()
+func (a *App) SelectImages(utcOffsetMinutes int) model.Result {
+	return a.handler.SelectImages(utcOffsetMinutes)
 }
 
 // 路径方案：导入图片（从原路径复制到用户目录）
@@ -105,8 +105,8 @@ func (a *App) ListIcons(category string) model.Result {
 
 // ---- 轨迹视频 ----
 
-func (a *App) SelectVideos() model.Result {
-	return a.handler.SelectVideos()
+func (a *App) SelectVideos(utcOffsetMinutes int) model.Result {
+	return a.handler.SelectVideos(utcOffsetMinutes)
 }
 
 // CancelVideoParse 取消正在进行的本地视频解析（对齐弹框关闭时调用）
@@ -114,8 +114,8 @@ func (a *App) CancelVideoParse() model.Result {
 	return a.handler.CancelVideoParse()
 }
 
-func (a *App) ImportVideo(userId string, file model.ImportVideoFile) model.Result {
-	return a.handler.ImportVideo(userId, file)
+func (a *App) ImportVideo(userId string, file model.ImportVideoFile, utcOffsetMinutes int) model.Result {
+	return a.handler.ImportVideo(userId, file, utcOffsetMinutes)
 }
 
 func (a *App) DeleteVideos(userId string, videoIds []string) model.Result {

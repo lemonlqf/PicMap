@@ -212,6 +212,9 @@ const emit = defineEmits<{
   (e: 'uploadSuccess'): void
 }>()
 
+// 本组件注册的解析事件退订函数（卸载时逐一调用，避免误删其他组件的同事件监听）
+const parseEventOffs: Array<() => void> = []
+
 // ---- 图片状态 ----
 const imageList = ref<IImageDetailInfo[]>([])
 const imageParsing = ref(false)
@@ -948,25 +951,25 @@ onMounted(() => {
   eventBus.on('delete-image', handleMapDeleteImage)
   eventBus.on('delete-video', handleMapDeleteVideo)
 
-  API.image.onImagesParsed((payload: any) => handleImageParsedBatch(payload?.images ?? []))
-  API.image.onImagesProgress((payload: any) => {
+  parseEventOffs.push(API.image.onImagesParsed((payload: any) => handleImageParsedBatch(payload?.images ?? [])))
+  parseEventOffs.push(API.image.onImagesProgress((payload: any) => {
     imageProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
-  })
-  API.image.onImagesDone(() => { imageParsing.value = false })
+  }))
+  parseEventOffs.push(API.image.onImagesDone(() => { imageParsing.value = false }))
 
-  API.video.onVideosParsed((payload: any) => {
+  parseEventOffs.push(API.video.onVideosParsed((payload: any) => {
     if (videoSelectContext.owner.startsWith('alignDialog')) return
     handleVideoParsedBatch(payload?.videos ?? [])
-  })
-  API.video.onVideosProgress((payload: any) => {
+  }))
+  parseEventOffs.push(API.video.onVideosProgress((payload: any) => {
     if (videoSelectContext.owner.startsWith('alignDialog')) return
     videoProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
-  })
-  API.video.onVideosDone(() => {
+  }))
+  parseEventOffs.push(API.video.onVideosDone(() => {
     if (videoSelectContext.owner.startsWith('alignDialog')) return
     videoParsing.value = false
     videoSelectContext.owner = ''
-  })
+  }))
 })
 
 onUnmounted(() => {
@@ -974,8 +977,9 @@ onUnmounted(() => {
   eventBus.off('edit-group-video', showVideoGroupDialog)
   eventBus.off('delete-image', handleMapDeleteImage)
   eventBus.off('delete-video', handleMapDeleteVideo)
-  API.image.offImagesEvents()
-  API.video.offVideosEvents()
+  // 精确移除本组件注册的解析事件监听，避免误删其他组件（如 imgUpload）的同事件监听
+  parseEventOffs.forEach(off => off())
+  parseEventOffs.length = 0
   resetImageDisplayQueue()
   if (markerRefreshTimer) {
     clearTimeout(markerRefreshTimer)

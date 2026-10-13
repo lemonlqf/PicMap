@@ -3,6 +3,7 @@
 package util
 
 import (
+	"context"
 	"os/exec"
 	"syscall"
 )
@@ -37,6 +38,15 @@ func HideConsole(cmd *exec.Cmd) {
 // internal/util 之外的 Go 文件若直接调用 os/exec，会被 exec_guard_test.go 拦下。
 func Command(name string, args ...string) *exec.Cmd {
 	cmd := exec.Command(name, args...)
+	HideConsole(cmd)
+	return cmd
+}
+
+// CommandContext 与 Command 等价，但绑定了 context：
+// ctx 取消/超时后会终止子进程（含其子进程树），避免 ffprobe/ffmpeg 等在
+// 损坏或畸形输入上无限挂起，导致解析 goroutine 永久阻塞。
+func CommandContext(ctx context.Context, name string, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, name, args...)
 	HideConsole(cmd)
 	return cmd
 }

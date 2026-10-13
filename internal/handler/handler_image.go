@@ -18,6 +18,10 @@ import (
 // ---- Image ----
 
 func (h *Handler) GetThumbnail(userId, imageId string) model.Result {
+	// imageId 会参与 glob 匹配，必须校验（拒绝路径分隔符与通配符），避免越目录/误匹配
+	if !isSafeGlobName(util.BaseWithoutExt(imageId)) {
+		return model.NewFailResult("非法的图片ID")
+	}
 	cacheKey := userId + "/" + imageId
 	if v, ok := h.largeThumbCache.Get(cacheKey); ok {
 		return model.NewSuccessResult(map[string]string{"file": v})
@@ -61,6 +65,9 @@ const markerThumbnailWidth = 120
 
 // GetMarkerThumbnail 返回 marker 专用小尺寸缩略图（120px），避免缩放加载时解码 1000px 大图导致卡顿
 func (h *Handler) GetMarkerThumbnail(userId, imageId string) model.Result {
+	if !isSafeGlobName(util.BaseWithoutExt(imageId)) {
+		return model.NewFailResult("非法的图片ID")
+	}
 	cacheKey := userId + "/" + imageId
 	if v, ok := h.thumbCache.Get(cacheKey); ok {
 		return model.NewSuccessResult(map[string]string{"file": v})
@@ -113,6 +120,9 @@ func (h *Handler) GetThumbnails(userId string, imageIds []string) model.Result {
 }
 
 func (h *Handler) GetFullImage(userId, imageId string) model.Result {
+	if !isSafeGlobName(util.BaseWithoutExt(imageId)) {
+		return model.NewFailResult("非法的图片ID")
+	}
 	imageDir := h.cfg.ImageDirPath(userId)
 	baseName := util.BaseWithoutExt(imageId)
 	pattern := filepath.Join(imageDir, "PM"+baseName+".*")
@@ -139,11 +149,16 @@ func (h *Handler) DeleteImages(userId string, imageIds []string) model.Result {
 			sem <- struct{}{}
 			defer func() { <-sem }()
 
+			baseName := util.BaseWithoutExt(id)
+			// id 会参与 glob 匹配，非法则跳过，避免越目录/误匹配删除
+			if !isSafeGlobName(baseName) {
+				return
+			}
+
 			// 清理缩略图缓存，避免删除后仍返回旧图
 			h.thumbCache.Delete(userId + "/" + id)
 			h.largeThumbCache.Delete(userId + "/" + id)
 
-			baseName := util.BaseWithoutExt(id)
 			// Delete original（PM<baseName>.*）
 			pattern := filepath.Join(imageDir, "PM"+baseName+".*")
 			matches, _ := filepath.Glob(pattern)
@@ -186,8 +201,9 @@ var imageDialogFilters = []runtime.FileFilter{
 	{DisplayName: "所有文件 (*.*)", Pattern: "*.*"},
 }
 
-// SelectImages 打开原生文件选择框，立即返回文件路径列表，后台分批解析并推送事件
-func (h *Handler) SelectImages() model.Result {
+// SelectImages 打开原生文件选择框，立即返回文件路径列表，后台分批解析并推送事件。
+// utcOffsetMinutes 为用户设置的时区偏移（分钟，东八区 = 480），用于解释 EXIF 中不带时区的拍摄时间。
+func (h *Handler) SelectImages(utcOffsetMinutes int) model.Result {
 	if h.ctx == nil {
 		return model.NewFailResult("应用上下文未初始化")
 	}
@@ -211,7 +227,7 @@ func (h *Handler) SelectImages() model.Result {
 
 	h.parsing.Store(true)
 	// 立即异步解析（不阻塞返回）
-	go h.parseImagesInBatches(selection)
+	go h.parseImagesInBatches(selection, utcOffsetMinutes)
 
 	// 立即返回文件路径列表
 	return model.NewSuccessResult(map[string]interface{}{
@@ -221,7 +237,7 @@ func (h *Handler) SelectImages() model.Result {
 }
 
 // parseImagesInBatches 分批解析图片，每批完成后通过事件推送给前端
-func (h *Handler) parseImagesInBatches(filePaths []string) {
+func (h *Handler) parseImagesInBatches(filePaths []string, utcOffsetMinutes int) {
 	defer h.parsing.Store(false)     // 解析结束，释放锁
 	defer func() { _ = recover() }() // 防崩溃
 
@@ -253,7 +269,7 @@ func (h *Handler) parseImagesInBatches(filePaths []string) {
 				sem <- struct{}{}
 				defer func() { <-sem }()
 
-				item, err := h.processSelectedImage(path)
+				item, err := h.processSelectedImage(path, utcOffsetMinutes)
 				if err != nil {
 					mu.Lock()
 					errors = append(errors, fmt.Sprintf("解析 %s 失败: %v", filepath.Base(path), err))
@@ -298,7 +314,7 @@ func (h *Handler) parseImagesInBatches(filePaths []string) {
 	})
 }
 
-func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, error) {
+func (h *Handler) processSelectedImage(filePath string, utcOffsetMinutes int) (model.SelectedImage, error) {
 	name := filepath.Base(filePath)
 	info, err := os.Stat(filePath)
 	if err != nil {
@@ -315,7 +331,7 @@ func (h *Handler) processSelectedImage(filePath string) (model.SelectedImage, er
 	}
 
 	// 解析 EXIF
-	exifData, err := service.ExtractExif(filePath)
+	exifData, err := service.ExtractExif(filePath, utcOffsetMinutes)
 	if err == nil {
 		gcLat, gcLon := util.WGS84toGCJ02(exifData.GPSInfo.Latitude, exifData.GPSInfo.Longitude)
 		hasGPS := exifData.GPSInfo.Latitude != 0 || exifData.GPSInfo.Longitude != 0

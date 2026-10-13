@@ -619,9 +619,12 @@ watch(dialogVisible, (val) => {
   }
 })
 
+// 本弹窗注册的视频事件退订函数，卸载时逐一调用，避免监听泄漏 / 误删其他组件监听
+const videoEventOffs: Array<() => void> = []
+
 // 监听"从本地选择视频"的后端解析事件（仅在本弹窗主动选择时消费）
 onMounted(() => {
-  API.video.onVideosParsed((payload: any) => {
+  videoEventOffs.push(API.video.onVideosParsed((payload: any) => {
     if (!localSelecting.value) return
     const videos: ISelectedVideo[] = payload?.videos ?? []
     videos.forEach(v => {
@@ -631,12 +634,12 @@ onMounted(() => {
     })
     // 主弹窗「添加本地视频」：每解析完一批即加入对齐列表，实现"边解析边上屏"
     if (addLocalDirectly.value) addLocalVideosToAlign()
-  })
-  API.video.onVideosProgress((payload: any) => {
+  }))
+  videoEventOffs.push(API.video.onVideosProgress((payload: any) => {
     if (!localSelecting.value) return
     localProgress.value = { processed: payload?.processed ?? 0, total: payload?.total ?? 0 }
-  })
-  API.video.onVideosDone(() => {
+  }))
+  videoEventOffs.push(API.video.onVideosDone(() => {
     if (!localSelecting.value) return
     localSelecting.value = false
     videoSelectContext.owner = ''
@@ -645,12 +648,15 @@ onMounted(() => {
       addLocalVideosToAlign()
       addLocalDirectly.value = false
     }
-  })
+  }))
 })
 
 onUnmounted(() => {
   destroyPreviewMap()
-  // 若正在本地选择中卸载，释放选择上下文（事件监听由 UploadPanel 统一清理）
+  // 精确移除本弹窗注册的视频事件监听（不按事件名全清，避免误删 UploadPanel 的监听）
+  videoEventOffs.forEach(off => off())
+  videoEventOffs.length = 0
+  // 若正在本地选择中卸载，释放选择上下文
   if (videoSelectContext.owner === 'alignDialog') videoSelectContext.owner = ''
 })
 

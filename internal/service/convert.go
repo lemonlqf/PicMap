@@ -5,8 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
-
-	"picmap-go/internal/util"
 )
 
 // toolsDirOnce/toolsDirCached：tools 目录在进程生命周期内不变，查找一次即可，
@@ -72,7 +70,8 @@ func ConvertHEICToJPEG(inputPath, outputPath string) error {
 	toolsDir := getToolsDir()
 	magickPath := filepath.Join(toolsDir, "imagemagick", "magick.exe")
 
-	cmd := util.Command(magickPath, inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
+	cmd, cancel := newCommand(convertCommandTimeout, magickPath, inputPath, "-auto-orient", "-resize", "2048x2048>", outputPath)
+	defer cancel()
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return fmt.Errorf("HEIC转换失败: %v, output: %s", err, string(output))
@@ -85,8 +84,9 @@ func ConvertRAWToJPEG(inputPath, outputPath string) error {
 	dcrawPath := filepath.Join(toolsDir, "libraw", "dcraw_emu.exe")
 
 	// Tier 1: dcraw_emu with -T flag for TIFF output（输出到输入文件同目录，命名 <inputPath>.tiff）
-	cmd := util.Command(dcrawPath, "-T", "-w", "-q", "3", "-fbdd", "1", inputPath)
+	cmd, cancel := newCommand(convertCommandTimeout, dcrawPath, "-T", "-w", "-q", "3", "-fbdd", "1", inputPath)
 	output, err := cmd.CombinedOutput()
+	cancel()
 	if err != nil {
 		return fmt.Errorf("RAW转换失败: %v, output: %s", err, string(output))
 	}
@@ -99,10 +99,11 @@ func ConvertRAWToJPEG(inputPath, outputPath string) error {
 		return fmt.Errorf("RAW处理完成但未生成输出文件")
 	}
 	magickPath := filepath.Join(toolsDir, "imagemagick", "magick.exe")
-	cmd = util.Command(magickPath, tiffOutput, "-auto-orient", "-resize", "2048x2048>", "-quality", "85", outputPath)
-	output, err = cmd.CombinedOutput()
-	if err != nil {
-		return fmt.Errorf("RAW转JPEG失败: %v, output: %s", err, string(output))
+	cmd2, cancel2 := newCommand(convertCommandTimeout, magickPath, tiffOutput, "-auto-orient", "-resize", "2048x2048>", "-quality", "85", outputPath)
+	output2, err2 := cmd2.CombinedOutput()
+	cancel2()
+	if err2 != nil {
+		return fmt.Errorf("RAW转JPEG失败: %v, output: %s", err2, string(output2))
 	}
 	return nil
 }

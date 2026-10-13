@@ -27,6 +27,26 @@ const (
 
 var errBackupCancelled = errors.New("backup cancelled")
 
+// safeJoinUnder 将 zip 条目名安全地拼接到 baseDir 之下，阻止路径穿越（zip-slip）。
+// 返回拼接后的绝对/相对路径；若条目名为空、指向 baseDir 之外或本身为目录引用，返回错误。
+func safeJoinUnder(baseDir, entryName string) (string, error) {
+	// zip 条目可能含正斜杠，filepath.FromSlash 后 Join 在 Windows 会正确归一化
+	relName := strings.ReplaceAll(entryName, "\\", "/")
+	if relName == "" {
+		return "", errors.New("空的条目名")
+	}
+	// 拒绝绝对路径与盘符（如 C:/ 或 /etc），避免 Join 直接跳到目标目录之外
+	if filepath.IsAbs(filepath.FromSlash(relName)) {
+		return "", errors.New("绝对路径条目")
+	}
+	targetPath := filepath.Join(baseDir, filepath.FromSlash(relName))
+	rel, err := filepath.Rel(baseDir, targetPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return "", errors.New("路径穿越")
+	}
+	return targetPath, nil
+}
+
 // restoreProgress 统计恢复（解压/合并）进度，并按整数百分比节流上报，
 // 避免大备份逐块回调时事件过多。
 type restoreProgress struct {
@@ -237,10 +257,20 @@ func (h *Handler) ImportBackup(filePath, mode string) model.Result {
 }
 
 func (h *Handler) DeleteBackup(filePath string) model.Result {
-	if !util.FileExists(filePath) {
+	if filePath == "" {
+		return model.NewFailResult("备份路径为空")
+	}
+	// 只允许删除备份目录内的文件，避免任意路径删除
+	backupDir := filepath.Clean(h.cfg.BackupDir())
+	clean := filepath.Clean(filePath)
+	rel, err := filepath.Rel(backupDir, clean)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return model.NewFailResult("非法的备份路径")
+	}
+	if !util.FileExists(clean) {
 		return model.NewFailResult("备份文件不存在")
 	}
-	if err := os.Remove(filePath); err != nil {
+	if err := os.Remove(clean); err != nil {
 		return model.NewFailResult("删除失败: " + err.Error())
 	}
 	return model.NewSuccessResult("删除成功")
@@ -465,11 +495,8 @@ func extractZipTo(filePath, destDir string, rp *restoreProgress) error {
 
 	os.MkdirAll(destDir, 0755)
 	for _, f := range reader.File {
-		// zip 条目可能含正斜杠，filepath.Join 在 Windows 会归一化处理
-		relName := strings.ReplaceAll(f.Name, "\\", "/")
-		targetPath := filepath.Join(destDir, filepath.FromSlash(relName))
-		// 防止 ../../ 路径穿越到目标目录之外
-		if rel, err := filepath.Rel(destDir, targetPath); err != nil || strings.HasPrefix(rel, "..") {
+		targetPath, err := safeJoinUnder(destDir, f.Name)
+		if err != nil {
 			return errors.New("备份文件包含非法路径: " + f.Name)
 		}
 		if f.FileInfo().IsDir() {
@@ -521,34 +548,51 @@ func (h *Handler) importMerge(filePath string) model.Result {
 	}
 	defer reader.Close()
 
-	// 统计需要复制的文件总字节数，用于上报进度
-	rp := newRestoreProgress(h)
-	var total int64
+	archiveDir := h.cfg.ArchiveDir()
+
+	// 预计算每个待复制条目的安全目标路径，非法路径直接拒绝整个导入（与 overwrite 模式一致）
+	type mergeEntry struct {
+		f          *zip.File
+		targetPath string
+	}
+	var entries []mergeEntry
 	for _, f := range reader.File {
 		if f.FileInfo().IsDir() || f.Name == config.AppSchemaFileName {
 			continue
 		}
-		relName := strings.ReplaceAll(f.Name, "\\", "/")
-		if util.FileExists(filepath.Join(h.cfg.ArchiveDir(), filepath.FromSlash(relName))) {
+		targetPath, err := safeJoinUnder(archiveDir, f.Name)
+		if err != nil {
+			return model.NewFailResult("备份文件包含非法路径: " + f.Name)
+		}
+		entries = append(entries, mergeEntry{f: f, targetPath: targetPath})
+	}
+
+	// 统计需要复制的文件总字节数，用于上报进度
+	rp := newRestoreProgress(h)
+	var total int64
+	for _, e := range entries {
+		if util.FileExists(e.targetPath) {
 			continue
 		}
-		total += int64(f.UncompressedSize64)
+		total += int64(e.f.UncompressedSize64)
 	}
 	rp.setTotal(total)
 
 	// Copy new image/track files
-	for _, f := range reader.File {
-		if f.FileInfo().IsDir() || f.Name == config.AppSchemaFileName {
+	for _, e := range entries {
+		if util.FileExists(e.targetPath) {
 			continue
 		}
-		relName := strings.ReplaceAll(f.Name, "\\", "/")
-		targetPath := filepath.Join(h.cfg.ArchiveDir(), filepath.FromSlash(relName))
-		if util.FileExists(targetPath) {
+		os.MkdirAll(filepath.Dir(e.targetPath), 0755)
+		rc, err := e.f.Open()
+		if err != nil {
 			continue
 		}
-		os.MkdirAll(filepath.Dir(targetPath), 0755)
-		rc, _ := f.Open()
-		outFile, _ := os.Create(targetPath)
+		outFile, err := os.Create(e.targetPath)
+		if err != nil {
+			rc.Close()
+			continue
+		}
 		io.Copy(outFile, &progressReader{r: rc, onRead: rp.add})
 		rc.Close()
 		outFile.Close()
@@ -566,6 +610,10 @@ func (h *Handler) importMerge(filePath string) model.Result {
 			continue
 		}
 		userId := parts[0]
+		// userId 来自 zip 条目名，必须校验为安全的单段名称，避免路径穿越
+		if !isSafePathSegment(userId) {
+			continue
+		}
 		targetSchemaPath := h.cfg.SchemaPath(userId)
 
 		rc, _ := f.Open()

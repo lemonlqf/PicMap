@@ -261,16 +261,3 @@ export async function editSchemaAttrAndSave(attr: string, value: any) {
   set(schema, attr, value)
   await saveSchema()
 }
-
-/**
- * @description: 将图片的"2024:06:09 16:15:43"格式的日期转化为时间戳
- * @param {string} str
- * @return {*}
- */
-export function exifDateToTimestamp(str: string) {
-  // str: "2024:06:09 16:15:43"
-  if (!str) return null;
-  // 替换冒号为横杠，只替换前两个
-  const norm = str.replace(/^(\d{4}):(\d{2}):(\d{2})/, '$1-$2-$3');
-  return new Date(norm).getTime();
-}

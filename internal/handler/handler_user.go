@@ -12,6 +12,9 @@ import (
 // ---- User ----
 
 func (h *Handler) CreateUser(userId string) model.Result {
+	if !isSafePathSegment(userId) {
+		return model.NewFailResult("非法的用户ID")
+	}
 	appData, err := os.ReadFile(h.cfg.AppSchemaPath())
 	if err != nil {
 		return model.NewFailResult("读取 appSchema 失败")
@@ -51,6 +54,10 @@ func (h *Handler) CreateUser(userId string) model.Result {
 }
 
 func (h *Handler) DeleteUser(userId string) model.Result {
+	// userId 直接参与路径拼接并 RemoveAll，必须校验，避免删除数据目录之外的内容
+	if !isSafePathSegment(userId) {
+		return model.NewFailResult("非法的用户ID")
+	}
 	userDir := filepath.Join(h.cfg.ArchiveDir(), userId)
 	if !util.FileExists(userDir) {
 		return model.NewFailResult("用户不存在")
@@ -122,6 +129,9 @@ func (h *Handler) GetUserInfos() model.Result {
 // ---- Schema ----
 
 func (h *Handler) GetSchema(userId string) model.Result {
+	if !isSafePathSegment(userId) {
+		return model.NewFailResult("非法的用户ID")
+	}
 	schemaPath := h.cfg.SchemaPath(userId)
 	if !util.FileExists(schemaPath) {
 		h.ensureDefaultSchema(userId)
@@ -134,6 +144,9 @@ func (h *Handler) GetSchema(userId string) model.Result {
 }
 
 func (h *Handler) SetSchema(userId, schemaJSON string) model.Result {
+	if !isSafePathSegment(userId) {
+		return model.NewFailResult("非法的用户ID")
+	}
 	h.ensureUserDir(userId)
 	schemaPath := h.cfg.SchemaPath(userId)
 	if err := h.atomicWrite(schemaPath, []byte(schemaJSON)); err != nil {
